@@ -164,9 +164,10 @@
         model, reasoning, accessMode, workDir: workDir || "", codexProfile: codexProfile || "default",
       } }, "onConversationCreated", "onChatError", "无法创建对话");
     },
-    updateConversationSettings(id, model, reasoning, accessMode) {
-      run(`chat/conversations/${id}`, { method: "PATCH", json: { model, reasoning, accessMode } },
-        "onSettingsUpdated", "onChatError", "设置保存失败");
+    updateConversationSettings(id, model, reasoning, accessMode, harness) {
+      run(`chat/conversations/${id}`, { method: "PATCH", json: {
+        model, reasoning, accessMode, ...(harness ? { harness } : {}),
+      } }, "onSettingsUpdated", "onChatError", "设置保存失败");
     },
     updateConversationProject(id, workDir) {
       run(`chat/conversations/${id}`, { method: "PATCH", json: { workDir: workDir || "" } },

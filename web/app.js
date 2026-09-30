@@ -56,6 +56,8 @@
     appVisible: !document.hidden,
     supportsSse: false,
     capabilities: null,
+    harness: "auto",
+    runtimeProfiles: [],
     artifactOpen: false,
     artifactKey: "",
     artifactVersionIndex: -1,
@@ -602,7 +604,7 @@
       : Object.keys(modelNames).map((id) => ({ id, displayName: modelNames[id] }));
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
-    $("#quickModelCurrent").textContent = `GPT-5.6 ${modelNames[selectedModel] || selectedModel}`;
+    $("#quickModelCurrent").textContent = modelNames[selectedModel] || selectedModel;
     $("#quickModelOptions").innerHTML = models.map((model) => {
       const selected = model.id === selectedModel;
       return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span><i>✓</i></button>`;
@@ -614,6 +616,43 @@
     }).join("");
   }
 
+  function renderRuntimeControls() {
+    const profileHost = $("#runtimeProfileOptions");
+    if (profileHost) {
+      profileHost.innerHTML = (state.runtimeProfiles || []).map((profile) =>
+        `<button type="button" data-runtime-profile="${escapeHtml(profile.id)}"><span>${escapeHtml(profile.name)}</span><small>${escapeHtml(profile.model)}</small></button>`).join("");
+    }
+    document.querySelectorAll("[data-harness]").forEach((button) => {
+      button.classList.toggle("selected", button.dataset.harness === (state.harness || "auto"));
+    });
+  }
+
+  async function loadRuntimeExtras() {
+    try {
+      const profiles = await fetch("/vault-api/runtime/profiles", { credentials: "same-origin", cache: "no-store" });
+      if (profiles.ok) state.runtimeProfiles = (await profiles.json()).profiles || [];
+    } catch {}
+    try {
+      const overview = await fetch("/vault-api/servers/overview", { credentials: "same-origin", cache: "no-store" });
+      const host = $("#serverCenterStatus");
+      if (overview.ok && host) {
+        const body = await overview.json();
+        const memory = body.memory || {};
+        const used = memory.total ? Math.round((memory.used / memory.total) * 100) : 0;
+        host.innerHTML = `<div class="app-server-metrics"><div><strong>${body.cpu?.count || 0}</strong><small>CPU</small></div><div><strong>${used}%</strong><small>Memory</small></div><div><strong>${Math.round((body.uptimeSeconds || 0) / 3600)}h</strong><small>Uptime</small></div></div><small>${(body.services || []).map((service) => `${service.name}: ${service.status}`).join(" · ")}</small>`;
+        if ($("#serverCenterChecked")) $("#serverCenterChecked").textContent = body.checkedAt || "";
+        const link = $("#openWebuiLink");
+        if (link && body.openWebuiUrl) {
+          link.hidden = false;
+          link.href = body.openWebuiUrl;
+          link.target = "_blank";
+          link.rel = "noreferrer";
+        }
+      }
+    } catch {}
+    renderRuntimeControls();
+  }
+
   function renderCapabilities() {
     const capabilities = state.capabilities;
     const serverLive = $("#appServerLive");
@@ -621,10 +660,15 @@
       serverLive.classList.remove("offline");
       serverLive.innerHTML = "<i></i>ONLINE";
     }
-    const actions = ["#forkConversationButton", "#compactConversationButton", "#reviewConversationButton"];
-    actions.forEach((selector) => {
+    const support = capabilities?.support || {};
+    const actionSupport = {
+      "#forkConversationButton": support.fork,
+      "#compactConversationButton": support.compact,
+      "#reviewConversationButton": support.review,
+    };
+    Object.entries(actionSupport).forEach(([selector, enabled]) => {
       const button = $(selector);
-      if (button) button.disabled = !state.activeId || state.busy || !state.active?.hasCodexContext;
+      if (button) button.disabled = !state.activeId || state.busy || !state.active?.hasCodexContext || enabled === false;
     });
     if (!capabilities) {
       renderReasoningControl();
@@ -667,7 +711,7 @@
       </div>
       <div class="app-server-sync">
         <span><i></i>能力已实时同步</span>
-        <small>${escapeHtml(featureNames.join(" · ") || "Codex runtime ready")}</small>
+        <small>${escapeHtml(featureNames.join(" · ") || "Runtime ready")}</small>
       </div>`;
   }
   const reasoningNames = Object.fromEntries(Object.entries(reasoningMeta).map(([id, meta]) => [id, meta.label]));
@@ -1550,7 +1594,7 @@
     if (state.activeId) {
       if (state.supports21) {
         bridge()?.updateConversationSettings?.(
-          state.activeId, state.model, state.reasoning, state.accessMode);
+          state.activeId, state.model, state.reasoning, state.accessMode, state.harness || "auto");
       } else {
         bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning);
       }
@@ -2977,6 +3021,7 @@
     onCapabilities(json) {
       state.capabilities = JSON.parse(json);
       renderCapabilities();
+      renderRuntimeControls();
     },
     onCapabilitiesError(message) {
       const serverLive = $("#appServerLive");
@@ -4073,6 +4118,27 @@
     updateModelControls();
   });
   $("#saveSettings").addEventListener("click", () => applySettings());
+  document.addEventListener("click", (event) => {
+    const harness = event.target.closest?.("[data-harness]");
+    if (harness) {
+      state.harness = harness.dataset.harness;
+      renderRuntimeControls();
+    }
+    const profile = event.target.closest?.("[data-runtime-profile]");
+    if (profile) {
+      const selected = (state.runtimeProfiles || []).find((item) => item.id === profile.dataset.runtimeProfile);
+      if (!selected) return;
+      state.draftModel = selected.model;
+      state.model = selected.model;
+      state.draftReasoning = selected.reasoning;
+      state.reasoning = selected.reasoning;
+      state.harness = "auto";
+      updateModelControls();
+      renderRuntimeControls();
+      toast(`${selected.name} · Auto`);
+    }
+  });
+  loadRuntimeExtras();
   $("#forkConversationButton").addEventListener("click", () => {
     if (state.activeId) bridge()?.forkConversation?.(state.activeId);
   });

@@ -6,6 +6,7 @@ const path = require("node:path");
 const { AppServerClient, sharedAppServer } = require("./app-server-client");
 const { ConversationStore } = require("./sqlite-store");
 const { workspaceOverview } = require("./workspace-overview");
+const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime/runtime-resolver");
 
 const ID_PATTERN = /^[a-f0-9-]{36}$/;
 const DEEPSEEK_MODELS = new Set(["deepseek-v4-pro", "deepseek-v4-flash"]);
@@ -459,6 +460,9 @@ class ChatService {
       codexProfileLabel: profile.label,
       codexProfileAllowed: this.profileAllowed(conversation),
       hasCodexContext: Boolean(conversation.codexThreadId),
+      harnessId: conversation.harnessId || resolveHarness(conversation.model, "auto"),
+      harnessLabel: (HARNESSES[conversation.harnessId] || HARNESSES[resolveHarness(conversation.model, "auto")]).displayName,
+      providerId: conversation.providerId || null,
       model: this.modelAllowed(conversation.model, profile.id)
         ? conversation.model : this.defaultModel,
       reasoning: conversation.reasoning || "medium",
@@ -762,6 +766,9 @@ class ChatService {
       codexThreadId: null,
       codexProfile: profile.id,
       model: this.modelAllowed(model, profile.id) ? model : this.defaultModel,
+      harnessId: resolveHarness(this.modelAllowed(model, profile.id) ? model : this.defaultModel, "auto"),
+      providerId: null,
+      harnessSessionId: null,
       reasoning: ALLOWED_REASONING.has(reasoning) ? reasoning : "medium",
       accessMode: ALLOWED_ACCESS.has(accessMode) ? accessMode : "danger-full-access",
       workDir: this.normalizeWorkDir(requestedWorkDir),
@@ -873,6 +880,8 @@ class ChatService {
       const payload = {
         models, skills, mcpServers, collaborationModes, features,
         support: { fork: true, compact: true, review: true, plans: true },
+        harnesses: Object.values(HARNESSES),
+        defaultHarness: "auto",
         checkedAt: new Date().toISOString(),
       };
       this.capabilityCache.set(profile.id, { cachedAt: Date.now(), payload });
@@ -1280,6 +1289,25 @@ class ChatService {
         this.sendJson(res, 400, { error: "模型、智能程度或访问权限不可用" });
         return;
       }
+      const requestedHarness = String(body?.harness || conversation.harnessId || "auto");
+      const nextHarness = requestedHarness === "auto"
+        ? resolveHarness(requestedModel, "auto")
+        : requestedHarness;
+      if (!HARNESSES[nextHarness]) {
+        this.sendJson(res, 400, { error: "Harness 不可用" });
+        return;
+      }
+      const boundHarness = conversation.harnessId
+        || resolveHarness(conversation.model, "auto");
+      if (conversation.codexThreadId && harnessChanged(boundHarness, requestedModel, nextHarness)) {
+        this.sendJson(res, 409, {
+          error: "Harness changed. Start a new session or branch this session; the current session stays bound.",
+          harnessChanged: true,
+          currentHarness: boundHarness,
+          nextHarness,
+        });
+        return;
+      }
       if (conversation.messages.some((message) =>
         message.status === "queued" || message.status === "running")) {
         this.sendJson(res, 409, { error: "当前对话正在处理，完成后再切换" });
@@ -1322,6 +1350,7 @@ class ChatService {
         }
       }
       conversation.model = requestedModel;
+      conversation.harnessId = nextHarness;
       conversation.reasoning = requestedReasoning;
       conversation.accessMode = requestedAccess;
       conversation.workDir = requestedWorkDir;
@@ -2264,6 +2293,21 @@ class ChatService {
       ? conversation.accessMode : "danger-full-access";
     const workDir = this.effectiveWorkDir(conversation);
     const profile = this.profileFor(conversation);
+    const harnessId = conversation.harnessId || resolveHarness(model, "auto");
+    if (harnessId !== "codex") {
+      const completedAt = new Date().toISOString();
+      user.status = "failed";
+      assistant.status = "failed";
+      assistant.completedAt = completedAt;
+      assistant.text = harnessId === "grok-build"
+        ? "Grok Build runtime is not configured on this host. No Computer Use fallback is used."
+        : "Google Antigravity runtime is not configured on this host.";
+      assistant.activity = [{ type: "error", label: assistant.text, status: "failed" }];
+      conversation.updatedAt = completedAt;
+      this.writeConversation(conversation);
+      setImmediate(() => this.runNext());
+      return;
+    }
     const client = this.clientFor(profile, model);
     this.active = {
       conversationId: conversation.id,

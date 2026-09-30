@@ -11,6 +11,9 @@ const {
 } = require("./chat-service");
 const { CodexAccountService } = require("./codex-account-service");
 const { claimStandby } = require("./failover");
+const { ProviderRegistry } = require("./runtime/provider-registry");
+const { RuntimeProfileStore } = require("./runtime/runtime-profiles");
+const { overview: serverOverview } = require("./runtime/server-center");
 
 const host = "127.0.0.1";
 const port = Number(process.env.DROP_VAULT_PORT || 3003);
@@ -209,6 +212,10 @@ const chatService = new ChatService({
   codexProfiles,
 });
 const authService = new AuthService({ dir: authDir, sendJson, readJsonBody });
+const providerRegistry = new ProviderRegistry({
+  file: process.env.WITT_PROVIDER_REGISTRY || path.join(authDir, "providers.json"),
+});
+const runtimeProfiles = new RuntimeProfileStore();
 const codexAccountService = new CodexAccountService({
   codexBin,
   profiles: codexProfiles,
@@ -727,6 +734,57 @@ http.createServer((req, res) => {
       return;
     }
     claimStandby().then(({ status, body }) => sendJson(res, status, body));
+    return;
+  }
+  if (url.pathname === "/runtime/profiles" && req.method === "GET") {
+    sendJson(res, 200, { profiles: runtimeProfiles.list() });
+    return;
+  }
+  if (url.pathname === "/providers" && req.method === "GET") {
+    sendJson(res, 200, { providers: providerRegistry.list() });
+    return;
+  }
+  if (url.pathname === "/providers" && req.method === "POST") {
+    if (!principal.admin) {
+      sendJson(res, 403, { error: "仅管理员可配置 Provider" });
+      return;
+    }
+    readJsonBody(req, 16 * 1024, (error, body) => {
+      if (error) { sendJson(res, 400, { error: error.message }); return; }
+      try {
+        sendJson(res, 201, { provider: providerRegistry.upsert(body || {}) });
+      } catch (providerError) {
+        sendJson(res, 400, { error: providerError.message });
+      }
+    });
+    return;
+  }
+  const providerCheck = url.pathname.match(/^\/providers\/([a-z0-9-]+)\/check$/);
+  if (providerCheck && req.method === "POST") {
+    providerRegistry.check(providerCheck[1])
+      .then((provider) => sendJson(res, 200, { provider }))
+      .catch((error) => sendJson(res, 404, { error: error.message }));
+    return;
+  }
+  if (url.pathname === "/servers/overview" && req.method === "GET") {
+    const openWebuiUrl = process.env.OPEN_WEBUI_URL || "";
+    serverOverview({
+      openWebuiUrl,
+      cpaUrl: process.env.CPA_HEALTH_URL || "",
+      sub2apiUrl: process.env.SUB2API_HEALTH_URL || "",
+      nginxUrl: process.env.NGINX_HEALTH_URL || "",
+      postgresUrl: process.env.POSTGRES_HEALTH_URL || "",
+      redisUrl: process.env.REDIS_HEALTH_URL || "",
+    }).then((overview) => sendJson(res, 200, overview));
+    return;
+  }
+  if (url.pathname === "/servers/open-webui" && req.method === "GET") {
+    const openWebuiUrl = process.env.OPEN_WEBUI_URL || "";
+    if (!openWebuiUrl) {
+      sendJson(res, 404, { error: "OPEN_WEBUI_URL is not configured" });
+      return;
+    }
+    sendJson(res, 200, { url: openWebuiUrl });
     return;
   }
   if (url.pathname === "/codex/accounts") {

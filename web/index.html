@@ -256,6 +256,9 @@
         </button>
         <div class="quick-model-options" id="quickModelOptions" role="radiogroup" aria-label="选择模型"></div>
         <div class="quick-picker-divider"></div>
+        <span class="quick-reasoning-heading">Runtime Profile</span>
+        <div class="quick-reasoning-options" id="runtimeProfileOptions" role="radiogroup" aria-label="选择 Runtime Profile"></div>
+        <div class="quick-picker-divider"></div>
         <span class="quick-reasoning-heading">智能程度</span>
         <div class="quick-reasoning-options" id="quickReasoningOptions" role="radiogroup" aria-label="选择智能程度"></div>
       </section>
@@ -562,6 +565,20 @@
           <button data-access="read-only"><span>只读</span><small>只能检查和分析，不修改文件</small><i></i></button>
         </div>
         <p class="reasoning-note">权限应用于当前对话；删除数据、对外发送等重要动作仍会谨慎处理。</p>
+      </section>
+      <section>
+        <div class="settings-section-head"><h3>Harness</h3><small>默认 Auto</small></div>
+        <div class="access-options" id="harnessOptions">
+          <button type="button" data-harness="auto"><span>Auto</span><small>按模型选择 Runtime</small><i></i></button>
+          <button type="button" data-harness="codex"><span>Codex</span><small>GPT 与未知模型</small><i></i></button>
+          <button type="button" data-harness="grok-build"><span>Grok Build</span><small>Grok 模型</small><i></i></button>
+          <button type="button" data-harness="google-antigravity"><span>Gemini</span><small>Google Antigravity</small><i></i></button>
+        </div>
+      </section>
+      <section>
+        <div class="settings-section-head"><h3>Servers</h3><small id="serverCenterChecked">未检查</small></div>
+        <div id="serverCenterStatus">正在读取服务器概览…</div>
+        <p><a id="openWebuiLink" href="#" hidden>Ask Server Admin</a></p>
       </section>
       <section class="app-server-capabilities">
         <div class="app-server-heading">
