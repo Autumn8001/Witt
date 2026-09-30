@@ -13,7 +13,7 @@ playwright-report/
 .env.*
 !.env.example
 **/signing.properties
-runtime/
+/runtime/
 **/tests/ui-*.png
 tests/legacy-token-fixture.txt
 android/app/src/main/assets/lumora/
