@@ -8,7 +8,7 @@ const DEFAULT_PROFILES = [
     name: "Grok Main",
     harness: "grok-build",
     provider: "cpa",
-    model: "grok-4.7",
+    model: "grok-4.7-high",
     reasoning: "high",
   },
   {
@@ -16,7 +16,7 @@ const DEFAULT_PROFILES = [
     name: "Gemini Fast",
     harness: "google-antigravity",
     provider: "sub2api",
-    model: "gemini-3.8-flash",
+    model: "gemini-3.8-flash-high",
     reasoning: "medium",
   },
   {

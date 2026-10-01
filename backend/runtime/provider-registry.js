@@ -17,8 +17,12 @@ function publicProvider(provider) {
   const copy = { ...provider };
   delete copy.secret;
   copy.secret_ref = provider.secret_ref || null;
-  copy.secret_configured = Boolean(provider.secret_ref || provider.secret);
-  copy.secret_display = copy.secret_configured ? "Configured" : "Missing";
+  // "Configured" means the secret is resolvable: inline, or through the named
+  // environment variable. The value itself is never returned.
+  const resolvable = Boolean(provider.secret) ||
+    Boolean(provider.secret_ref && process.env[provider.secret_ref]);
+  copy.secret_configured = resolvable;
+  copy.secret_display = resolvable ? "Configured" : "Missing";
   return copy;
 }
 
@@ -82,7 +86,15 @@ class ProviderRegistry {
   }
 
   secretFor(id) {
-    return this.providers.get(id)?.secret || null;
+    const provider = this.providers.get(id);
+    if (!provider) return null;
+    // Prefer an inline secret, otherwise resolve the referenced environment
+    // variable so the registry can use an existing server-side secret.
+    if (provider.secret) return provider.secret;
+    if (provider.secret_ref && process.env[provider.secret_ref]) {
+      return process.env[provider.secret_ref];
+    }
+    return null;
   }
 
   async check(id, fetchImpl = globalThis.fetch) {
@@ -90,7 +102,8 @@ class ProviderRegistry {
     if (!provider) throw new Error("Provider not found");
     const discovery = provider.model_discovery || `${provider.base_url}/models`;
     const headers = {};
-    if (provider.secret) headers.Authorization = `Bearer ${provider.secret}`;
+    const secret = this.secretFor(id);
+    if (secret) headers.Authorization = `Bearer ${secret}`;
     try {
       const response = await fetchImpl(discovery, { headers });
       const payload = await response.json();

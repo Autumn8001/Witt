@@ -14,6 +14,7 @@ const { claimStandby } = require("./failover");
 const { ProviderRegistry } = require("./runtime/provider-registry");
 const { RuntimeProfileStore } = require("./runtime/runtime-profiles");
 const { overview: serverOverview } = require("./runtime/server-center");
+const { harnessInventory } = require("./runtime/index");
 
 const host = "127.0.0.1";
 const port = Number(process.env.DROP_VAULT_PORT || 3003);
@@ -201,6 +202,62 @@ function readJsonBody(req, limit, callback) {
   req.on("error", () => fail("请求连接异常"));
 }
 
+// Non-Codex harness configuration. Secrets are read from the environment only;
+// nothing here is persisted into the repository or sent to a browser.
+const harnessOptions = {
+  grok: {
+    bin: process.env.WITT_GROK_BIN || undefined,
+    providerId: "cpa",
+    envKey: process.env.WITT_GROK_ENV_KEY || "WITT_CPA_KEY",
+    envValue: process.env.WITT_CPA_API_KEY || "",
+    permissionMode: process.env.WITT_GROK_PERMISSION_MODE || null,
+    reasoningEffort: process.env.WITT_GROK_REASONING || null,
+  },
+  antigravity: {
+    bin: process.env.WITT_AGY_BIN || undefined,
+    providerId: "sub2api",
+    apiKeyEnv: "GEMINI_API_KEY",
+    apiKeyValue: process.env.GEMINI_API_KEY || "",
+  },
+};
+
+const providerRegistry = new ProviderRegistry({
+  file: process.env.WITT_PROVIDER_REGISTRY || path.join(authDir, "providers.json"),
+});
+const runtimeProfiles = new RuntimeProfileStore();
+
+// Seed the registry with the gateways that actually exist on this host. Values
+// come from the environment so no endpoint or secret is hardcoded in source.
+function seedProviders() {
+  const seeds = [
+    {
+      id: "cpa", name: "CPA", type: "gateway",
+      base_url: process.env.WITT_CPA_URL || "http://127.0.0.1:8317/v1",
+      protocol: "openai-responses",
+      secret_ref: "WITT_CPA_API_KEY",
+      model_discovery: `${(process.env.WITT_CPA_URL || "http://127.0.0.1:8317/v1").replace(/\/$/, "")}/models`,
+      capabilities: { streaming: true, tools: true, responses: true, messages: true, chat_completions: true },
+    },
+    {
+      id: "sub2api", name: "Sub2API", type: "gateway",
+      base_url: process.env.WITT_SUB2API_URL || "http://127.0.0.1:8080/v1",
+      protocol: "openai-chat-completions",
+      secret_ref: "WITT_SUB2API_API_KEY",
+      model_discovery: `${(process.env.WITT_SUB2API_URL || "http://127.0.0.1:8080/v1").replace(/\/$/, "")}/models`,
+      capabilities: { streaming: true, tools: true },
+    },
+  ];
+  for (const seed of seeds) {
+    if (providerRegistry.get(seed.id)) continue;
+    try {
+      providerRegistry.upsert(seed, { persist: true });
+    } catch (error) {
+      console.error(`[providers] seed ${seed.id} failed: ${error.message}`);
+    }
+  }
+}
+seedProviders();
+
 const chatService = new ChatService({
   chatDir,
   imageDir,
@@ -210,12 +267,12 @@ const chatService = new ChatService({
   sendJson,
   readJsonBody,
   codexProfiles,
+  harnessOptions,
+  // The owner-facing service is not model-restricted, so harness-served models
+  // such as grok-4.7-high stay selectable and can bind to their own harness.
+  allowedModels: null,
 });
 const authService = new AuthService({ dir: authDir, sendJson, readJsonBody });
-const providerRegistry = new ProviderRegistry({
-  file: process.env.WITT_PROVIDER_REGISTRY || path.join(authDir, "providers.json"),
-});
-const runtimeProfiles = new RuntimeProfileStore();
 const codexAccountService = new CodexAccountService({
   codexBin,
   profiles: codexProfiles,
@@ -276,6 +333,7 @@ function chatFor(principal) {
     defaultModel: principal.admin || principal.unrestrictedModels ? "gpt-6-astra" : "gpt-5.5",
     quotaExhausted: !principal.admin && !principal.unrestrictedModels,
     codexProfiles,
+    harnessOptions,
     allowedCodexProfiles: principal.admin
       ? Object.keys(codexProfiles)
       : (principal.codexProfiles || ["default"]),
@@ -761,21 +819,26 @@ http.createServer((req, res) => {
   }
   const providerCheck = url.pathname.match(/^\/providers\/([a-z0-9-]+)\/check$/);
   if (providerCheck && req.method === "POST") {
+    if (!principal.admin) {
+      sendJson(res, 403, { error: "仅管理员可检查 Provider" });
+      return;
+    }
     providerRegistry.check(providerCheck[1])
       .then((provider) => sendJson(res, 200, { provider }))
       .catch((error) => sendJson(res, 404, { error: error.message }));
     return;
   }
   if (url.pathname === "/servers/overview" && req.method === "GET") {
-    const openWebuiUrl = process.env.OPEN_WEBUI_URL || "";
-    serverOverview({
-      openWebuiUrl,
-      cpaUrl: process.env.CPA_HEALTH_URL || "",
-      sub2apiUrl: process.env.SUB2API_HEALTH_URL || "",
-      nginxUrl: process.env.NGINX_HEALTH_URL || "",
-      postgresUrl: process.env.POSTGRES_HEALTH_URL || "",
-      redisUrl: process.env.REDIS_HEALTH_URL || "",
-    }).then((overview) => sendJson(res, 200, overview));
+    serverOverview({ env: process.env }).then((overview) => sendJson(res, 200, overview))
+      .catch((error) => sendJson(res, 500, { error: error.message }));
+    return;
+  }
+  if (url.pathname === "/runtime/harnesses" && req.method === "GET") {
+    sendJson(res, 200, {
+      harnesses: harnessInventory(),
+      profiles: runtimeProfiles.list(),
+      openWebuiConfigured: Boolean(process.env.OPEN_WEBUI_URL),
+    });
     return;
   }
   if (url.pathname === "/servers/open-webui" && req.method === "GET") {
@@ -784,7 +847,7 @@ http.createServer((req, res) => {
       sendJson(res, 404, { error: "OPEN_WEBUI_URL is not configured" });
       return;
     }
-    sendJson(res, 200, { url: openWebuiUrl });
+    sendJson(res, 200, { url: openWebuiUrl, tls: openWebuiUrl.startsWith("https://") });
     return;
   }
   if (url.pathname === "/codex/accounts") {

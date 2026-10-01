@@ -62,15 +62,15 @@ test("provider registry hides secrets and records protocol", () => {
   }));
 });
 
-test("profiles and adapters do not pretend missing runtimes are live", () => {
+test("profiles expose implemented adapters without pretending binaries are live", async () => {
   const profiles = new RuntimeProfileStore().list();
   assert.deepEqual(profiles.map((profile) => profile.id), ["grok-main", "gemini-fast", "codex-default"]);
   const codex = new CodexHarnessAdapter({ codexBin: "codex" });
   assert.equal(codex.getCapabilities().review, true);
-  const grok = createHarness("grok-build");
-  assert.equal(grok.getCapabilities().tools, false);
-  assert.rejects(() => grok.startRuntime());
+  const grok = createHarness("grok-build", { bin: path.join(os.tmpdir(), "missing-grok") });
+  assert.equal(grok.getCapabilities().tools, true);
+  await assert.rejects(() => grok.startRuntime(), /not runnable/);
   const gemini = createHarness("google-antigravity");
   assert.equal(gemini.displayName, "Gemini");
-  assert.equal(gemini.getCapabilities().sessions, false);
+  assert.equal(gemini.getCapabilities().sessions, "unknown");
 });

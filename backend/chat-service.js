@@ -7,6 +7,8 @@ const { AppServerClient, sharedAppServer } = require("./app-server-client");
 const { ConversationStore } = require("./sqlite-store");
 const { workspaceOverview } = require("./workspace-overview");
 const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime/runtime-resolver");
+const { createHarness } = require("./runtime/index");
+const { RuntimeLogger } = require("./runtime/runtime-log");
 
 const ID_PATTERN = /^[a-f0-9-]{36}$/;
 const DEEPSEEK_MODELS = new Set(["deepseek-v4-pro", "deepseek-v4-flash"]);
@@ -15,7 +17,29 @@ const ADMIN_MODELS = new Set([
   "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", ...DEEPSEEK_MODELS,
 ]);
 const NON_ADMIN_MODELS = new Set(["gpt-5.5", ...DEEPSEEK_MODELS]);
-const ALL_MODELS = new Set([...ADMIN_MODELS, ...NON_ADMIN_MODELS]);
+// Models served by the non-Codex harnesses. They become selectable so the runtime
+// resolver can bind a session to grok-build / google-antigravity, and the adapter
+// decides whether the harness can actually serve them.
+const HARNESS_MODELS = new Set([
+  "grok-4.7-high", "grok-4.7-medium", "grok-4.7-max", "grok-4.7-xhigh",
+  "gemini-3.8-flash-high", "gemini-3.7-flash-high", "gemini-3.6-flash-high",
+  "gemini-3.1-flash-lite",
+]);
+const ALL_MODELS = new Set([...ADMIN_MODELS, ...NON_ADMIN_MODELS, ...HARNESS_MODELS]);
+// Witt reasoning levels mapped onto the levels the harnesses accept.
+const HARNESS_REASONING = {
+  low: "low", medium: "medium", high: "high",
+  xhigh: "high", max: "high", ultra: "high",
+};
+const GROK_PERMISSION_BY_ACCESS = {
+  "read-only": "plan",
+  "workspace-write": "acceptEdits",
+  "danger-full-access": "bypassPermissions",
+};
+
+function grokPermissionMode(accessMode) {
+  return GROK_PERMISSION_BY_ACCESS[accessMode] || "plan";
+}
 const QUOTA_EXHAUSTED_MESSAGE = "Your quota has been exhausted. Please try again later.";
 const ALLOWED_REASONING = new Set(["low", "medium", "high", "xhigh", "max", "ultra"]);
 const ALLOWED_ACCESS = new Set(["read-only", "workspace-write", "danger-full-access"]);
@@ -25,6 +49,54 @@ const MAX_INLINE_PREVIEW_BYTES = 5 * 1024 * 1024;
 const ARTIFACT_PREVIEW_TTL_MS = 15 * 60 * 1000;
 const IMAGE_ID_PATTERN = /^[a-f0-9-]{36}$/;
 const artifactPreviewTokens = new Map();
+
+// Working directories Witt may open a project in. Upstream hardcoded this list,
+// which made the configured DROP_VAULT_CODEX_WORKDIR unusable on any host whose
+// project directory lives elsewhere. The operator's configured work dir and any
+// extra roots are now honoured, while the constraint itself is preserved.
+const DEFAULT_WORKDIR_ROOTS = ["/home/ubuntu", "/data/drop-vault", "/data/xuanyu-build-console"];
+
+function normalizeRootList(values) {
+  const roots = [];
+  for (const value of values) {
+    const text = String(value || "").trim();
+    if (!text || !path.isAbsolute(text)) continue;
+    const lexical = path.resolve(text);
+    roots.push(lexical);
+    try {
+      roots.push(fs.realpathSync(lexical));
+    } catch {
+      // A configured root that does not exist yet still counts lexically.
+    }
+  }
+  return [...new Set(roots)];
+}
+
+function buildWorkDirRoots(options = {}, codexWorkDir) {
+  const configured = Array.isArray(options.workDirRoots) ? options.workDirRoots : [];
+  // Comma or semicolon separated, so a Windows-style path is never split on ":".
+  const fromEnv = String(process.env.WITT_WORKDIR_ROOTS || "")
+    .split(/[;,]/).map((item) => item.trim()).filter(Boolean);
+  return normalizeRootList([
+    ...DEFAULT_WORKDIR_ROOTS,
+    codexWorkDir,
+    ...configured,
+    ...fromEnv,
+  ]);
+}
+
+function isWithinRoots(candidates, roots) {
+  // path.relative is separator-native, so this behaves correctly on Linux and
+  // Windows, and it rejects the prefix trap: relative("/home/ubuntu",
+  // "/home/ubuntu-evil") is "../ubuntu-evil", which escapes the root.
+  return candidates.some((candidate) =>
+    roots.some((root) => {
+      const relative = path.relative(root, candidate);
+      if (relative === "") return true;
+      if (path.isAbsolute(relative)) return false;
+      return relative !== ".." && !relative.startsWith(`..${path.sep}`);
+    }));
+}
 
 function servePublicArtifactPreview(res, token) {
   const entry = artifactPreviewTokens.get(String(token || ""));
@@ -50,6 +122,7 @@ class ChatService {
     this.dataDir = options.dataDir;
     this.codexBin = options.codexBin;
     this.codexWorkDir = options.codexWorkDir;
+    this.workDirRoots = buildWorkDirRoots(options, this.codexWorkDir);
     this.deepseekEnabled = options.deepseekEnabled !== false;
     this.sendJson = options.sendJson;
     this.readJsonBody = options.readJsonBody;
@@ -70,6 +143,11 @@ class ChatService {
         .filter((profile) => this.codexProfiles[profile]));
     if (!this.allowedCodexProfiles.size) this.allowedCodexProfiles.add("default");
     this.defaultCodexProfile = [...this.allowedCodexProfiles][0];
+    // Non-Codex harness wiring. Secrets arrive here from the server, never from
+    // the repository, and are handed to the adapter as a child-process env value.
+    this.harnessOptions = options.harnessOptions || {};
+    this.runtimeLogger = options.runtimeLogger
+      || new RuntimeLogger({ enabled: Boolean(process.env.WITT_RUNTIME_LOG) });
     // Keep app-server notifications scoped to this user's ChatService. Multiple users may use
     // the same Codex profile, but their active turns must never share an EventEmitter.
     this.clientScope = options.clientScope || crypto.randomUUID();
@@ -153,7 +231,11 @@ class ChatService {
       (this.allowedModels === null || this.allowedModels.has(model));
     const dynamic = this.availableModels.get(profileId);
     const policyAllows = this.allowedModels === null || this.allowedModels.has(model);
-    const catalogAllows = !dynamic || dynamic.has(model) || ALL_MODELS.has(model);
+    // Catalog membership is required: either a model the provider/provider list
+    // actually reported, or one in the static catalog. Without this, an operator
+    // policy of "no restriction" accepted arbitrary model strings, which then
+    // failed deep inside the harness instead of being rejected at the API.
+    const catalogAllows = (dynamic && dynamic.has(model)) || ALL_MODELS.has(model);
     return policyAllows && catalogAllows;
   }
 
@@ -460,6 +542,10 @@ class ChatService {
       codexProfileLabel: profile.label,
       codexProfileAllowed: this.profileAllowed(conversation),
       hasCodexContext: Boolean(conversation.codexThreadId),
+      // Exposed so the client can see the session's runtime binding without
+      // having to read the harness session identifier itself.
+      harnessSessionBound: Boolean(conversation.harnessSessionId),
+      harnessSessionId: conversation.harnessSessionId || null,
       harnessId: conversation.harnessId || resolveHarness(conversation.model, "auto"),
       harnessLabel: (HARNESSES[conversation.harnessId] || HARNESSES[resolveHarness(conversation.model, "auto")]).displayName,
       providerId: conversation.providerId || null,
@@ -717,19 +803,30 @@ class ChatService {
     const requested = String(value || "").trim();
     if (!requested) return null;
     if (!path.isAbsolute(requested)) throw new Error("项目路径必须是绝对路径");
-    const resolved = path.resolve(requested);
-    const allowedRoots = ["/home/ubuntu", "/data/drop-vault", "/data/xuanyu-build-console"];
-    if (!allowedRoots.some((root) => resolved === root || resolved.startsWith(`${root}${path.sep}`))) {
-      throw new Error("该项目路径不在 Witt 允许的工作目录范围内");
-    }
+    const lexical = path.resolve(requested);
+    const outsideError = () => new Error("该项目路径不在 Witt 允许的工作目录范围内");
+
     let stats;
     try {
-      stats = fs.statSync(resolved);
+      stats = fs.statSync(lexical);
     } catch {
+      // A missing path is still checked against the allowlist first, so the
+      // response never depends on anything outside the permitted roots.
+      if (!isWithinRoots([lexical], this.workDirRoots)) throw outsideError();
       throw new Error("项目路径不存在");
     }
     if (!stats.isDirectory()) throw new Error("项目路径不是目录");
-    return resolved;
+
+    // Fail closed: the real path must be resolvable AND permitted. Checking the
+    // resolved path is what stops a symlink inside the workspace from escaping it.
+    let real;
+    try {
+      real = fs.realpathSync(lexical);
+    } catch {
+      throw outsideError();
+    }
+    if (!isWithinRoots([real], this.workDirRoots)) throw outsideError();
+    return real;
   }
 
   effectiveWorkDir(conversation) {
@@ -833,8 +930,7 @@ class ChatService {
         upgrade: model.upgrade ? String(model.upgrade) : null,
       })).filter((model) => model.id);
       if (this.deepseekEnabled &&
-          (this.allowedModels === null || [...DEEPSEEK_MODELS].some((id) => this.allowedModels.has(id)))) {
-        const deepseekModels = [
+          (this.allowedModels === null || [...DEEPSEEK_MODELS].some((id) => this.allowedModels.has(id)))) {        const deepseekModels = [
           {
             id: "deepseek-v4-pro", displayName: "DeepSeek V4 Pro", isDefault: false,
             inputModalities: ["text"], defaultReasoningEffort: "high",
@@ -857,6 +953,28 @@ class ChatService {
         models.push(...deepseekModels);
       }
       this.availableModels.set(profile.id, new Set(models.map((model) => model.id)));
+      // Harness-served models are advertised so the workspace can select them and
+      // let the runtime resolver bind the matching harness.
+      for (const id of HARNESS_MODELS) {
+        if (this.allowedModels !== null && !this.allowedModels.has(id)) continue;
+        const isGrok = id.startsWith("grok-");
+        models.push({
+          id,
+          displayName: isGrok ? `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}` : `Gemini ${id.replace(/^gemini-/, "").replace(/-/g, " ")}`,
+          isDefault: false,
+          inputModalities: ["text", "image"],
+          defaultReasoningEffort: isGrok ? "high" : "medium",
+          reasoningEfforts: [
+            { id: "low", description: "快速" },
+            { id: "medium", description: "均衡" },
+            { id: "high", description: "深入" },
+          ],
+          supportsPersonality: false,
+          upgrade: null,
+          harness: isGrok ? "grok-build" : "google-antigravity",
+          provider: isGrok ? (this.harnessOptions.grok?.providerId || "cpa") : "sub2api",
+        });
+      }
       const skillGroups = value(1).data || [];
       const skills = skillGroups.flatMap((group) => group.skills || []).map((skill) => ({
         name: String(skill.name || ""),
@@ -1289,7 +1407,10 @@ class ChatService {
         this.sendJson(res, 400, { error: "模型、智能程度或访问权限不可用" });
         return;
       }
-      const requestedHarness = String(body?.harness || conversation.harnessId || "auto");
+      // An absent harness means "let the resolver decide" so that changing only the
+      // model is still checked against the harness the session is bound to.
+      const requestedHarness = body?.harness == null || body.harness === ""
+        ? "auto" : String(body.harness);
       const nextHarness = requestedHarness === "auto"
         ? resolveHarness(requestedModel, "auto")
         : requestedHarness;
@@ -1299,7 +1420,10 @@ class ChatService {
       }
       const boundHarness = conversation.harnessId
         || resolveHarness(conversation.model, "auto");
-      if (conversation.codexThreadId && harnessChanged(boundHarness, requestedModel, nextHarness)) {
+      // Either runtime binding counts as existing context: a Codex thread or a
+      // non-Codex harness session. A bound session is never migrated silently.
+      const hasRuntimeContext = Boolean(conversation.codexThreadId || conversation.harnessSessionId);
+      if (hasRuntimeContext && nextHarness !== boundHarness) {
         this.sendJson(res, 409, {
           error: "Harness changed. Start a new session or branch this session; the current session stays bound.",
           harnessChanged: true,
@@ -1656,8 +1780,20 @@ class ChatService {
 
   requestActiveInterrupt() {
     const current = this.active;
-    if (!current?.interruptRequested || !current.threadId || !current.turnId ||
-        current.interruptSent || current.finished) return;
+    if (!current?.interruptRequested || current.interruptSent || current.finished) return;
+    // Non-Codex harnesses cancel by signalling the child process.
+    if (current.harnessAdapter && current.harnessHandle) {
+      current.interruptSent = true;
+      try {
+        current.harnessAdapter.cancel(current.harnessHandle);
+      } catch (error) {
+        current.interruptSent = false;
+        current.interruptRequested = false;
+        this.failActive(`暂停失败：${String(error.message || error).slice(0, 120)}`);
+      }
+      return;
+    }
+    if (!current.threadId || !current.turnId) return;
     current.interruptSent = true;
     current.client.request("turn/interrupt", {
       threadId: current.threadId,
@@ -2294,14 +2430,16 @@ class ChatService {
     const workDir = this.effectiveWorkDir(conversation);
     const profile = this.profileFor(conversation);
     const harnessId = conversation.harnessId || resolveHarness(model, "auto");
+    if (harnessId === "grok-build") {
+      await this.runGrokTurn(conversation, user, assistant, model, reasoning, attachments);
+      return;
+    }
     if (harnessId !== "codex") {
       const completedAt = new Date().toISOString();
       user.status = "failed";
       assistant.status = "failed";
       assistant.completedAt = completedAt;
-      assistant.text = harnessId === "grok-build"
-        ? "Grok Build runtime is not configured on this host. No Computer Use fallback is used."
-        : "Google Antigravity runtime is not configured on this host.";
+      assistant.text = "Google Antigravity runtime is not available on this host.";
       assistant.activity = [{ type: "error", label: assistant.text, status: "failed" }];
       conversation.updatedAt = completedAt;
       this.writeConversation(conversation);
@@ -2375,6 +2513,176 @@ class ChatService {
         this.failActive(`无法启动 Codex：${error.message}`);
       }
     }
+  }
+
+  grokAdapter(model, conversation) {
+    const options = this.harnessOptions.grok || {};
+    return createHarness("grok-build", {
+      bin: options.bin,
+      model,
+      cwd: this.effectiveWorkDir(conversation),
+      envKey: options.envKey || "WITT_CPA_KEY",
+      envValue: options.envValue || "",
+      permissionMode: options.permissionMode || grokPermissionMode(conversation.accessMode),
+      reasoningEffort: options.reasoningEffort || null,
+      timeoutMs: options.timeoutMs,
+      logger: this.runtimeLogger,
+    });
+  }
+
+  // Runs one Grok Build turn through the real official CLI and maps its NDJSON
+  // events onto the same assistant stream shape the Codex path produces, so the
+  // existing UI renders it without a second code path.
+  async runGrokTurn(conversation, user, assistant, model, reasoning, attachments) {
+    const workDir = this.effectiveWorkDir(conversation);
+    const adapter = this.grokAdapter(model, conversation);
+    const existingSession = conversation.harnessSessionId || null;
+    const promptConversation = { ...conversation, codexThreadId: existingSession };
+    const prompt = this.buildPrompt(promptConversation, user, attachments);
+
+    this.active = {
+      conversationId: conversation.id,
+      messageId: assistant.id,
+      userId: user.id,
+      ownerDeviceId: user.senderDeviceId || null,
+      harnessId: "grok-build",
+      harnessAdapter: adapter,
+      harnessHandle: null,
+      client: { request: () => Promise.reject(new Error("grok-build has no app-server client")) },
+      threadId: existingSession,
+      turnId: null,
+      turnStarted: false,
+      finalResponse: "",
+      finished: false,
+      pendingSteers: [],
+      pendingApprovals: new Map(),
+      codexHome: null,
+    };
+
+    try {
+      await adapter.startRuntime();
+    } catch (error) {
+      // A missing or broken runtime fails this turn only; the backend keeps running.
+      this.failActive(`无法启动 Grok Build：${String(error.message || error).slice(0, 200)}`);
+      return;
+    }
+    if (!this.active || this.active.messageId !== assistant.id) return;
+    if (this.active.interruptRequested) {
+      this.finishActive(false, "", "已暂停", true);
+      return;
+    }
+
+    const handle = adapter.sendPrompt({
+      prompt,
+      model,
+      cwd: workDir,
+      reasoningEffort: HARNESS_REASONING[reasoning] || "medium",
+      ...(existingSession ? { resumeSessionId: existingSession } : { sessionId: crypto.randomUUID() }),
+    });
+    this.active.harnessHandle = handle;
+    this.active.turnStarted = true;
+    this.active.toolEntries = new Map();
+    this.requestActiveInterrupt();
+
+    handle.events.on("event", (event) => {
+      const current = this.active;
+      if (!current || current.messageId !== assistant.id || current.finished) return;
+      const live = this.readConversation(conversation.id) || conversation;
+      const liveAssistant = live.messages.find((message) => message.id === assistant.id);
+      if (!liveAssistant) return;
+      if (event.type === "text_delta") {
+        const entry = this.upsertStream(liveAssistant, "harness-message",
+          { kind: "message", phase: "final_answer", status: "running" });
+        entry.text = `${entry.text || ""}${event.text || ""}`;
+      } else if (event.type === "reasoning_delta") {
+        if (!current.reasoningNoted) {
+          current.reasoningNoted = true;
+          this.addActivity(liveAssistant, "thinking", "正在推理", "running");
+        }
+      } else if (event.type === "tool_call") {
+        const label = String(event.tool || "工具调用").slice(0, 90);
+        this.addActivity(liveAssistant, "command", label, "running");
+        const key = event.id || `tool-${current.toolEntries.size}`;
+        current.toolEntries.set(key, label);
+        this.upsertStream(liveAssistant, key, {
+          kind: "command", label, status: "running",
+          details: { command: label, cwd: workDir, input: event.input || null, output: "" },
+        });
+      } else if (event.type === "tool_call_update") {
+        const key = event.id || [...current.toolEntries.keys()].at(-1);
+        if (key) {
+          const entry = this.upsertStream(liveAssistant, key, {
+            kind: "command",
+            status: ["completed", "failed"].includes(event.status) ? event.status : "running",
+          });
+          if (event.output !== undefined) {
+            entry.details = { ...(entry.details || {}), output: String(
+              typeof event.output === "string" ? event.output : JSON.stringify(event.output)).slice(-8192) };
+          }
+        }
+      } else if (event.type === "plan") {
+        this.upsertStream(liveAssistant, "harness-plan", {
+          kind: "plan", label: "计划进度", status: "running",
+          steps: (event.entries || []).map((step) => ({
+            step: String(step.step || step.title || step.content || ""),
+            status: String(step.status || "pending"),
+          })).filter((step) => step.step),
+        });
+      } else if (event.type === "error") {
+        this.failActive(`Grok Build：${String(event.error || "运行失败").slice(0, 200)}`);
+        return;
+      } else if (event.type === "end") {
+        current.harnessUsage = event.usage || null;
+        current.harnessStopReason = event.stopReason || null;
+      }
+      live.updatedAt = new Date().toISOString();
+      this.writeConversation(live);
+    });
+
+    const result = await handle.done;
+    if (!this.active || this.active.messageId !== assistant.id || this.active.finished) return;
+
+    const finalConversation = this.readConversation(conversation.id) || conversation;
+    const finalAssistant = finalConversation.messages.find((message) => message.id === assistant.id);
+    const text = (finalAssistant?.stream || [])
+      .filter((entry) => entry.kind === "message")
+      .map((entry) => entry.text || "").join("").trim();
+
+    // Persist the harness session id so the next turn resumes instead of restarting.
+    if (result.sessionId) {
+      finalConversation.harnessSessionId = result.sessionId;
+      finalConversation.harnessId = "grok-build";
+      finalConversation.providerId = this.harnessOptions.grok?.providerId || finalConversation.providerId || null;
+    }
+
+    if (result.timedOut) {
+      finalConversation.updatedAt = new Date().toISOString();
+      this.writeConversation(finalConversation);
+      this.finishActive(false, text, "Grok Build 运行超时");
+      return;
+    }
+    // Only an interrupt this session actually asked for is a pause. A runtime that
+    // died on its own must surface as a failure, not as a user-requested pause.
+    if (this.active.interruptRequested) {
+      finalConversation.updatedAt = new Date().toISOString();
+      this.writeConversation(finalConversation);
+      this.finishActive(false, text, "已暂停", true);
+      return;
+    }
+    finalConversation.updatedAt = new Date().toISOString();
+    this.writeConversation(finalConversation);
+    if (!result.ok) {
+      // stderr stays server-side and passes through RuntimeLogger redaction. It may
+      // contain gateway diagnostics or credential-shaped values, so never return
+      // it through the browser API/SSE surface.
+      this.finishActive(false, text, `Grok Build ${result.errorType || "failed"}`);
+      return;
+    }
+    if (!text) {
+      this.finishActive(false, "", "Grok Build 未返回有效结果");
+      return;
+    }
+    this.finishActive(true, text, "");
   }
 
   handleNotification(conversationId, messageId, method, params) {
@@ -2951,5 +3259,11 @@ module.exports = {
   ADMIN_MODELS,
   NON_ADMIN_MODELS,
   ALL_MODELS,
+  HARNESS_MODELS,
   QUOTA_EXHAUSTED_MESSAGE,
+  DEFAULT_WORKDIR_ROOTS,
+  buildWorkDirRoots,
+  normalizeRootList,
+  isWithinRoots,
+  grokPermissionMode,
 };
