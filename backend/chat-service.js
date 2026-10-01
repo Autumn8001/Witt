@@ -8,24 +8,56 @@ const { ConversationStore } = require("./sqlite-store");
 const { workspaceOverview } = require("./workspace-overview");
 const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime/runtime-resolver");
 const { createHarness } = require("./runtime/index");
+const { describeBinary } = require("./runtime/runtime-binaries");
 const { RuntimeLogger } = require("./runtime/runtime-log");
 
 const ID_PATTERN = /^[a-f0-9-]{36}$/;
 const DEEPSEEK_MODELS = new Set(["deepseek-v4-pro", "deepseek-v4-flash"]);
-const ADMIN_MODELS = new Set([
-  "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
-  "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", ...DEEPSEEK_MODELS,
-]);
-const NON_ADMIN_MODELS = new Set(["gpt-5.5", ...DEEPSEEK_MODELS]);
-// Models served by the non-Codex harnesses. They become selectable so the runtime
-// resolver can bind a session to grok-build / google-antigravity, and the adapter
-// decides whether the harness can actually serve them.
-const HARNESS_MODELS = new Set([
-  "grok-4.7-high", "grok-4.7-medium", "grok-4.7-max", "grok-4.7-xhigh",
+const DEFAULT_HARNESS_MODEL = "grok-4.7-high";
+const DEFAULT_PROVIDER_ID = "cpa";
+
+// --- Model catalogs ---------------------------------------------------------
+// SELECTABLE: models a caller may choose for a NEW session or through PATCH.
+// Deliberately contains no Gemini, so nobody - not even an administrator whose
+// policy is unrestricted - can select a paused runtime.
+const SELECTABLE_HARNESS_MODELS = new Set(["grok-4.7-high"]);
+// Runtimes that are paused (Gemini): selecting one is refused with this reason.
+const PAUSED_RUNTIME_REASON = "blocked_runtime_incompatible";
+const PAUSED_RUNTIME_MODELS = new Set([
   "gemini-3.8-flash-high", "gemini-3.7-flash-high", "gemini-3.6-flash-high",
   "gemini-3.1-flash-lite",
 ]);
-const ALL_MODELS = new Set([...ADMIN_MODELS, ...NON_ADMIN_MODELS, ...HARNESS_MODELS]);
+// Harness models that were never verified end-to-end. They must never be silently
+// substituted with a verified sibling (medium/max/xhigh must not become high).
+const RETIRED_MODEL_REASON = "retired_model_unverified";
+const RETIRED_UNVERIFIED_MODELS = new Set([
+  "grok-4.7-medium", "grok-4.7-max", "grok-4.7-xhigh",
+]);
+// LEGACY_KNOWN: recognised only so an existing historical binding is still
+// displayed and preserved verbatim. Never offered and never selectable.
+const LEGACY_KNOWN_MODELS = new Set([...PAUSED_RUNTIME_MODELS, ...RETIRED_UNVERIFIED_MODELS]);
+const BLOCK_REASON_CODES = new Set([PAUSED_RUNTIME_REASON, RETIRED_MODEL_REASON]);
+
+const ADMIN_MODELS = new Set([
+  "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+  "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", ...DEEPSEEK_MODELS,
+  ...SELECTABLE_HARNESS_MODELS,
+]);
+const NON_ADMIN_MODELS = new Set(["gpt-5.5", ...DEEPSEEK_MODELS, ...SELECTABLE_HARNESS_MODELS]);
+const SELECTABLE_MODELS = new Set([...ADMIN_MODELS, ...NON_ADMIN_MODELS]);
+// Kept for display/validation of stored bindings only.
+const ALL_MODELS = new Set([...SELECTABLE_MODELS, ...LEGACY_KNOWN_MODELS]);
+
+// Explicit provider mapping. Only Grok maps to CPA; an unknown model must never
+// fall back to a gateway it does not belong to.
+function providerForModel(model) {
+  const id = String(model || "");
+  if (id.startsWith("grok-")) return DEFAULT_PROVIDER_ID;
+  if (id.startsWith("gemini-")) return "sub2api";
+  if (DEEPSEEK_MODELS.has(id)) return "deepseek";
+  if (id.startsWith("gpt-")) return "codex";
+  return null;
+}
 // Witt reasoning levels mapped onto the levels the harnesses accept.
 const HARNESS_REASONING = {
   low: "low", medium: "medium", high: "high",
@@ -39,6 +71,21 @@ const GROK_PERMISSION_BY_ACCESS = {
 
 function grokPermissionMode(accessMode) {
   return GROK_PERMISSION_BY_ACCESS[accessMode] || "plan";
+}
+
+// The capability endpoint is reachable by any authenticated device, so a harness
+// failure must surface as a short code. Raw messages can contain executable
+// paths, command arguments and other host detail, so they are never forwarded.
+const CODEX_REASON_CODES = new Set([
+  "executable_not_found", "startup_timeout", "process_exited", "unavailable",
+]);
+
+function codexUnavailableReason(error) {
+  const text = String(error?.message || "");
+  if (/ENOENT|not found|spawn/i.test(text)) return "executable_not_found";
+  if (/timed out|timeout/i.test(text)) return "startup_timeout";
+  if (/stopped|closed|exited/i.test(text)) return "process_exited";
+  return "unavailable";
 }
 const QUOTA_EXHAUSTED_MESSAGE = "Your quota has been exhausted. Please try again later.";
 const ALLOWED_REASONING = new Set(["low", "medium", "high", "xhigh", "max", "ultra"]);
@@ -128,7 +175,8 @@ class ChatService {
     this.readJsonBody = options.readJsonBody;
     this.allowedModels = Object.hasOwn(options, "allowedModels")
       ? options.allowedModels : ADMIN_MODELS;
-    this.defaultModel = options.defaultModel || "gpt-6-astra";
+    this.defaultModel = options.defaultModel || DEFAULT_HARNESS_MODEL;
+    this.defaultProviderId = options.defaultProviderId || DEFAULT_PROVIDER_ID;
     this.quotaExhausted = Boolean(options.quotaExhausted);
     this.codexProfiles = options.codexProfiles || {
       default: {
@@ -226,17 +274,49 @@ class ChatService {
     return client;
   }
 
+  // True only when the model may be chosen for a NEW turn. Legacy bindings are
+  // intentionally excluded, so a paused runtime cannot be selected again.
   modelAllowed(model, profileId = this.defaultCodexProfile) {
     if (DEEPSEEK_MODELS.has(model)) return this.deepseekEnabled &&
       (this.allowedModels === null || this.allowedModels.has(model));
     const dynamic = this.availableModels.get(profileId);
     const policyAllows = this.allowedModels === null || this.allowedModels.has(model);
-    // Catalog membership is required: either a model the provider/provider list
-    // actually reported, or one in the static catalog. Without this, an operator
-    // policy of "no restriction" accepted arbitrary model strings, which then
-    // failed deep inside the harness instead of being rejected at the API.
-    const catalogAllows = (dynamic && dynamic.has(model)) || ALL_MODELS.has(model);
-    return policyAllows && catalogAllows;
+    // Catalog membership is required: either a model the provider actually
+    // reported, or one in the selectable catalog. Without this, an operator policy
+    // of "no restriction" accepted arbitrary model strings, which then failed deep
+    // inside the harness instead of being rejected at the API.
+    const catalogAllows = (dynamic && dynamic.has(model)) || SELECTABLE_MODELS.has(model);
+    return policyAllows && catalogAllows && !this.modelBlockReason(model);
+  }
+
+  // A paused runtime or an unverified retired model is refused with an explicit,
+  // stable reason. Never a silent substitution.
+  modelBlockReason(model) {
+    const id = String(model || "");
+    if (PAUSED_RUNTIME_MODELS.has(id)) return PAUSED_RUNTIME_REASON;
+    if (RETIRED_UNVERIFIED_MODELS.has(id)) return RETIRED_MODEL_REASON;
+    return null;
+  }
+
+  // The single availability policy applied to EVERY model source, including the
+  // list Codex reports. A model that cannot be served must not be advertised.
+  isModelServable(model) {
+    const id = String(model || "");
+    if (!id) return false;
+    return !this.modelBlockReason(id);
+  }
+
+  // What the API should report for a stored binding. A historical model that is no
+  // longer selectable is still shown exactly as stored, so an existing session is
+  // never rewritten to the default behind the user's back.
+  displayModel(conversation, profileId = this.defaultCodexProfile) {
+    const stored = String(conversation?.model || "");
+    if (!stored) return this.defaultModel;
+    if (this.modelAllowed(stored, profileId)) return stored;
+    if (LEGACY_KNOWN_MODELS.has(stored)) return stored;
+    const dynamic = this.availableModels.get(profileId);
+    if (dynamic && dynamic.has(stored)) return stored;
+    return this.defaultModel;
   }
 
   conversationPath(id) {
@@ -548,9 +628,10 @@ class ChatService {
       harnessSessionId: conversation.harnessSessionId || null,
       harnessId: conversation.harnessId || resolveHarness(conversation.model, "auto"),
       harnessLabel: (HARNESSES[conversation.harnessId] || HARNESSES[resolveHarness(conversation.model, "auto")]).displayName,
-      providerId: conversation.providerId || null,
-      model: this.modelAllowed(conversation.model, profile.id)
-        ? conversation.model : this.defaultModel,
+      // Reported from the stored value: a legacy provider binding is not rewritten.
+      providerId: conversation.providerId || providerForModel(conversation.model),
+      model: this.displayModel(conversation, profile.id),
+      modelBlockedReason: this.modelBlockReason(conversation.model),
       reasoning: conversation.reasoning || "medium",
       accessMode: ALLOWED_ACCESS.has(conversation.accessMode)
         ? conversation.accessMode : "danger-full-access",
@@ -854,6 +935,17 @@ class ChatService {
     const profile = this.codexProfiles[requestedProfile];
     const requestedWorkDir = workDir || (profile.id === "default" ? "" : profile.workDir);
     const now = new Date().toISOString();
+    // A paused runtime is refused outright, for every role, before any fallback.
+    const requestedModel = String(model == null || model === "" ? this.defaultModel : model);
+    const blockReason = this.modelBlockReason(requestedModel);
+    if (blockReason) {
+      const error = new Error(`该模型不可用于新会话（${blockReason}）：${requestedModel}`);
+      error.blockReason = blockReason;
+      error.model = requestedModel;
+      throw error;
+    }
+    const resolvedModel = this.modelAllowed(requestedModel, profile.id)
+      ? requestedModel : this.defaultModel;
     const conversation = {
       id: crypto.randomUUID(),
       title: String(title || "新对话").trim().slice(0, 60) || "新对话",
@@ -862,9 +954,12 @@ class ChatService {
       archived: false,
       codexThreadId: null,
       codexProfile: profile.id,
-      model: this.modelAllowed(model, profile.id) ? model : this.defaultModel,
-      harnessId: resolveHarness(this.modelAllowed(model, profile.id) ? model : this.defaultModel, "auto"),
-      providerId: null,
+      model: resolvedModel,
+      // "auto" is resolved from the model, so a new session binds grok-build for
+      // grok-* without the caller having to know about harnesses.
+      harnessId: resolveHarness(resolvedModel, "auto"),
+      // Explicit per-family mapping; an unknown model yields null, never a gateway.
+      providerId: providerForModel(resolvedModel),
       harnessSessionId: null,
       reasoning: ALLOWED_REASONING.has(reasoning) ? reasoning : "medium",
       accessMode: ALLOWED_ACCESS.has(accessMode) ? accessMode : "danger-full-access",
@@ -894,13 +989,65 @@ class ChatService {
     }
   }
 
-  async readCapabilities(res) {
-    const profile = this.codexProfiles[this.defaultCodexProfile];
-    const cached = this.capabilityCache.get(profile.id);
-    if (cached && Date.now() - cached.cachedAt < 5 * 60 * 1000) {
-      this.sendJson(res, 200, cached.payload);
-      return;
+  // Selectable harness models offered to this principal. The only source of
+  // harness-served models, and it never consults Codex. Paused runtimes are
+  // absent by construction.
+  harnessModelCatalog() {
+    const models = [];
+    for (const id of SELECTABLE_HARNESS_MODELS) {
+      if (this.allowedModels !== null && !this.allowedModels.has(id)) continue;
+      if (this.modelBlockReason(id)) continue;
+      models.push({
+        id,
+        displayName: `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}`,
+        isDefault: id === this.defaultModel,
+        inputModalities: ["text", "image"],
+        defaultReasoningEffort: "high",
+        reasoningEfforts: [
+          { id: "low", description: "快速" },
+          { id: "medium", description: "均衡" },
+          { id: "high", description: "深入" },
+        ],
+        supportsPersonality: false,
+        upgrade: null,
+        harness: resolveHarness(id, "auto"),
+        provider: providerForModel(id),
+      });
     }
+    return models;
+  }
+
+  // DeepSeek runs through Codex, so it is only offered when Codex is reachable.
+  deepseekCatalog() {
+    return [
+      {
+        id: "deepseek-v4-pro", displayName: "DeepSeek V4 Pro", isDefault: false,
+        inputModalities: ["text"], defaultReasoningEffort: "high",
+        reasoningEfforts: [
+          { id: "high", description: "DeepSeek 深度思考" },
+          { id: "xhigh", description: "DeepSeek 最大思考" },
+        ],
+        supportsPersonality: false, upgrade: null, provider: "deepseek",
+      },
+      {
+        id: "deepseek-v4-flash", displayName: "DeepSeek V4 Flash", isDefault: false,
+        inputModalities: ["text"], defaultReasoningEffort: "high",
+        reasoningEfforts: [
+          { id: "high", description: "DeepSeek 深度思考" },
+          { id: "xhigh", description: "DeepSeek 最大思考" },
+        ],
+        supportsPersonality: false, upgrade: null, provider: "deepseek",
+      },
+    ].filter((model) => this.allowedModels === null || this.allowedModels.has(model.id));
+  }
+
+  // Probes Codex for its own catalog. Never throws: a failure is recorded as an
+  // availability reason so harness capabilities can still be served.
+  async codexCapabilities(profile) {
+    const empty = {
+      available: false, reason: null, models: [], skills: [],
+      mcpServers: [], collaborationModes: [], features: [],
+    };
     try {
       const client = this.clientFor(profile);
       await client.start();
@@ -913,7 +1060,10 @@ class ChatService {
       ]);
       const value = (index) => settled[index].status === "fulfilled"
         ? settled[index].value : {};
+      // The same availability policy applies to Codex-reported models: a paused or
+      // retired model must not be advertised just because Codex listed it.
       const models = (value(0).data || []).filter((model) => !model.hidden &&
+        this.isModelServable(model.id || model.model) &&
         (this.allowedModels === null || this.allowedModels.has(String(model.id || model.model || ""))))
         .map((model) => ({
         id: String(model.id || model.model || ""),
@@ -929,52 +1079,6 @@ class ChatService {
         supportsPersonality: Boolean(model.supportsPersonality),
         upgrade: model.upgrade ? String(model.upgrade) : null,
       })).filter((model) => model.id);
-      if (this.deepseekEnabled &&
-          (this.allowedModels === null || [...DEEPSEEK_MODELS].some((id) => this.allowedModels.has(id)))) {        const deepseekModels = [
-          {
-            id: "deepseek-v4-pro", displayName: "DeepSeek V4 Pro", isDefault: false,
-            inputModalities: ["text"], defaultReasoningEffort: "high",
-            reasoningEfforts: [
-              { id: "high", description: "DeepSeek 深度思考" },
-              { id: "xhigh", description: "DeepSeek 最大思考" },
-            ],
-            supportsPersonality: false, upgrade: null, provider: "deepseek",
-          },
-          {
-            id: "deepseek-v4-flash", displayName: "DeepSeek V4 Flash", isDefault: false,
-            inputModalities: ["text"], defaultReasoningEffort: "high",
-            reasoningEfforts: [
-              { id: "high", description: "DeepSeek 深度思考" },
-              { id: "xhigh", description: "DeepSeek 最大思考" },
-            ],
-            supportsPersonality: false, upgrade: null, provider: "deepseek",
-          },
-        ].filter((model) => this.allowedModels === null || this.allowedModels.has(model.id));
-        models.push(...deepseekModels);
-      }
-      this.availableModels.set(profile.id, new Set(models.map((model) => model.id)));
-      // Harness-served models are advertised so the workspace can select them and
-      // let the runtime resolver bind the matching harness.
-      for (const id of HARNESS_MODELS) {
-        if (this.allowedModels !== null && !this.allowedModels.has(id)) continue;
-        const isGrok = id.startsWith("grok-");
-        models.push({
-          id,
-          displayName: isGrok ? `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}` : `Gemini ${id.replace(/^gemini-/, "").replace(/-/g, " ")}`,
-          isDefault: false,
-          inputModalities: ["text", "image"],
-          defaultReasoningEffort: isGrok ? "high" : "medium",
-          reasoningEfforts: [
-            { id: "low", description: "快速" },
-            { id: "medium", description: "均衡" },
-            { id: "high", description: "深入" },
-          ],
-          supportsPersonality: false,
-          upgrade: null,
-          harness: isGrok ? "grok-build" : "google-antigravity",
-          provider: isGrok ? (this.harnessOptions.grok?.providerId || "cpa") : "sub2api",
-        });
-      }
       const skillGroups = value(1).data || [];
       const skills = skillGroups.flatMap((group) => group.skills || []).map((skill) => ({
         name: String(skill.name || ""),
@@ -995,18 +1099,87 @@ class ChatService {
         name: String(feature.name || ""), stage: String(feature.stage || ""),
         enabled: Boolean(feature.enabled), displayName: String(feature.displayName || ""),
       })).filter((feature) => feature.name);
-      const payload = {
-        models, skills, mcpServers, collaborationModes, features,
-        support: { fork: true, compact: true, review: true, plans: true },
-        harnesses: Object.values(HARNESSES),
-        defaultHarness: "auto",
-        checkedAt: new Date().toISOString(),
-      };
-      this.capabilityCache.set(profile.id, { cachedAt: Date.now(), payload });
-      this.sendJson(res, 200, payload);
+      return { available: true, reason: null, models, skills, mcpServers, collaborationModes, features };
     } catch (error) {
-      this.sendJson(res, 503, { error: error.message || "无法读取 App Server 能力" });
+      const reason = codexUnavailableReason(error);
+      this.runtimeLogger.log({
+        harness: "codex", provider: "codex", model: this.defaultModel,
+        event: "capabilities_unavailable", errorType: reason,
+      });
+      return { ...empty, reason };
     }
+  }
+
+  // Availability is reported per harness so the workspace can show why something
+  // is missing instead of failing to load at all. No host paths or arguments.
+  runtimeStatus(codex) {
+    // Use the operator's configured binary, not just the default install path.
+    const configuredBin = this.harnessOptions?.grok?.bin;
+    const grok = describeBinary("grok-build", configuredBin ? { bin: configuredBin } : {});
+    return {
+      codex: {
+        available: codex.available,
+        status: codex.available ? "ready" : "unavailable",
+        reason: codex.reason || null,
+      },
+      "grok-build": {
+        available: Boolean(grok && grok.exists),
+        status: grok && grok.exists ? "ready" : "executable_not_found",
+        provider: providerForModel(DEFAULT_HARNESS_MODEL),
+      },
+      "google-antigravity": { available: false, status: PAUSED_RUNTIME_REASON },
+    };
+  }
+
+  // Always answers 200. A missing harness is reported inside the payload, never as
+  // an endpoint failure, and never with raw host detail.
+  async readCapabilities(res) {
+    const profile = this.codexProfiles[this.defaultCodexProfile];
+    const cached = this.capabilityCache.get(profile.id);
+    if (cached && Date.now() - cached.cachedAt < 5 * 60 * 1000) {
+      this.sendJson(res, 200, cached.payload);
+      return;
+    }
+    const harnessModels = this.harnessModelCatalog();
+    let codex;
+    try {
+      codex = await this.codexCapabilities(profile);
+    } catch (error) {
+      // Last-resort guard: the endpoint must not fail because of a harness probe.
+      codex = {
+        available: false, reason: codexUnavailableReason(error), models: [],
+        skills: [], mcpServers: [], collaborationModes: [], features: [],
+      };
+    }
+    const deepseekModels = codex.available && this.deepseekEnabled ? this.deepseekCatalog() : [];
+    // Deduplicate by id: a model may be reported by Codex and also come from the
+    // harness catalog. The harness entry wins, so the binding stays explicit.
+    const merged = new Map();
+    for (const model of [...codex.models, ...deepseekModels, ...harnessModels]) {
+      if (!model || !model.id || !this.isModelServable(model.id)) continue;
+      merged.set(model.id, model);
+    }
+    const models = [...merged.values()];
+    this.availableModels.set(profile.id, new Set(models.map((model) => model.id)));
+    const payload = {
+      models,
+      skills: codex.skills,
+      mcpServers: codex.mcpServers,
+      collaborationModes: codex.collaborationModes,
+      features: codex.features,
+      // Codex-only actions require Codex to actually be reachable.
+      support: {
+        fork: codex.available, compact: codex.available,
+        review: codex.available, plans: codex.available,
+      },
+      harnesses: Object.values(HARNESSES),
+      defaultHarness: "auto",
+      defaultModel: this.defaultModel,
+      runtime: this.runtimeStatus(codex),
+      checkedAt: new Date().toISOString(),
+    };
+    this.capabilityCache.set(profile.id, { cachedAt: Date.now(), payload });
+    this.sendJson(res, 200, payload);
   }
 
   async resumeOnClient(conversation) {
@@ -1083,7 +1256,12 @@ class ChatService {
             body?.codexProfile);
           this.sendJson(res, 201, { conversation: this.publicConversation(conversation) });
         } catch (createError) {
-          this.sendJson(res, 400, { error: createError.message || "无法创建对话" });
+          const body400 = { error: createError.message || "无法创建对话" };
+          if (createError.blockReason) {
+            body400.blockReason = createError.blockReason;
+            body400.model = createError.model || null;
+          }
+          this.sendJson(res, 400, body400);
         }
       });
       return true;
@@ -1391,9 +1569,21 @@ class ChatService {
         return;
       }
       const requestedModel = body?.model == null
-        ? (this.modelAllowed(conversation.model, this.profileFor(conversation).id)
-          ? conversation.model : this.defaultModel)
+        ? this.displayModel(conversation, this.profileFor(conversation).id)
         : body.model;
+      // Selecting a paused runtime is refused explicitly, for every role, so the
+      // client can show why instead of a generic validation error.
+      if (body?.model != null) {
+        const blockReason = this.modelBlockReason(body.model);
+        if (blockReason) {
+          this.sendJson(res, 409, {
+            error: `该模型不可用于新回合（${blockReason}）：${String(body.model)}`,
+            blockReason,
+            model: String(body.model),
+          });
+          return;
+        }
+      }
       const requestedReasoning = body?.reasoning == null
         ? (ALLOWED_REASONING.has(conversation.reasoning) ? conversation.reasoning : "medium")
         : body.reasoning;
@@ -2422,8 +2612,26 @@ class ChatService {
     conversation.updatedAt = new Date().toISOString();
     this.writeConversation(conversation);
 
-    const model = this.modelAllowed(conversation.model, this.profileFor(conversation).id)
-      ? conversation.model : this.defaultModel;
+    // A paused runtime is reported explicitly. The stored model is never swapped
+    // for another harness's model just to keep the turn running.
+    const storedModel = String(conversation.model || this.defaultModel);
+    const blockedReason = this.modelBlockReason(storedModel);
+    if (blockedReason) {
+      const completedAt = new Date().toISOString();
+      const message = `${storedModel} 不可用于新回合（${blockedReason}），本轮不会改用其他模型。`
+        + "请新建会话或选择其他模型。";
+      user.status = "failed";
+      assistant.status = "failed";
+      assistant.completedAt = completedAt;
+      assistant.text = message;
+      assistant.activity = [{ type: "error", label: message, status: "failed" }];
+      conversation.updatedAt = completedAt;
+      this.writeConversation(conversation);
+      setImmediate(() => this.runNext());
+      return;
+    }
+    const model = this.modelAllowed(storedModel, this.profileFor(conversation).id)
+      ? storedModel : this.defaultModel;
     const reasoning = ALLOWED_REASONING.has(conversation.reasoning) ? conversation.reasoning : "medium";
     const accessMode = ALLOWED_ACCESS.has(conversation.accessMode)
       ? conversation.accessMode : "danger-full-access";
@@ -2652,7 +2860,9 @@ class ChatService {
     if (result.sessionId) {
       finalConversation.harnessSessionId = result.sessionId;
       finalConversation.harnessId = "grok-build";
-      finalConversation.providerId = this.harnessOptions.grok?.providerId || finalConversation.providerId || null;
+      // Derived from the model family actually used, not from whichever gateway
+      // happens to be configured, so a stored binding is never mislabelled.
+      finalConversation.providerId = providerForModel(model) || finalConversation.providerId || null;
     }
 
     if (result.timedOut) {
@@ -3259,7 +3469,19 @@ module.exports = {
   ADMIN_MODELS,
   NON_ADMIN_MODELS,
   ALL_MODELS,
-  HARNESS_MODELS,
+  SELECTABLE_MODELS,
+  SELECTABLE_HARNESS_MODELS,
+  LEGACY_KNOWN_MODELS,
+  PAUSED_RUNTIME_MODELS,
+  PAUSED_RUNTIME_REASON,
+  RETIRED_UNVERIFIED_MODELS,
+  RETIRED_MODEL_REASON,
+  BLOCK_REASON_CODES,
+  providerForModel,
+  DEFAULT_HARNESS_MODEL,
+  DEFAULT_PROVIDER_ID,
+  codexUnavailableReason,
+  CODEX_REASON_CODES,
   QUOTA_EXHAUSTED_MESSAGE,
   DEFAULT_WORKDIR_ROOTS,
   buildWorkDirRoots,

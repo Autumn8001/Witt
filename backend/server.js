@@ -330,7 +330,10 @@ function chatFor(principal) {
     sendJson,
     readJsonBody,
     allowedModels: principal.admin || principal.unrestrictedModels ? null : NON_ADMIN_MODELS,
-    defaultModel: principal.admin || principal.unrestrictedModels ? "gpt-6-astra" : "gpt-5.5",
+    // New sessions start on the verified production harness (Grok via CPA).
+    // Existing sessions keep whatever they already have stored.
+    defaultModel: "grok-4.7-high",
+    defaultProviderId: "cpa",
     quotaExhausted: !principal.admin && !principal.unrestrictedModels,
     codexProfiles,
     harnessOptions,
