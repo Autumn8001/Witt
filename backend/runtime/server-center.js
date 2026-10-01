@@ -11,16 +11,36 @@ const os = require("node:os");
 //   open-webui  http://127.0.0.1:3000/health    -> 200 {"status":true}
 //   cpa         http://127.0.0.1:8317/healthz   -> 200 {"status":"ok"}   (/health is 404)
 //   sub2api     http://127.0.0.1:8080/health    -> 200 {"status":"ok"}
-//   witt        http://127.0.0.1:3003/health    -> 200 {"ok":true}
+// witt         http://127.0.0.1:<bound port>/health -> 200 {"ok":true}
 // sub2api and open-webui return 200 HTML for unknown paths, so each service pins
 // an exact known path rather than probing a catch-all root.
 
-const DEFAULT_HTTP_SERVICES = [
-  { name: "witt", url: "http://127.0.0.1:3003/health" },
-  { name: "open-webui", url: "http://127.0.0.1:3000/health" },
-  { name: "cpa", url: "http://127.0.0.1:8317/healthz" },
-  { name: "sub2api", url: "http://127.0.0.1:8080/health" },
-];
+const DEFAULT_WITT_PORT = 3003;
+
+// Witt's own health address must follow the port the server actually bound,
+// otherwise an instance running on another port reports itself as down. Only a
+// plain integer inside the TCP range is accepted; everything else falls back.
+function wittPort(env = {}) {
+  const raw = env.DROP_VAULT_PORT;
+  if (raw === undefined || raw === null) return DEFAULT_WITT_PORT;
+  const text = String(raw).trim();
+  if (!/^\d+$/.test(text)) return DEFAULT_WITT_PORT;
+  const port = Number(text);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return DEFAULT_WITT_PORT;
+  return port;
+}
+
+function defaultHttpServices(env = {}) {
+  return [
+    { name: "witt", url: `http://127.0.0.1:${wittPort(env)}/health` },
+    { name: "open-webui", url: "http://127.0.0.1:3000/health" },
+    { name: "cpa", url: "http://127.0.0.1:8317/healthz" },
+    { name: "sub2api", url: "http://127.0.0.1:8080/health" },
+  ];
+}
+
+// Defaults as seen with no environment: the standard port.
+const DEFAULT_HTTP_SERVICES = defaultHttpServices({});
 
 // Containers actually present, with the health signal each one supports.
 const DEFAULT_CONTAINERS = [
@@ -149,18 +169,21 @@ async function probeDisk() {
   };
 }
 
-function parseServiceConfig(env) {
+// An explicit WITT_SERVER_SERVICES list always wins. Only when it is absent or
+// unusable do the port-aware defaults apply.
+function parseServiceConfig(env = {}) {
+  const defaults = () => defaultHttpServices(env);
   const raw = env.WITT_SERVER_SERVICES;
-  if (!raw) return { http: DEFAULT_HTTP_SERVICES, containers: DEFAULT_CONTAINERS, units: DEFAULT_UNITS };
+  if (!raw) return { http: defaults(), containers: DEFAULT_CONTAINERS, units: DEFAULT_UNITS };
   try {
     const parsed = JSON.parse(raw);
     return {
-      http: Array.isArray(parsed.http) ? parsed.http : DEFAULT_HTTP_SERVICES,
+      http: Array.isArray(parsed.http) ? parsed.http : defaults(),
       containers: Array.isArray(parsed.containers) ? parsed.containers : DEFAULT_CONTAINERS,
       units: Array.isArray(parsed.units) ? parsed.units : DEFAULT_UNITS,
     };
   } catch {
-    return { http: DEFAULT_HTTP_SERVICES, containers: DEFAULT_CONTAINERS, units: DEFAULT_UNITS };
+    return { http: defaults(), containers: DEFAULT_CONTAINERS, units: DEFAULT_UNITS };
   }
 }
 
@@ -217,6 +240,9 @@ module.exports = {
   classifyHttp,
   classifyContainer,
   parseServiceConfig,
+  wittPort,
+  defaultHttpServices,
+  DEFAULT_WITT_PORT,
   DEFAULT_HTTP_SERVICES,
   DEFAULT_CONTAINERS,
   DEFAULT_UNITS,

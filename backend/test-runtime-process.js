@@ -12,7 +12,8 @@ const { parseGrokEvent } = require("./runtime/event-parsers");
 const { ProviderRegistry, PROTOCOLS } = require("./runtime/provider-registry");
 const {
   classifyHttp, classifyContainer, probeHttp, overview,
-  parseServiceConfig, DEFAULT_HTTP_SERVICES,
+  parseServiceConfig, DEFAULT_HTTP_SERVICES, wittPort, defaultHttpServices,
+  DEFAULT_WITT_PORT,
 } = require("./runtime/server-center");
 
 const NODE_BIN = process.execPath;
@@ -324,12 +325,83 @@ test("service configuration is overridable and falls back safely", () => {
   assert.equal(custom.http[0].name, "custom");
   assert.deepEqual(custom.containers, ["only-me"]);
   const broken = parseServiceConfig({ WITT_SERVER_SERVICES: "{not json" });
-  assert.equal(broken.http, DEFAULT_HTTP_SERVICES);
+  // Compared by content: the defaults are now built per environment so that the
+  // witt probe can follow the bound port.
+  assert.deepEqual(broken.http, defaultHttpServices({}));
   const empty = parseServiceConfig({});
-  assert.equal(empty.http, DEFAULT_HTTP_SERVICES);
+  assert.deepEqual(empty.http, defaultHttpServices({}));
+  assert.equal(empty.http.find((entry) => entry.name === "witt").url,
+    "http://127.0.0.1:3003/health");
   // The pinned paths must match the verified reality, not a guessed root.
   const names = DEFAULT_HTTP_SERVICES.map((entry) => `${entry.name}=${entry.url}`);
   assert.ok(names.includes("cpa=http://127.0.0.1:8317/healthz"));
   assert.ok(names.includes("open-webui=http://127.0.0.1:3000/health"));
   assert.ok(names.includes("sub2api=http://127.0.0.1:8080/health"));
+});
+
+// --------------------------------------------------------------------------
+// Witt's own health probe must follow the port the server actually bound.
+// The live E2E starts the backend on an OS-assigned port, so a hardcoded 3003
+// made the witt entry report "down" even though the backend was healthy.
+// --------------------------------------------------------------------------
+test("T-WITT-08a the witt self-probe follows DROP_VAULT_PORT", () => {
+  assert.equal(wittPort({ DROP_VAULT_PORT: "58103" }), 58103);
+  const witt = defaultHttpServices({ DROP_VAULT_PORT: "58103" })
+    .find((entry) => entry.name === "witt");
+  assert.equal(witt.url, "http://127.0.0.1:58103/health");
+});
+
+test("T-WITT-08b the witt self-probe defaults to 3003 when unset", () => {
+  assert.equal(wittPort({}), DEFAULT_WITT_PORT);
+  assert.equal(wittPort({ DROP_VAULT_PORT: undefined }), DEFAULT_WITT_PORT);
+  const witt = defaultHttpServices({}).find((entry) => entry.name === "witt");
+  assert.equal(witt.url, "http://127.0.0.1:3003/health");
+});
+
+test("T-WITT-08c invalid ports fall back to 3003", () => {
+  const invalid = ["0", "-1", "65536", "abc", "58103.5", "", "   ", "12a", "1e3",
+    "NaN", "Infinity", "-0", "99999999999999999999", "0x10"];
+  for (const raw of invalid) {
+    assert.equal(wittPort({ DROP_VAULT_PORT: raw }), DEFAULT_WITT_PORT,
+      `expected fallback for ${JSON.stringify(raw)}`);
+  }
+  // The valid range boundaries are honoured.
+  assert.equal(wittPort({ DROP_VAULT_PORT: "1" }), 1);
+  assert.equal(wittPort({ DROP_VAULT_PORT: "65535" }), 65535);
+  assert.equal(wittPort({ DROP_VAULT_PORT: 58103 }), 58103);
+});
+
+test("T-WITT-08d an explicit service list is never overridden by the default", () => {
+  const custom = parseServiceConfig({
+    DROP_VAULT_PORT: "58103",
+    WITT_SERVER_SERVICES: JSON.stringify({
+      http: [{ name: "witt", url: "http://127.0.0.1:9999/health" }],
+    }),
+  });
+  assert.equal(custom.http.length, 1);
+  assert.equal(custom.http[0].url, "http://127.0.0.1:9999/health");
+
+  // A malformed explicit list falls back to the port-aware default, not to 3003.
+  const broken = parseServiceConfig({ DROP_VAULT_PORT: "58103", WITT_SERVER_SERVICES: "{nope" });
+  assert.equal(broken.http.find((entry) => entry.name === "witt").url,
+    "http://127.0.0.1:58103/health");
+});
+
+test("T-WITT-08e the witt entry on a random port is judged healthy", async () => {
+  const seen = [];
+  const report = await overview({
+    env: { DROP_VAULT_PORT: "58103" },
+    fetchImpl: async (url) => {
+      seen.push(url);
+      const alive = url === "http://127.0.0.1:58103/health";
+      return { ok: alive, status: alive ? 200 : 503 };
+    },
+  });
+  const witt = report.http.find((entry) => entry.name === "witt");
+  assert.equal(witt.url, "http://127.0.0.1:58103/health");
+  assert.equal(witt.status, "healthy");
+  assert.ok(seen.includes("http://127.0.0.1:58103/health"), "the bound port was not probed");
+  // The old hardcoded address must not be probed at all.
+  assert.equal(seen.some((url) => url.includes(":3003/")), false,
+    "the hardcoded 3003 address is still probed");
 });
