@@ -1,0 +1,19 @@
+[Unit]
+Description=Witt Personal AI Operations Hub
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/witt
+Environment=NODE_ENV=production
+EnvironmentFile=/root/.witt/app.env
+ExecStart=/usr/local/bin/node /opt/witt/backend/server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target
