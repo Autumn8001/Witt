@@ -56,6 +56,7 @@
 | Gemini/Antigravity | 适配代码存在，当前服务器 CPU 不兼容官方二进制 |
 | CPA | 本机 `127.0.0.1:8317` |
 | 环境文件 | `/root/.witt/app.env`、`/root/.witt/cpa.env`，权限 `0600` |
+| GitHub 写入 | 仅绑定 `Autumn8001/Witt` 的可写 Deploy Key；个人 `gh` 未登录 |
 
 代码和部署依据：
 
@@ -130,17 +131,16 @@ ssh witt-autumn-prod 'id && cd /opt/witt && git status --short --branch && git l
 
 看到 `uid=0(root)`、产品分支和当前提交即表示接管成功。朋友服务器不克隆项目，也不安装 `gh` 或 Grok；它只保留开发控制台和临时 SSH 私钥。
 
-### 4.4 配置生产服务器 GitHub 全权限
+### 4.4 配置生产服务器的单仓库 GitHub 权限
 
-朋友 Witt 通过 root SSH 登录我们服务器后，为生产服务器的 root 配置 GitHub CLI：
+生产服务器只使用绑定 `Autumn8001/Witt` 的 Deploy Key：
 
 ```bash
-ssh witt-autumn-prod 'command -v gh >/dev/null || (apt-get update && apt-get install -y gh)'
-ssh -t witt-autumn-prod 'gh auth login --hostname github.com --git-protocol https --web'
-ssh witt-autumn-prod 'gh auth setup-git && gh auth status && gh repo view Autumn8001/Witt'
+ssh witt-autumn-prod 'cd /opt/witt && git remote -v && git fetch origin'
+ssh witt-autumn-prod 'cd /opt/witt && git push --dry-run origin HEAD:refs/heads/platform/personal-ai-ops'
 ```
 
-设备授权出现时暂停，由仓库所有者在手机上确认。这样生产服务器可以直接 commit、push、fetch 和 pull，不再依赖人工传 Git bundle。
+`origin` 必须使用 SSH 别名 `github-witt-autumn`，对应私钥 `/root/.ssh/witt_github_deploy_ed25519`。不得执行 `gh auth login`，不得把 `origin` 改回个人 HTTPS 凭据。该 Deploy Key 可以读写目标仓库，但 GitHub 会拒绝它写入其他仓库。
 
 ## 5. 密钥和服务配置规则
 
@@ -233,7 +233,7 @@ Grok Build 已在生产服务器真实验证。Codex 或 Gemini 只有在对应�
 接管后优先完成以下闭环，不再继续做无关的安全加固或大范围重构：
 
 1. 验证朋友 Witt 能用临时密钥 root 登录我们的服务器；
-2. 配好生产服务器的 GitHub CLI；
+2. 验证生产服务器的单仓库 Deploy Key；
 3. 证明朋友 Witt 能在 `/opt/witt` 修改、commit、push；
 4. 让 Grok修改代码后，手机端稳定显示本轮文件列表和 Diff；
 5. 用户确认后 commit、push、部署；
@@ -259,7 +259,7 @@ Grok Build 已在生产服务器真实验证。Codex 或 Gemini 只有在对应�
 
 1. 从我们服务器 `/root/.ssh/authorized_keys` 删除注释为 `witt-autumn-temp-root-20261002` 的公钥行；
 2. 在朋友服务器删除 `~/.ssh/witt_autumn_temp_root` 和 `.pub`；
-3. 在生产服务器执行 `gh auth logout` 或从 GitHub 撤销该授权；
+3. 从 `Autumn8001/Witt` 的 Deploy keys 中删除 `Witt Autumn production only`；
 4. 验证旧 SSH key 已无法登录、GitHub 凭据已失效；
 5. 如果曾在聊天或日志中暴露任何密钥，轮换相应凭据。
 
@@ -276,10 +276,10 @@ Grok Build 已在生产服务器真实验证。Codex 或 Gemini 只有在对应�
 - 你可以使用专用临时 SSH key，以 root 登录我们的生产服务器；
 - 你可以直接在生产服务器 /opt/witt 修改代码、运行测试、commit、push；
 - 你可以安装 Harness、读取并使用现有服务环境、修改配置、部署、重启和验收；
-- 你可以在生产服务器配置 GitHub CLI；
+- 你可以使用已经绑定 `Autumn8001/Witt` 的 Deploy Key 执行 Git 操作；
 - 权限不是阻碍，遇到缺少工具或配置时直接补齐。
 
-第一步先确认你实际运行的 Unix 用户，然后检查：Git、Node、gh、Grok、SSH、磁盘、项目目录和现有凭据状态。不要输出任何 Token、私钥、CPA key、cookie、邀请码或恢复密码。
+第一步先确认你实际运行的 Unix 用户，然后检查：Git、Node、Grok、SSH、磁盘、项目目录和现有凭据状态。不要输出任何 Token、私钥、CPA key、cookie、邀请码或恢复密码。
 
 如果还没有临时生产 SSH key：
 1. 在你实际运行的用户下生成 ~/.ssh/witt_autumn_temp_root；
@@ -291,11 +291,7 @@ Grok Build 已在生产服务器真实验证。Codex 或 Gemini 只有在对应�
 
 先配置 SSH 别名 witt-autumn-prod，然后验证能以 root 登录生产服务器并访问 /opt/witt。
 
-如果生产服务器 GitHub 尚未授权：
-1. 通过 SSH 在生产服务器安装 gh，并执行 gh auth login --web；
-2. 把设备授权地址和验证码告诉我；
-3. 等我用手机确认；
-4. 完成 gh auth setup-git，并验证仓库读写权限。
+生产服务器已经配置仓库专用 Deploy Key。不要执行 `gh auth login`，也不要请求个人 GitHub 设备授权。先执行 `git remote -v`，确认 `origin` 为 `git@github-witt-autumn:Autumn8001/Witt.git`，再执行 `git fetch origin` 和针对产品分支的 `git push --dry-run`。
 
 生产服务器通过 SSH 别名 witt-autumn-prod 连接，代码目录为 /opt/witt，仓库为 Autumn8001/Witt，产品分支为 platform/personal-ai-ops，服务为 witt.service。不要修改或推送 main，不要强推或改写历史。CPA、Sub2API、Open WebUI、Nginx 和生产数据均保留在生产服务器。
 
@@ -311,5 +307,5 @@ Grok Build 已在生产服务器真实验证。Codex 或 Gemini 只有在对应�
 - 生产服务和公网健康状态；
 - 尚未验证的内容。
 
-现在先验证 root SSH 登录。登录成功后检查生产服务器的 Git、Node、gh、Grok、项目状态和服务状态。需要 GitHub 设备授权时暂停等待我，其他可在授权范围内完成的工作直接推进。
+现在先验证 root SSH 登录。登录成功后检查生产服务器的 Git、Node、Grok、项目状态和服务状态，并验证单仓库 Deploy Key。不得再次发起 GitHub 设备授权，其他可在授权范围内完成的工作直接推进。
 ```
