@@ -1,4 +1,9 @@
-# Witt 双服务器开发交接手册
+# Witt 双服务器开发交接手册（已废弃）
+
+> 本文基于“朋友服务器承载开发版 Witt”的错误前提，已被
+> [FRIEND-WITT-FULL-ACCESS-HANDOFF.md](FRIEND-WITT-FULL-ACCESS-HANDOFF.md)
+> 取代。朋友现有的稳定 Witt 才是开发控制台；Witt-Autumn 最终仍部署在我们的服务器。
+> 不要再按本文执行端口转发或 Nginx 上游切换。
 
 状态：可执行草案  
 日期：2026-10-02  
