@@ -7,13 +7,21 @@
   });
   const bridge = () => window.WittNative ? nativeBridge : (window.DropVaultAndroid || null);
   const CODEX_PROFILE_IDS = ["default", "xuanyu", "account3", "account4", "account5"];
+  const MVP_DEFAULT_MODEL = "grok-4.7-high";
+  const MVP_MODEL_MIGRATION_KEY = "wit_grok_mvp_model_migrated_v1";
+  const LEGACY_DEFAULT_MODELS = new Set([
+    "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+  ]);
   const previousModel = localStorage.getItem("wit_model_preference") || localStorage.getItem("wit_model");
-  const shouldUpgradeDefaultModel = !localStorage.getItem("wit_gpt6_model_migrated") &&
-    (!previousModel || previousModel === "gpt-5.6-sol");
-  const savedModel = shouldUpgradeDefaultModel ? "gpt-6-astra" : (previousModel || "gpt-6-astra");
-  if (!localStorage.getItem("wit_gpt6_model_migrated")) {
-    localStorage.setItem("wit_gpt6_model_migrated", "1");
-    if (shouldUpgradeDefaultModel) {
+  const shouldMigrateModelPreference = !localStorage.getItem(MVP_MODEL_MIGRATION_KEY) &&
+    (!previousModel || LEGACY_DEFAULT_MODELS.has(previousModel) || previousModel.startsWith("gpt-"));
+  const savedModel = shouldMigrateModelPreference ? MVP_DEFAULT_MODEL : (previousModel || MVP_DEFAULT_MODEL);
+  if (!localStorage.getItem(MVP_MODEL_MIGRATION_KEY)) {
+    localStorage.setItem(MVP_MODEL_MIGRATION_KEY, "1");
+    // The migration only touches the preference. Existing conversations are
+    // always restored with their own model and harness below.
+    if (shouldMigrateModelPreference) {
       localStorage.setItem("wit_model", savedModel);
       localStorage.setItem("wit_model_preference", savedModel);
     }
@@ -35,7 +43,6 @@
     preferredModel: savedModel,
     preferredReasoning: savedReasoning,
     preferredAccessMode: savedAccessMode,
-    restorePreferredSettingsOnLaunch: true,
     codexProfile: localStorage.getItem("wit_codex_profile") || "default",
     allowedCodexProfiles: ["default"],
     workDir: "",
@@ -66,6 +73,10 @@
     appVisible: !document.hidden,
     supportsSse: false,
     capabilities: null,
+    harness: "auto",
+    runtimeProfiles: [],
+    runtimeProfilesError: "",
+    serverOverviewError: "",
     artifactOpen: false,
     artifactKey: "",
     artifactVersionIndex: -1,
@@ -611,6 +622,7 @@
   }
 
   const modelNames = {
+    [MVP_DEFAULT_MODEL]: "Grok 4.7 High",
     "gpt-6-astra": "Astra",
     "gpt-6-sol": "Sol",
     "gpt-6-luna": "Luna",
@@ -620,6 +632,7 @@
   };
 
   const modelDescriptions = {
+    [MVP_DEFAULT_MODEL]: "Grok Build · 复杂任务",
     "gpt-6-astra": "旗舰智能 · 复杂任务",
     "gpt-6-sol": "专业编码 · 均衡推理",
     "gpt-6-luna": "快速高效 · 日常任务",
@@ -643,6 +656,50 @@
   function selectedModelCapability() {
     const models = Array.isArray(state.capabilities?.models) ? state.capabilities.models : [];
     return models.find((model) => model.id === (state.draftModel || state.model)) || null;
+  }
+
+  function serviceableModelIds() {
+    return (Array.isArray(state.capabilities?.models) ? state.capabilities.models : [])
+      .map((model) => String(model?.id || "").trim())
+      .filter(Boolean);
+  }
+
+  function reconcileModelPreference() {
+    const available = serviceableModelIds();
+    if (!available.length) return;
+    const preferred = String(state.preferredModel || state.model || "");
+    const next = available.includes(preferred)
+      ? preferred
+      : available.includes(MVP_DEFAULT_MODEL) ? MVP_DEFAULT_MODEL : available[0];
+    if (next !== state.preferredModel) {
+      state.preferredModel = next;
+      try {
+        localStorage.setItem("wit_model", next);
+        localStorage.setItem("wit_model_preference", next);
+      } catch { /* Keep the in-memory preference when storage is unavailable. */ }
+    }
+    // Never replace a loaded conversation's model here. This function runs as
+    // capabilities arrive, often before the conversation snapshot does.
+    if (!state.activeId || !state.active) {
+      state.model = next;
+      state.draftModel = next;
+    }
+  }
+
+  function prepareNewConversationSettings() {
+    const available = serviceableModelIds();
+    const preferred = String(state.preferredModel || MVP_DEFAULT_MODEL);
+    const model = available.length
+      ? (available.includes(preferred) ? preferred : available.includes(MVP_DEFAULT_MODEL) ? MVP_DEFAULT_MODEL : available[0])
+      : preferred;
+    state.model = model;
+    state.preferredModel = model;
+    state.reasoning = state.preferredReasoning || "high";
+    state.accessMode = state.preferredAccessMode || "danger-full-access";
+    state.draftModel = model;
+    state.draftReasoning = state.reasoning;
+    state.draftAccessMode = state.accessMode;
+    state.harness = "auto";
   }
 
   function modelDisplayName(modelId) {
@@ -711,7 +768,7 @@
     if (!menu) return;
     const models = Array.isArray(state.capabilities?.models) && state.capabilities.models.length
       ? state.capabilities.models
-      : Object.keys(modelNames).map((id) => ({ id, displayName: modelNames[id] }));
+      : [{ id: MVP_DEFAULT_MODEL, displayName: modelNames[MVP_DEFAULT_MODEL] }];
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
     $("#quickModelCurrent").textContent = modelDisplayName(selectedModel);
@@ -723,7 +780,106 @@
     $("#quickReasoningOptions").innerHTML = efforts.map((effort) => {
       const selected = effort === selectedReasoning;
       return `<button type="button" data-quick-reasoning="${escapeHtml(effort)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(quickReasoningNames[effort] || reasoningMeta[effort]?.label || effort)}</span><i>✓</i></button>`;
-    }).join("");
+      }).join("");
+  }
+
+  function renderRuntimeControls() {
+    const runtime = state.capabilities?.runtime || {};
+    if (state.harness && state.harness !== "auto" && runtime[state.harness]?.available === false) {
+      state.harness = "auto";
+    }
+    const profileHost = $("#runtimeProfileOptions");
+    if (profileHost) {
+      if (state.runtimeProfilesError) {
+        profileHost.innerHTML = `<span class="runtime-empty" role="status">${escapeHtml(state.runtimeProfilesError)}</span>`;
+      } else if (!state.runtimeProfiles.length) {
+        profileHost.innerHTML = '<span class="runtime-empty" role="status">暂无可用 Runtime Profile</span>';
+      } else {
+        const selectedModel = state.draftModel || state.model;
+        const availableModels = serviceableModelIds();
+        const capabilitiesKnown = Boolean(state.capabilities);
+        profileHost.innerHTML = state.runtimeProfiles.map((profile) => {
+          const selected = profile.model === selectedModel && (state.harness || "auto") === "auto";
+          const runtimeUnavailable = capabilitiesKnown
+            ? Boolean(profile.harness && runtime[profile.harness]?.available !== true)
+            : profile.harness !== "grok-build";
+          const modelUnavailable = capabilitiesKnown
+            ? !availableModels.includes(profile.model)
+            : profile.model !== MVP_DEFAULT_MODEL;
+          const unavailable = runtimeUnavailable || modelUnavailable;
+          const label = unavailable ? `${profile.name || profile.id}（暂不可用）` : (profile.name || profile.id);
+          return `<button type="button" data-runtime-profile="${escapeHtml(profile.id)}" role="radio" aria-checked="${selected}" aria-disabled="${unavailable}" class="${selected ? "selected" : ""}${unavailable ? " unavailable" : ""}"${unavailable ? " disabled" : ""}><span>${escapeHtml(label)}</span><small>${escapeHtml(modelDisplayName(profile.model))}</small></button>`;
+        }).join("");
+      }
+    }
+    document.querySelectorAll("[data-harness]").forEach((button) => {
+      const id = button.dataset.harness || "auto";
+      const status = id === "auto" ? null : runtime[id];
+      const unavailable = Boolean(status && status.available === false);
+      button.disabled = unavailable;
+      button.setAttribute("aria-disabled", String(unavailable));
+      button.classList.toggle("unavailable", unavailable);
+      const note = button.querySelector("small");
+      if (note) {
+        note.dataset.defaultText ||= note.textContent;
+        note.textContent = unavailable
+          ? id === "google-antigravity" ? "Gemini 暂未启用" : "当前不可用"
+          : note.dataset.defaultText;
+      }
+      button.classList.toggle("selected", id === (state.harness || "auto"));
+    });
+  }
+
+  function renderServerOverview(payload) {
+    const host = $("#serverCenterStatus");
+    if (!host) return;
+    if (!payload) {
+      host.textContent = state.serverOverviewError || "服务器概览暂时不可用，聊天功能不受影响。";
+      return;
+    }
+    const memory = payload.memory || {};
+    const totalBytes = Number(memory.totalBytes || memory.total || 0);
+    const usedBytes = Number(memory.usedBytes || memory.used || 0);
+    const used = totalBytes ? Math.round((usedBytes / totalBytes) * 100) : 0;
+    const services = Array.isArray(payload.http) ? payload.http : (Array.isArray(payload.services) ? payload.services : []);
+    host.innerHTML = `<div class="app-server-metrics"><div><strong>${Number(payload.cpu?.count || 0)}</strong><small>CPU</small></div><div><strong>${used}%</strong><small>Memory</small></div><div><strong>${Math.round(Number(payload.uptimeSeconds || 0) / 3600)}h</strong><small>Uptime</small></div></div><small>${services.map((service) => `${escapeHtml(service.name || "服务")}: ${escapeHtml(service.status || "unknown")}`).join(" · ") || "暂无服务状态"}</small>`;
+    const checked = $("#serverCenterChecked");
+    if (checked) checked.textContent = payload.checkedAt ? new Date(payload.checkedAt).toLocaleString("zh-CN") : "已检查";
+    const link = $("#openWebuiLink");
+    if (link) {
+      if (payload.openWebuiUrl) {
+        link.hidden = false;
+        link.href = payload.openWebuiUrl;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+      } else {
+        link.hidden = true;
+      }
+    }
+  }
+
+  async function loadRuntimeExtras() {
+    state.runtimeProfilesError = "";
+    state.serverOverviewError = "";
+    renderRuntimeControls();
+    try {
+      const profiles = await fetch("/vault-api/runtime/profiles", { credentials: "same-origin", cache: "no-store" });
+      if (!profiles.ok) throw new Error(`Runtime Profile 暂时不可用（${profiles.status}）`);
+      const body = await profiles.json();
+      state.runtimeProfiles = Array.isArray(body.profiles) ? body.profiles : [];
+    } catch (error) {
+      state.runtimeProfiles = [];
+      state.runtimeProfilesError = error?.message || "Runtime Profile 暂时不可用，聊天功能不受影响。";
+    }
+    renderRuntimeControls();
+    try {
+      const overview = await fetch("/vault-api/servers/overview", { credentials: "same-origin", cache: "no-store" });
+      if (!overview.ok) throw new Error(`服务器概览暂时不可用（${overview.status}）`);
+      renderServerOverview(await overview.json());
+    } catch (error) {
+      state.serverOverviewError = error?.message || "服务器概览暂时不可用，聊天功能不受影响。";
+      renderServerOverview(null);
+    }
   }
 
   function renderCapabilities() {
@@ -740,9 +896,11 @@
     });
     if (!capabilities) {
       renderReasoningControl();
+      renderRuntimeControls();
       return;
     }
     const models = Array.isArray(capabilities.models) ? capabilities.models : [];
+    reconcileModelPreference();
     if (models.length) {
       models.forEach((model) => {
         modelNames[model.id] = modelNames[model.id] || model.displayName || model.id;
@@ -760,6 +918,7 @@
     }
     renderReasoningControl();
     renderQuickModelPicker();
+    renderRuntimeControls();
     const enabledSkills = (capabilities.skills || []).filter((skill) => skill.enabled).length;
     const connectedMcp = (capabilities.mcpServers || []).filter((server) =>
       !["failed", "error", "disabled"].includes(server.status)).length;
@@ -891,13 +1050,13 @@
   }
 
   function updateModelControls() {
-    $("#modelLabel").textContent = modelNames[state.model] || "Astra";
+    $("#modelLabel").textContent = modelDisplayName(state.model) || "Grok";
     $("#reasoningLabel").textContent = reasoningNames[state.reasoning] || "均衡";
     $("#accessLabel").textContent = accessNames[state.accessMode] || "完全访问";
     $("#projectLabel").textContent = projectName(state.workDir);
     $("#moreProjectLabel").textContent = projectName(state.workDir);
     document.querySelectorAll("[data-model]").forEach((button) =>
-      button.classList.toggle("selected", button.dataset.model === state.draftModel));
+      button.classList.toggle("selected", button.dataset.model === (state.draftModel || state.model)));
     document.querySelectorAll("[data-access]").forEach((button) =>
       button.classList.toggle("selected", button.dataset.access === state.draftAccessMode));
     renderCapabilities();
@@ -913,29 +1072,6 @@
     localStorage.setItem("wit_model_preference", state.model);
     localStorage.setItem("wit_reasoning_preference", state.reasoning);
     localStorage.setItem("wit_access_preference", state.accessMode);
-  }
-
-  function restorePreferredSettings(conversation) {
-    if (!state.restorePreferredSettingsOnLaunch) return false;
-    state.restorePreferredSettingsOnLaunch = false;
-    if (!conversation || conversation.busy) return false;
-    const changed = conversation.model !== state.preferredModel ||
-      conversation.reasoning !== state.preferredReasoning ||
-      conversation.accessMode !== state.preferredAccessMode;
-    state.model = state.preferredModel;
-    state.reasoning = state.preferredReasoning;
-    state.accessMode = state.preferredAccessMode;
-    state.draftModel = state.model;
-    state.draftReasoning = state.reasoning;
-    state.draftAccessMode = state.accessMode;
-    if (changed && state.nativeInitialized && state.activeId) {
-      if (state.supports21) {
-        bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning, state.accessMode);
-      } else {
-        bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning);
-      }
-    }
-    return changed;
   }
 
   function openProject() {
@@ -1673,13 +1809,13 @@
     if (state.activeId) {
       if (state.supports21) {
         bridge()?.updateConversationSettings?.(
-          state.activeId, state.model, state.reasoning, state.accessMode);
+          state.activeId, state.model, state.reasoning, state.accessMode, state.harness || "auto");
       } else {
         bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning);
       }
     }
     if (closeSheet) closeSettings();
-    if (announce) toast(`已切换 · ${modelNames[state.model]} · ${reasoningNames[state.reasoning]}`);
+    if (announce) toast(`已切换 · ${modelDisplayName(state.model)} · ${reasoningNames[state.reasoning]}`);
   }
 
   function closeSettings() {
@@ -2898,9 +3034,11 @@
     state.model = conversation.model || state.model;
     state.reasoning = conversation.reasoning || state.reasoning;
     state.accessMode = conversation.accessMode || state.accessMode;
+    state.draftModel = state.model;
+    state.draftReasoning = state.reasoning;
+    state.draftAccessMode = state.accessMode;
     state.codexProfile = conversation.codexProfile || "default";
     state.workDir = conversation.workDir || "";
-    restorePreferredSettings(conversation);
     persistConversation(conversation);
     updateModelControls();
     setConnected(true, conversation.busy ? "Witt 正在处理" : "服务器在线");
@@ -2927,6 +3065,7 @@
   }
 
   function requestConversationCreation(workDir, callback = null) {
+    if (!state.activeId) prepareNewConversationSettings();
     state.afterCreate = callback;
     const nativeBridge = bridge();
     if (typeof nativeBridge?.createConversation !== "function") {
@@ -3089,6 +3228,7 @@
         $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
         hideActivation();
         bridge()?.requestCapabilities?.();
+        void loadRuntimeExtras();
         hydrateConversationCache().finally(() => bridge()?.requestConversations?.());
         return;
       }
@@ -3115,6 +3255,7 @@
       $("#inviteCode").value = "";
       hideActivation();
       bridge()?.requestCapabilities?.();
+      void loadRuntimeExtras();
       setConnected(true, "设备已激活");
       toast(`已激活：${payload.principal?.label || "此设备"}`);
       state.cacheHydrated = false;
@@ -3149,6 +3290,7 @@
         state.activeId = null;
         state.active = null;
         state.workDir = "";
+        prepareNewConversationSettings();
         updateModelControls();
         renderMessages();
       }
@@ -3156,6 +3298,8 @@
     onCapabilities(json) {
       state.capabilities = JSON.parse(json);
       renderCapabilities();
+      reconcileModelPreference();
+      renderRuntimeControls();
     },
     onCapabilitiesError(message) {
       const serverLive = $("#appServerLive");
@@ -3228,6 +3372,9 @@
       state.model = conversation.model || state.model;
       state.reasoning = conversation.reasoning || state.reasoning;
       state.accessMode = conversation.accessMode || state.accessMode;
+      state.draftModel = state.model;
+      state.draftReasoning = state.reasoning;
+      state.draftAccessMode = state.accessMode;
       state.codexProfile = conversation.codexProfile || "default";
       state.workDir = conversation.workDir || "";
       updateModelControls();
@@ -3429,6 +3576,9 @@
       state.model = conversation.model;
       state.reasoning = conversation.reasoning;
       state.accessMode = conversation.accessMode;
+      state.draftModel = state.model;
+      state.draftReasoning = state.reasoning;
+      state.draftAccessMode = state.accessMode;
       state.codexProfile = conversation.codexProfile || "default";
       state.workDir = conversation.workDir || "";
       persistConversation(conversation);
@@ -3614,6 +3764,7 @@
     state.workDir = state.codexProfile === "xuanyu" ? "/data/xuanyu-build-console" : "";
     localStorage.setItem("wit_codex_profile", state.codexProfile);
     localStorage.removeItem("wit_active_conversation");
+    prepareNewConversationSettings();
     resetComposer();
     restoreDraft();
     updateModelControls();
@@ -3694,6 +3845,10 @@
     bridge()?.requestConversationPage?.(state.activeId, String(state.active.messageOffset), 40);
   });
   $("#workspaceOverviewButton").addEventListener("click", openWorkspaceOverview);
+  $("#runtimeSettingsButton").addEventListener("click", () => {
+    closeDrawer();
+    openSettings();
+  });
   $("#closeWorkspace").addEventListener("click", closeWorkspaceOverview);
   $("#workspaceBackdrop").addEventListener("click", closeWorkspaceOverview);
   $("#refreshWorkspace").addEventListener("click", requestWorkspaceOverview);
@@ -4306,6 +4461,7 @@
     const model = event.target.closest("[data-quick-model]")?.dataset.quickModel;
     if (!model) return;
     state.draftModel = model;
+    state.harness = "auto";
     const offered = availableReasoningEfforts();
     if (!offered.includes(state.draftReasoning)) state.draftReasoning = offered.includes("medium") ? "medium" : offered[0];
     applySettings({ closeSheet: false });
@@ -4338,6 +4494,7 @@
     const model = event.target.closest("[data-model]")?.dataset.model;
     if (!model) return;
     state.draftModel = model;
+    state.harness = "auto";
     updateModelControls();
   });
   const selectReasoning = (event) => {
@@ -4355,6 +4512,24 @@
     updateModelControls();
   });
   $("#saveSettings").addEventListener("click", () => applySettings());
+  document.addEventListener("click", (event) => {
+    const harness = event.target.closest?.("[data-harness]");
+    if (harness && !harness.disabled) {
+      state.harness = harness.dataset.harness;
+      renderRuntimeControls();
+    }
+    const profile = event.target.closest?.("[data-runtime-profile]");
+    if (profile && !profile.disabled) {
+      const selected = (state.runtimeProfiles || []).find((item) => item.id === profile.dataset.runtimeProfile);
+      if (!selected) return;
+      state.draftModel = selected.model;
+      state.draftReasoning = selected.reasoning;
+      state.harness = "auto";
+      applySettings({ closeSheet: false });
+      renderRuntimeControls();
+      toast(`${selected.name || selected.id} · Auto`);
+    }
+  });
   $("#forkConversationButton").addEventListener("click", () => {
     if (state.activeId) bridge()?.forkConversation?.(state.activeId);
   });

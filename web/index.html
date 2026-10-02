@@ -234,7 +234,7 @@
             <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
           </button>
           <button class="composer-model" id="modelButton" aria-label="模型与智能程度">
-            <span class="model-spark">✦</span><b id="modelLabel">Astra</b><i></i><span id="reasoningLabel">均衡</span>
+            <span class="model-spark">✦</span><b id="modelLabel">Grok 4.7 High</b><i></i><span id="reasoningLabel">均衡</span>
             <span id="accessLabel" class="visually-hidden">完全访问</span>
           </button>
           <button class="voice-button" id="voiceButton" aria-label="语音模式暂未接入" title="语音模式暂未接入" disabled>
@@ -252,7 +252,7 @@
       </div>
       <section class="quick-model-menu" id="quickModelMenu" aria-hidden="true" aria-label="模型与智能程度">
         <button class="quick-model-row" id="quickModelExpand" aria-expanded="false">
-          <span>模型</span><strong id="quickModelCurrent">GPT-6-Astra</strong><svg viewBox="0 0 24 24"><path d="m9 5 6 7-6 7"/></svg>
+          <span>模型</span><strong id="quickModelCurrent">Grok 4.7 High</strong><svg viewBox="0 0 24 24"><path d="m9 5 6 7-6 7"/></svg>
         </button>
         <div class="quick-model-options" id="quickModelOptions" role="radiogroup" aria-label="选择模型"></div>
         <div class="quick-picker-divider"></div>
@@ -331,6 +331,7 @@
       </section>
       <div class="drawer-tools">
         <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>↗</span></button>
+        <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet">模型、Harness 与服务器</button>
         <div class="drawer-utilities">
           <button class="drawer-profile" id="profileButton">
             <span class="profile-monogram">W</span>
@@ -541,7 +542,7 @@
        <section class="model-picker-section">
         <div class="settings-section-head"><h3>选择模型</h3><small>由 App Server 实时提供</small></div>
         <div class="model-options" role="radiogroup" aria-label="选择模型">
-          <button data-model="gpt-6-astra"><span class="model-glyph astra">A</span><span><strong>Astra</strong><small>旗舰智能与复杂任务</small></span><i></i></button>
+          <button type="button" data-model="grok-4.7-high"><span class="model-glyph grok">G</span><span><strong>Grok 4.7 High</strong><small>Grok Build · 复杂任务</small></span><i></i></button>
         </div>
       </section>
       <section class="reasoning-picker-section">
