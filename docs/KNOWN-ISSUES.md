@@ -48,10 +48,10 @@ Open problems that are real and unresolved. Nothing here is hidden or softened.
 
 7. **Sticky sessions / session affinity.** CPA's credential pool behaviour was
    not researched, so Witt deliberately adds no routing keys or account hashing.
-8. **UI manual acceptance.** The workspace, profile selector, model selector,
-   provider status, harness indicator, error states, Server Center and the Open
-   WebUI entry have not been checked in a real browser at desktop and mobile
-   widths. Playwright is not installed in this environment.
+8. **Physical-device acceptance.** The public HTTPS workspace passed automated
+   Edge acceptance at desktop and mobile viewports, including activation, model
+   selection, real Grok replies, persistence and responsive controls. A person
+   has not yet completed the same flow on a physical phone.
 9. **Codex live regression.** The claim that the Codex harness is unaffected rests
    on unit tests and the upstream suite, not on a live Codex turn.
 
@@ -61,7 +61,8 @@ These are recorded so a failure is never mistaken for a regression:
 
 10. `backend/test-workspace-overview.js` assumes Linux `os.networkInterfaces`
    output and fails on the Windows development host. Pre-existing.
-11. `tests/ui-check.mjs` needs `playwright`, which is not installed. Pre-existing.
+11. `tests/ui-check.mjs` needs `playwright`, which is not installed in the product
+    repository. Browser acceptance is run from an external test harness instead.
 
 ## Fixed during this pass
 

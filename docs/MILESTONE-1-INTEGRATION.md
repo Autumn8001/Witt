@@ -29,6 +29,8 @@ Private main remains the Witt baseline and is not a product branch.
 | 2026-10-01 outage | CPA to xAI | xAI raised its minimum Grok client version. CPA v8.0.7 still sent `x-grok-client-version: 0.2.120`, so both direct CPA protocols and Witt failed with HTTP 426 although Grok Build itself was 1.0.44 | FAIL, ROOT CAUSE CONFIRMED |
 | 2026-10-01 recovery | CPA auth metadata | Applied the upstream-documented per-auth header override (`1.0.44`) after a root-only backup. No token values were printed or changed. Direct CPA smoke returned 200, then Witt live E2E returned 27/27 PASS | PASS |
 | hardening | Runtime isolation | Harness children receive a minimal system environment plus the explicitly bound provider secret; access modes map to safe Grok permission modes; cancellation escalates after a grace period; raw stderr is no longer returned to browser/SSE clients | PASS (unit + live regression) |
+| 2026-10-02 MVP | Public mobile workspace | Witt runs as an enabled systemd service on `127.0.0.1:3003`; the existing TLS host serves `/vault/` and proxies `/vault-api/` without changing CPA's routes | PASS |
+| 2026-10-02 MVP | Browser acceptance | Public Edge run covered activation, Grok-only model discovery, runtime/provider/server status, two real Grok replies, reload persistence, and desktop/mobile controls | 25/25 PASS; 0 console/page errors |
 
 ## Live end-to-end result (Witt backend -> Grok Build -> CPA -> Grok 4.7)
 
@@ -62,4 +64,6 @@ Run on the server with the real backend, real CLI and real gateway.
 | T-MCP-02 | MCP tool called through Witt | PASS |
 | T-MCP-03 | MCP result reached the model (`WITT_MCP_OK`) | PASS |
 
-The backend was stopped after the run and port 3003 was released.
+The milestone E2E backend was stopped after that isolated run. The later mobile
+MVP deployment installs a separate persistent `witt.service`, which now owns
+the loopback-only port 3003 and is exposed through the existing HTTPS proxy.
