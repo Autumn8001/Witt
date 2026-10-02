@@ -52,6 +52,8 @@ test("only serviceable runtime profiles can be selected and harness defaults to 
   assert.match(app, /state\.harness = "auto";/);
   assert.match(app, /state\.draftReasoning = selected\.reasoning;/);
   assert.match(app, /state\.activeId, state\.model, state\.reasoning, state\.accessMode, state\.harness/);
+  assert.match(app, /runtime\.codex\?\.available !== true/);
+  assert.match(app, /if \(harness && harness !== "codex"\)/);
 });
 
 test("static first paint and settings placeholder are Grok-only", () => {

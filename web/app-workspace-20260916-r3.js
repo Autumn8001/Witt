@@ -785,6 +785,11 @@
 
   function renderRuntimeControls() {
     const runtime = state.capabilities?.runtime || {};
+    const codexAccounts = $("#codexAccountsButton");
+    if (codexAccounts && state.capabilities?.runtime) {
+      codexAccounts.hidden = runtime.codex?.available !== true ||
+        (!state.admin && state.allowedCodexProfiles.length < 2);
+    }
     if (state.harness && state.harness !== "auto" && runtime[state.harness]?.available === false) {
       state.harness = "auto";
     }
@@ -1016,6 +1021,14 @@
   }
 
   function refreshUsage() {
+    const selected = selectedModelCapability();
+    const harness = selected?.harness || (/^(gpt|deepseek)-/.test(state.model) ? "codex" : "");
+    if (harness && harness !== "codex") {
+      state.usage = null;
+      state.usageLoading = false;
+      updateQuotaStatus();
+      return;
+    }
     if (state.usageLoading || typeof bridge()?.requestUsage !== "function") return;
     state.usageLoading = true;
     bridge().requestUsage(state.activeId || "");
