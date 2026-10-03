@@ -10,6 +10,8 @@ const {
   ChatService, NON_ADMIN_MODELS, servePublicArtifactPreview, servePublicArtifactSource,
 } = require("./chat-service");
 const { CodexAccountService } = require("./codex-account-service");
+const { CpaQuotaService } = require("./cpa-quota");
+const { createCpaQuotaRoutes } = require("./routes/cpa-quota");
 const { claimStandby } = require("./failover");
 const { ProviderRegistry } = require("./runtime/provider-registry");
 const { RuntimeProfileStore } = require("./runtime/runtime-profiles");
@@ -226,6 +228,7 @@ const providerRegistry = new ProviderRegistry({
   file: process.env.WITT_PROVIDER_REGISTRY || path.join(authDir, "providers.json"),
 });
 const runtimeProfiles = new RuntimeProfileStore();
+const cpaQuotaRoutes = createCpaQuotaRoutes({ service: new CpaQuotaService(), sendJson });
 
 // Seed the registry with the gateways that actually exist on this host. Values
 // come from the environment so no endpoint or secret is hardcoded in source.
@@ -797,6 +800,7 @@ http.createServer((req, res) => {
     sendJson(res, 401, { error: "未授权" });
     return;
   }
+  if (cpaQuotaRoutes(req, res, url, principal)) return;
   if (url.pathname === "/failover/claim") {
     if (req.method !== "POST") {
       sendJson(res, 405, { error: "请求方式不支持" });

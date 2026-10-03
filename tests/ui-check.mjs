@@ -56,8 +56,17 @@ await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
   origin: "https://wit.test",
 });
 const errors = [];
+const expectedQuotaErrors = new Set();
+let expectedQuotaErrorCount = 0;
 page.on("console", (message) => {
-  if (message.type() === "error") errors.push(`${message.text()} @${message.location().url || "unknown"}`);
+  if (message.type() === "error") {
+    const status = message.text().match(/status of (\d+)/)?.[1];
+    if (message.location().url === "https://wit.test/vault-api/providers/cpa/quotas" && expectedQuotaErrors.has(status)) {
+      expectedQuotaErrorCount++;
+      return;
+    }
+    errors.push(`${message.text()} @${message.location().url || "unknown"}`);
+  }
 });
 page.on("pageerror", (error) => errors.push(error.message));
 
@@ -497,11 +506,12 @@ const installBridge = ({ conversation, now }) => {
 };
 
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-const cssNames = ["component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css"];
+const cssNames = ["profile-overview.css", "component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css"];
 const cssFiles = new Map(cssNames.map((name) => [
   name, readFileSync(new URL(`../web/${name}`, import.meta.url), "utf8"),
 ]));
 const js = readFileSync(new URL("../web/app-workspace-20260916-r3.js", import.meta.url), "utf8");
+const profileOverviewJs = readFileSync(new URL("../web/profile-overview.js", import.meta.url), "utf8");
 const browserBridgeJs = readFileSync(new URL("../web/browser-bridge.js", import.meta.url), "utf8");
 const katexJs = readFileSync(new URL("../web/vendor/katex/katex.min.js", import.meta.url), "utf8");
 const katexCss = readFileSync(new URL("../web/vendor/katex/katex.min.css", import.meta.url), "utf8");
@@ -523,12 +533,41 @@ await page.route("**/vault/**", async (route) => {
   if (pathname.endsWith("xterm.js")) return route.fulfill({ contentType: "application/javascript", body: xtermJs });
   if (pathname.endsWith("addon-fit.js")) return route.fulfill({ contentType: "application/javascript", body: xtermFitJs });
   if (pathname.endsWith("addon-web-links.js")) return route.fulfill({ contentType: "application/javascript", body: xtermWebLinksJs });
+  if (pathname.endsWith("profile-overview.js")) return route.fulfill({ contentType: "application/javascript", body: profileOverviewJs });
   if (pathname.endsWith("browser-bridge.js")) return route.fulfill({ contentType: "application/javascript", body: browserBridgeJs });
   if (pathname.endsWith(".js")) return route.fulfill({ contentType: "application/javascript", body: pathname.endsWith("katex.min.js") ? katexJs : js });
   if (pathname.includes("/fonts/")) return route.fulfill({ status: 204 });
   if (pathname.endsWith(".svg")) return route.fulfill({ contentType: "image/svg+xml", body: icon });
   return route.fulfill({ contentType: "text/html", body: html });
 });
+let cpaQuotaScenario = "ready";
+let cpaQuotaRequests = 0;
+const cpaQuotaFixture = {
+  provider: "cpa", status: "ready", checkedAt: "2026-10-03T12:00:00Z",
+  quotaCheckedAt: "2026-10-03T12:00:00Z", stale: false, cached: false,
+  families: [
+    { id: "grok", modelCount: 4, status: "ready", accounts: 2, checkedAccounts: 2,
+      remainingPercent: 70, basis: "total", total: 20000, used: 6000, remaining: 14000, unit: "USD cents",
+      rows: [{ account: 1, label: "Grok 月度额度", window: "monthly", remainingPercent: 70, resetAt: "2026-11-01T00:00:00Z" }] },
+    { id: "gemini", modelCount: 9, status: "ready", accounts: 1, checkedAccounts: 1,
+      remainingPercent: 45, basis: "lowest", total: null, used: null, remaining: null, unit: null,
+      rows: [{ account: 1, label: "Gemini 模型组", window: "weekly", remainingPercent: 45, resetAt: "2026-10-10T00:00:00Z" }] },
+  ],
+};
+await page.route("**/vault-api/providers/cpa/quotas", (route) => {
+  cpaQuotaRequests++;
+  if (cpaQuotaScenario === "error") return route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"quota_unavailable"}' });
+  if (cpaQuotaScenario === "forbidden") return route.fulfill({ status: 403, contentType: "application/json", body: '{"error":"admin_required"}' });
+  const body = cpaQuotaScenario === "missing" ? {
+    status: "management_auth_required", checkedAt: "2026-10-03T12:00:00Z",
+    families: ["grok", "gemini"].map((id) => ({ id, status: "management_auth_required", modelCount: 1, remainingPercent: null, total: null, rows: [] })),
+  } : cpaQuotaFixture;
+  return route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+});
+await page.route("**/vault-api/chat/capabilities", (route) => route.fulfill({
+  contentType: "application/json",
+  body: JSON.stringify({ runtime: { "grok-build": { available: true }, codex: { available: false } } }),
+}));
 await page.route("**/vault-api/version", (route) => route.fulfill({
   contentType: "application/json",
   body: JSON.stringify({ backendSha: "abcdef0123456789abcdef0123456789abcdef01" }),
@@ -1836,6 +1875,51 @@ for (const [status, stage, sha, button] of [
   }
   await page.locator("#closeActionDetail").evaluate((node) => node.click());
 }
+
+// Profile overview reads CPA quotas independently of the current chat model.
+await page.locator("#profileButton").evaluate((node) => node.click());
+await page.waitForFunction(() => document.querySelector('[data-quota-family="grok"] .model-quota-value strong')?.textContent === "70%");
+if (!(await page.locator('[data-quota-family="grok"]').textContent()).includes("$200")) throw new Error("Grok total quota not shown");
+if (!(await page.locator('[data-quota-family="gemini"]').textContent()).includes("未提供")) throw new Error("Unknown Gemini total was invented");
+if ((await page.locator("#modelQuotaOverview [role=progressbar]").count()) !== 2) throw new Error("Known family quota progress missing");
+await page.locator("#extensionRuntimeStatus").waitFor();
+for (const theme of ["light", "dark"]) {
+  await page.evaluate((value) => document.documentElement.dataset.theme = value, theme);
+  for (const viewport of [{ width: 360, height: 800 }, { width: 620, height: 900 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    const overflow = await page.locator(".profile-panel").evaluate((node) => node.scrollWidth > node.clientWidth + 1);
+    if (overflow) throw new Error("Model quota profile overflows " + JSON.stringify({ theme, viewport }));
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator(".profile-panel").evaluate((node) => { node.scrollTop = 0; });
+  await page.screenshot({ path: "tests/ui-profile-" + theme + ".png", fullPage: false });
+}
+expectedQuotaErrors.add("503");
+expectedQuotaErrors.add("403");
+cpaQuotaScenario = "error";
+await page.locator("[data-refresh-quota]").click();
+await page.waitForFunction(() => document.querySelector("#modelQuotaOverview").dataset.state === "stale");
+if ((await page.locator('[data-quota-family="grok"] .model-quota-value strong').textContent()) !== "70%") throw new Error("Refresh failure lost last quota");
+cpaQuotaScenario = "missing";
+await page.locator("[data-refresh-quota]").click();
+await page.waitForFunction(() => document.querySelector("#modelQuotaOverview").dataset.state === "management_auth_required");
+if (await page.locator("#modelQuotaOverview [role=progressbar]").count()) throw new Error("Unknown quotas show fabricated progress");
+if (!(await page.locator("[data-quota-note]").textContent()).includes("管理认证")) throw new Error("Missing quota authentication not explained");
+cpaQuotaScenario = "ready";
+await page.locator("[data-refresh-quota]").click();
+await page.waitForFunction(() => document.querySelector("#modelQuotaOverview").dataset.state === "ready");
+cpaQuotaScenario = "forbidden";
+await page.locator("[data-refresh-quota]").click();
+await page.waitForFunction(() => document.querySelector("#modelQuotaOverview").dataset.state === "error");
+if ((await page.locator('[data-quota-family="grok"] .model-quota-value strong').textContent()) !== "—") throw new Error("Admin quota cache visible after authorization denial");
+if (!(await page.locator("[data-quota-note]").textContent()).includes("仅管理员")) throw new Error("Quota access restriction not explained");
+await page.locator("#closeProfile").click();
+await page.waitForTimeout(150);
+const requestsAfterClose = cpaQuotaRequests;
+await page.waitForTimeout(250);
+if (cpaQuotaRequests !== requestsAfterClose) throw new Error("Closed profile fetched CPA quotas");
+cpaQuotaScenario = "ready";
+
 // Real controls: feedback must stay visible in both themes and reduced motion.
 await page.setViewportSize({ width: 390, height: 844 });
 await page.emulateMedia({ reducedMotion: "no-preference" });

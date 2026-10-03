@@ -1,0 +1,44 @@
+/* Model quota overview stays separate from Codex usage accounting. */
+#modelQuotaOverview, .profile-extensions { margin: 0 0 18px; color: var(--ink); }
+.model-quota-head, .profile-extension-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.model-quota-head h3, .profile-extension-head h3 { margin: 0; font-size: 16px; font-weight: 650; }
+.model-quota-head p, .profile-extension-head p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.model-quota-head button, .profile-extensions button { min-height: 44px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--surface-solid); cursor: pointer; font-size: 12px; flex-shrink: 0; }
+.model-quota-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.model-quota-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface-solid); }
+.model-quota-card header, .model-quota-card header > div { display: flex; align-items: center; gap: 8px; }
+.model-quota-card header { justify-content: space-between; flex-wrap: wrap; }
+.model-quota-card h4 { margin: 0; font-size: 16px; }
+.model-family-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: var(--ui-focus); background: var(--ui-focus-halo); font-weight: 700; }
+.model-quota-card header small { font-size: 11px; color: var(--muted); }
+.model-quota-value { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 18px 0 10px; }
+.model-quota-value strong { font-size: 30px; font-weight: 650; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
+.model-quota-value > span { color: var(--muted); font-size: 12px; }
+.model-quota-meter { height: 7px; border-radius: 8px; overflow: hidden; background: var(--line); }
+.model-quota-meter i { display: block; height: 100%; border-radius: inherit; background: var(--ui-focus); transition: width 200ms ease; }
+.model-quota-no-data { padding: 8px 0; font-size: 12px; color: var(--muted); border-bottom: 1px dashed var(--line); }
+.model-quota-totals { display: grid; gap: 7px; margin-top: 14px; font-size: 12px; }
+.model-quota-totals span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--muted); }
+.model-quota-totals b { color: var(--ink); font-weight: 550; font-variant-numeric: tabular-nums; }
+.model-quota-status { margin: 14px 0 7px; font-size: 12px; overflow-wrap: anywhere; }
+.model-quota-card footer, [data-quota-note], [data-quota-updated] { font-size: 11px; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; }
+[data-quota-note] { margin: 12px 0 5px; }
+[data-quota-updated] { display: block; }
+.model-quota-card details { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.model-quota-card summary { padding: 8px 0; cursor: pointer; font-size: 12px; }
+.model-quota-card ul { list-style: none; padding: 0; margin: 0; }
+.model-quota-card li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px 0; font-size: 12px; border-top: 1px solid var(--line); }
+.model-quota-card li div { display: grid; gap: 4px; }
+.model-quota-card li small { color: var(--muted); font-size: 11px; }
+.quota-reset-at { width: 100%; }
+#modelQuotaOverview[data-state="stale"] .model-quota-status { color: #a36a22; }
+.profile-extensions { border-top: 1px solid var(--line); padding-top: 20px; }
+.profile-extension-list { display: grid; gap: 9px; }
+.profile-extension-list article { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-solid); }
+.profile-extension-list article > div { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.profile-extension-list strong { font-size: 13px; }
+.profile-extension-list p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; overflow-wrap: anywhere; }
+.profile-extension-badge { font-size: 11px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); flex-shrink: 0; }
+.profile-usage-heading { margin: 20px 0 12px; font-size: 16px; font-weight: 650; }
+@media (max-width: 420px) { .model-quota-cards { gap: 9px; } .model-quota-card { padding: 12px; } .model-quota-card header { min-height: 54px; align-content: flex-start; } .model-quota-value strong { font-size: 26px; } .model-quota-value { margin-top: 12px; } .model-quota-value > span { font-size: 11px; } .model-quota-card footer { min-height: 36px; } .model-quota-totals { font-size: 11px; } .profile-extension-head { align-items: flex-start; } .profile-extension-list article { align-items: flex-start; } }
+@media (prefers-reduced-motion: reduce) { .model-quota-meter i { transition: none; } }

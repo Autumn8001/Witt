@@ -1052,6 +1052,7 @@
       state.usage = null;
       state.usageLoading = false;
       updateQuotaStatus();
+      renderUsage();
       return;
     }
     if (state.usageLoading || typeof bridge()?.requestUsage !== "function") return;
@@ -1135,7 +1136,10 @@
   function renderUsage() {
     const payload = state.usage;
     if (!payload) {
-      $("#usageContent").innerHTML = `<div class="usage-loading"><i></i><span>正在读取 Token 用量</span></div>`;
+      const codex = selectedModelCapability()?.harness === "codex" || /^(gpt|deepseek)-/.test(state.model);
+      $("#usageContent").innerHTML = codex
+        ? `<div class="usage-loading"><i></i><span>正在读取 Codex 用量</span></div>`
+        : `<div class="usage-error"><strong>当前模型使用 CPA 服务</strong><small>Grok 与 Gemini 额度见上方。Codex 用量会在使用 GPT 时读取。</small></div>`;
       return;
     }
     const summary = payload.summary || {};
@@ -1223,6 +1227,7 @@
     $("#profileSheet").setAttribute("aria-hidden", "false");
     renderUsage();
     refreshUsage();
+    $("#profileSheet .profile-panel").scrollTop = 0;
   }
 
   function renderAdminDevices(devices = []) {

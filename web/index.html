@@ -125,6 +125,7 @@
   </style>
   <link rel="stylesheet" href="/vault/browser-chatgpt.css?v=1.0.0">
   <link rel="stylesheet" href="/vault/component-interactions.css?v=1">
+  <link rel="stylesheet" href="/vault/profile-overview.css?v=1">
 </head>
 <body>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -398,14 +399,32 @@
     <div class="sheet-panel profile-panel">
       <div class="sheet-handle"></div>
       <div class="sheet-head">
-        <div><span class="eyebrow">MY CODEX</span><h2>我的</h2></div>
+        <div><span class="eyebrow">MY WITT</span><h2>我的</h2></div>
         <button class="icon-button" id="closeProfile" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
       <section class="profile-hero">
         <div class="profile-letter">W</div>
-        <div><strong>Witt on your server</strong><small>你的 Codex 使用概览</small></div>
+        <div><strong>Witt on your server</strong><small>模型额度与能力概览</small></div>
         <span>在线</span>
       </section>
+      <section id="modelQuotaOverview" aria-label="CPA 模型额度" aria-busy="false">
+        <header class="model-quota-head"><div><h3>CPA 模型额度</h3><p>Grok 与 Gemini · 每分钟自动刷新</p></div><button type="button" data-refresh-quota>刷新额度</button></header>
+        <div class="model-quota-cards" data-quota-cards>
+          <article class="model-quota-card"><h4>Grok</h4><p class="model-quota-no-data">打开页面后读取真实额度</p></article>
+          <article class="model-quota-card"><h4>Gemini</h4><p class="model-quota-no-data">额度可单独查询，执行暂未启用</p></article>
+        </div>
+        <p data-quota-note role="status">连接 CPA 后展示额度，未提供的总量不会估算。</p><small data-quota-updated>额度更新：暂无</small>
+      </section>
+      <section class="profile-extensions" aria-label="能力与扩展">
+        <header class="profile-extension-head"><div><h3>能力与扩展</h3><p>先完成单设备，再逐步开放</p></div><button type="button" data-extension-settings>执行设置</button></header>
+        <div class="profile-extension-list">
+          <article><div><strong>模型执行</strong><p id="extensionRuntimeStatus">打开后检查 Grok Build 与 Codex；Gemini 执行暂停。</p></div><span class="profile-extension-badge">检查状态</span></article>
+          <article><div><strong>远程设备</strong><p>先验证一台 Windows 电脑连接、hostname 执行及结果回传。</p></div><span class="profile-extension-badge">待实机验收</span></article>
+          <article><div><strong>设备工具连接</strong><p>预留设备列表、设备详情和 hostname 工具；生产接入后再开放。</p></div><span class="profile-extension-badge">待接入</span></article>
+          <article><div><strong>客户与多设备</strong><p>保留扩展位置，单设备验收后再设计账号归属与多设备管理。</p></div><span class="profile-extension-badge">后续阶段</span></article>
+        </div>
+      </section>
+      <h3 class="profile-usage-heading">Codex 用量</h3>
       <div id="usageContent">
         <div class="usage-loading"><i></i><span>正在读取 Token 用量</span></div>
       </div>
@@ -661,6 +680,7 @@
       <button class="workspace-refresh" id="refreshWorkspace">刷新状态</button>
     </section>
   </aside>
+  <script src="/vault/profile-overview.js?v=1"></script>
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
   <script src="/vault/app-workspace-20260916-r3.js?v=3.2.4-development-workflow-files"></script>
 </body>
