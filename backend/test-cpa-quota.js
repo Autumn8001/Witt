@@ -44,6 +44,7 @@ test("real-shaped CPA account responses aggregate without exposing identities or
         { provider: "antigravity", auth_index: "private-index-two", project_id: "private-project" },
         { provider: "xai", auth_index: "disabled", disabled: true },
       ] });
+      assert.ok(url.endsWith("/v0/management/api-call"));
       const request = JSON.parse(options.body);
       assert.equal(request.header.Authorization, "Bearer $TOKEN$");
       if (request.url.includes("grok.com")) {

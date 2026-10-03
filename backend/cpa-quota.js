@@ -141,7 +141,7 @@ class CpaQuotaService {
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
   }
   async proxy(key, account, url, data, extraHeaders = {}) {
-    const response = await this.json("/v0/management/requests/api-call", key, {
+    const response = await this.json("/v0/management/api-call", key, {
       authIndex: String(account.auth_index ?? account.authIndex),
       method: data ? "POST" : "GET", url,
       header: { Authorization: "Bearer $TOKEN$", ...extraHeaders, ...(data ? { "Content-Type": "application/json" } : {}) },
