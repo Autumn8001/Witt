@@ -497,7 +497,7 @@ const installBridge = ({ conversation, now }) => {
 };
 
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-const cssNames = ["styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css"];
+const cssNames = ["component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css"];
 const cssFiles = new Map(cssNames.map((name) => [
   name, readFileSync(new URL(`../web/${name}`, import.meta.url), "utf8"),
 ]));
@@ -1836,6 +1836,70 @@ for (const [status, stage, sha, button] of [
   }
   await page.locator("#closeActionDetail").evaluate((node) => node.click());
 }
+// Real controls: feedback must stay visible in both themes and reduced motion.
+await page.setViewportSize({ width: 390, height: 844 });
+await page.emulateMedia({ reducedMotion: "no-preference" });
+for (const theme of ["light", "dark"]) {
+  await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+  const control = page.locator("#newChatButton");
+  await control.hover();
+  await page.waitForTimeout(180);
+  const hover = await control.evaluate((node) => ({
+    color: getComputedStyle(node).backgroundColor,
+    focusColor: getComputedStyle(document.documentElement).getPropertyValue("--ui-focus").trim(),
+  }));
+  if (hover.color !== (theme === "dark" ? "rgb(54, 59, 56)" : "rgb(243, 244, 244)")) {
+    throw new Error(`Missing ${theme} hover feedback: ${JSON.stringify(hover)}`);
+  }
+  await page.keyboard.press("Tab");
+  await control.focus();
+  const focus = await control.evaluate((node) => ({
+    visible: node.matches(":focus-visible"),
+    width: getComputedStyle(node).outlineWidth,
+    style: getComputedStyle(node).outlineStyle,
+  }));
+  if (!focus.visible || focus.width !== "2px" || focus.style !== "solid") {
+    throw new Error(`Missing keyboard focus ring: ${JSON.stringify(focus)}`);
+  }
+  const box = await control.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(100);
+  const pressed = await control.evaluate((node) => getComputedStyle(node).scale);
+  await page.mouse.move(0, 0);
+  await page.mouse.up();
+  if (Math.abs(Number(pressed) - .97) > .002) {
+    throw new Error(`Missing press feedback: ${pressed}`);
+  }
+  const disabled = await page.locator("#voiceButton").evaluate((node) => ({
+    disabled: node.disabled, opacity: Number(getComputedStyle(node).opacity),
+    pointerEvents: getComputedStyle(node).pointerEvents,
+  }));
+  if (!disabled.disabled || disabled.opacity > .5 || disabled.pointerEvents !== "none") {
+    throw new Error(`Disabled button looks actionable: ${JSON.stringify(disabled)}`);
+  }
+  await page.locator("#messageInput").focus();
+  const ring = await page.locator("#composer").evaluate((node) => getComputedStyle(node).boxShadow);
+  if (!ring.includes("0px 0px 0px 3px")) throw new Error(`Composer focus feedback is absent: ${ring}`);
+  await page.screenshot({ path: `tests/ui-components-${theme}.png`, fullPage: false });
+}
+await page.emulateMedia({ reducedMotion: "reduce" });
+const reduced = await page.locator("#newChatButton").evaluate((node) => ({
+  transition: getComputedStyle(node).transitionDuration,
+  animation: getComputedStyle(node).animationName,
+}));
+if (reduced.transition !== "0s" || reduced.animation !== "none") {
+  throw new Error(`Reduced-motion preference ignored: ${JSON.stringify(reduced)}`);
+}
+await page.emulateMedia({ forcedColors: "active" });
+await page.keyboard.press("Tab");
+await page.locator("#newChatButton").focus();
+if (await page.locator("#newChatButton").evaluate((node) => getComputedStyle(node).outlineStyle) !== "solid") {
+  throw new Error("Forced-colors keyboard focus is absent");
+}
+await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+
 if (errors.length) throw new Error(`Browser errors: ${errors.join(" | ")}`);
 await browser.close();
 console.log("Witt chat UI check passed");
