@@ -24,3 +24,7 @@ Checked: 2026-10-02 14:44 UTC. Production host: ser918228796695; repository: /op
 Build a new release snapshot only from a clean, committed, origin-pushed product branch SHA. Check syntax and tests before switching both systemd and Nginx to that same snapshot. Verify local health, public HTTPS, static file hashes, and deployed SHA after restart. Keep the previous release directory for rollback. Never serve /opt/witt/web directly again.
 
 The proposed /version API and static version.json are not yet part of this release; they must be validated with the next committed release.
+
+## First release attempt after convergence
+
+Commit `57b4e21a916938a5523bff8f0f0b9493a38cde41` was pushed. Its first release attempt failed version verification and automatically restored `ff0a16b`; the service remained healthy. Root cause: `mktemp -d` created the staging directory with mode 0700, and the Nginx worker could not traverse the moved release directory. The deployment script now sets the release directory to 0755 before switching Nginx. The source tree and root-only runtime configuration were not exposed by this change; only `web/` is aliased publicly.

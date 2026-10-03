@@ -24,6 +24,9 @@ if [[ ! -d "$release" ]]; then
   node --check "$staging/backend/chat-service.js"
   mv "$staging" "$release"
 fi
+# mktemp creates staging with mode 0700. Nginx workers must be able to
+# traverse the immutable release directory to serve its public web/ files.
+chmod 755 "$release"
 [[ -f "$release/web/version.json" ]] || printf '{"frontendSha":"%s"}\n' "$sha" > "$release/web/version.json"
 node --check "$release/backend/server.js"
 node --check "$release/backend/chat-service.js"
