@@ -10,6 +10,12 @@ const path = require("node:path");
 const temporaryDir = fs.mkdtempSync(path.join(os.tmpdir(), "witt-deepseek-codex-"));
 const keyFile = path.join(temporaryDir, "key");
 const codexHome = path.join(temporaryDir, "codex-home");
+const codexBin = [
+  process.env.CODEX_BIN,
+  "/usr/local/bin/codex",
+  "/root/.local/bin/codex",
+  "/home/ubuntu/.local/bin/codex",
+].find((candidate) => candidate && fs.existsSync(candidate));
 fs.mkdirSync(codexHome);
 fs.writeFileSync(keyFile, "test-key\n", { mode: 0o600 });
 
@@ -72,6 +78,11 @@ function collect(child) {
 }
 
 async function main() {
+  if (!codexBin) {
+    fs.rmSync(temporaryDir, { recursive: true, force: true });
+    console.log("codex deepseek end-to-end test skipped: Codex CLI is not installed");
+    return;
+  }
   const upstreamPort = await listen(upstream);
   const adapterPort = await freePort();
   fs.writeFileSync(path.join(codexHome, "config.toml"), `
@@ -95,7 +106,7 @@ stream_max_retries = 0
   });
   try {
     await waitForLine(adapter, /listening/);
-    const codex = spawn("/home/ubuntu/.local/bin/codex", [
+    const codex = spawn(codexBin, [
       "exec", "--skip-git-repo-check", "--sandbox", "read-only", "调用工具后完成测试",
     ], {
       cwd: "/home/ubuntu",
