@@ -32,6 +32,17 @@ test("quota units, unknown totals, malformed data and incompatible windows are n
   assert.equal(summarize(rows).remainingPercent, 20);
   assert.equal(summarize(rows).total, null);
 });
+test("Grok weekly protobuf zero shape reports a real unused window", () => {
+  const rows = grokRows({ config: {
+    currentPeriod: { type: "USAGE_PERIOD_TYPE_WEEKLY", start: "2026-10-01T00:00:00Z", end: "2026-10-08T00:00:00Z" },
+    onDemandCap: { val: 0 }, onDemandUsed: { val: 0 }, isUnifiedBillingUser: true,
+  } }, 1);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].label, "Grok 周额度");
+  assert.equal(rows[0].window, "weekly");
+  assert.equal(rows[0].remainingPercent, 100);
+  assert.equal(rows[0].resetAt, "2026-10-08T00:00:00.000Z");
+});
 test("real-shaped CPA account responses aggregate without exposing identities or credentials", async () => {
   const calls = [];
   const service = new CpaQuotaService({

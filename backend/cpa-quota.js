@@ -43,12 +43,21 @@ function grokRows(body, account) {
       resetAt: resetAt(config.billingPeriodEnd ?? config.billing_period_end),
     });
   }
-  const used = percent(config.creditUsagePercent ?? config.credit_usage_percent);
+  const period = config.currentPeriod ?? config.current_period ?? {};
+  const window = /weekly/i.test(period.type ?? "") ? "weekly" : /monthly/i.test(period.type ?? "") ? "monthly" : "unknown";
+  const periodStart = resetAt(period.start);
+  const periodEnd = resetAt(period.end ?? config.billingPeriodEnd ?? config.billing_period_end);
+  let used = percent(config.creditUsagePercent ?? config.credit_usage_percent);
+  // Grok's protobuf JSON omits the scalar at an exact 0%. A valid weekly
+  // period plus explicit zero spend fields is the observable zero-usage shape.
+  if (used === null && window === "weekly" && periodStart && periodEnd &&
+      numeric(config.onDemandCap ?? config.on_demand_cap) === 0 &&
+      numeric(config.onDemandUsed ?? config.on_demand_used) === 0) used = 0;
   if (used !== null) rows.push({
-    account, label: "Grok Credits", window: /weekly/i.test(config.currentPeriod?.type ?? config.current_period?.type ?? "") ? "weekly" : "unknown",
+    account, label: window === "weekly" ? "Grok 周额度" : "Grok Credits", window,
     unit: null, total: null, used: null, remaining: null,
     remainingPercent: 100 - used,
-    resetAt: resetAt(config.currentPeriod?.end ?? config.current_period?.end),
+    resetAt: periodEnd,
   });
   return rows;
 }
