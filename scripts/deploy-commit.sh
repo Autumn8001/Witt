@@ -13,6 +13,11 @@ cd "$repo"
 [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]] || { echo "worktree is not clean" >&2; exit 2; }
 [[ "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" == "$sha" ]] || { echo "origin SHA differs" >&2; exit 2; }
 
+python3 "$repo/scripts/provision-witt-runtime.py"
+(cd "$repo/backend" &&
+  npm ci --omit=dev --ignore-scripts --no-audit --no-fund &&
+  node node_modules/playwright/cli.js install chromium)
+
 releases="$repo/.git/witt-releases"
 release="$releases/$sha"
 mkdir -p "$releases"
