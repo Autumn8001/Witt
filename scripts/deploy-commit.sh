@@ -22,6 +22,7 @@ if [[ ! -d "$release" ]]; then
   printf '{"frontendSha":"%s"}\n' "$sha" > "$staging/web/version.json"
   node --check "$staging/backend/server.js"
   node --check "$staging/backend/chat-service.js"
+  (cd "$staging/backend" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)
   mv "$staging" "$release"
 fi
 # mktemp creates staging with mode 0700. Nginx workers must be able to

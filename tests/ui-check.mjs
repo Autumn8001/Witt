@@ -506,12 +506,13 @@ const installBridge = ({ conversation, now }) => {
 };
 
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-const cssNames = ["profile-overview.css", "component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css"];
+const cssNames = ["profile-overview.css", "component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css", "customer-devices.css"];
 const cssFiles = new Map(cssNames.map((name) => [
   name, readFileSync(new URL(`../web/${name}`, import.meta.url), "utf8"),
 ]));
 const js = readFileSync(new URL("../web/app-workspace-20260916-r3.js", import.meta.url), "utf8");
 const profileOverviewJs = readFileSync(new URL("../web/profile-overview.js", import.meta.url), "utf8");
+const customerDevicesJs = readFileSync(new URL("../web/customer-devices.js", import.meta.url), "utf8");
 const browserBridgeJs = readFileSync(new URL("../web/browser-bridge.js", import.meta.url), "utf8");
 const katexJs = readFileSync(new URL("../web/vendor/katex/katex.min.js", import.meta.url), "utf8");
 const katexCss = readFileSync(new URL("../web/vendor/katex/katex.min.css", import.meta.url), "utf8");
@@ -534,12 +535,16 @@ await page.route("**/vault/**", async (route) => {
   if (pathname.endsWith("addon-fit.js")) return route.fulfill({ contentType: "application/javascript", body: xtermFitJs });
   if (pathname.endsWith("addon-web-links.js")) return route.fulfill({ contentType: "application/javascript", body: xtermWebLinksJs });
   if (pathname.endsWith("profile-overview.js")) return route.fulfill({ contentType: "application/javascript", body: profileOverviewJs });
+  if (pathname.endsWith("customer-devices.js")) return route.fulfill({ contentType: "application/javascript", body: customerDevicesJs });
   if (pathname.endsWith("browser-bridge.js")) return route.fulfill({ contentType: "application/javascript", body: browserBridgeJs });
   if (pathname.endsWith(".js")) return route.fulfill({ contentType: "application/javascript", body: pathname.endsWith("katex.min.js") ? katexJs : js });
   if (pathname.includes("/fonts/")) return route.fulfill({ status: 204 });
   if (pathname.endsWith(".svg")) return route.fulfill({ contentType: "image/svg+xml", body: icon });
   return route.fulfill({ contentType: "text/html", body: html });
 });
+await page.route("**/vault-api/customer-devices", (route) => route.fulfill({
+  contentType: "application/json", body: JSON.stringify({ devices: [] }),
+}));
 let cpaQuotaScenario = "ready";
 let cpaQuotaRequests = 0;
 const cpaQuotaFixture = {

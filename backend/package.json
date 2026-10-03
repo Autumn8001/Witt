@@ -1,4 +1,7 @@
 {
   "private": true,
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "ws": "^8.22.0"
+  }
 }

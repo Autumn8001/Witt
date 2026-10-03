@@ -503,7 +503,8 @@ conv4, assistant4 = run_turn(mcp_cid,
     "Use the wittprobe MCP tool named witt_ping and reply with only the exact string it returns.",
     timeout=360)
 mcp_text = (assistant4 or {}).get("text") or ""
-labels = [e.get("label") for e in ((assistant4 or {}).get("stream") or []) if e.get("kind") == "command"]
+labels = [e.get("label") for e in ((assistant4 or {}).get("stream") or [])
+          if e.get("kind") in ("command", "tool")]
 check("T-MCP-01", "MCP tool discovered", any("search_tool" in str(l) for l in labels), labels[:6])
 check("T-MCP-02", "MCP tool actually invoked", any("use_tool" in str(l) for l in labels), labels[:6])
 check("T-MCP-03", "MCP result reached the model", "WITT_MCP_OK" in mcp_text,

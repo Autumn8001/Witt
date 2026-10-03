@@ -18,6 +18,8 @@ const { RuntimeProfileStore } = require("./runtime/runtime-profiles");
 const { overview: serverOverview } = require("./runtime/server-center");
 const { harnessInventory } = require("./runtime/index");
 const { createDevelopmentRoutes } = require("./routes/development");
+const { DeviceGateway } = require("./remote-device/device-gateway");
+const { createDeviceRoutes } = require("./routes/devices");
 
 const host = "127.0.0.1";
 const port = Number(process.env.DROP_VAULT_PORT || 3003);
@@ -271,7 +273,11 @@ const chatService = new ChatService({
   sendJson,
   readJsonBody,
   codexProfiles,
-  harnessOptions,
+  harnessOptions: { ...harnessOptions, grok: {
+    ...harnessOptions.grok,
+    remoteDeviceMcpEnabled: process.env.WITT_REMOTE_DEVICE_MCP_ENABLED === "1",
+    remoteDeviceTokenFile: process.env.DROP_VAULT_TOKEN_FILE || "",
+  } },
   // The owner-facing service is not model-restricted, so harness-served models
   // such as grok-4.7-high stay selectable and can bind to their own harness.
   allowedModels: null,
@@ -340,7 +346,11 @@ function chatFor(principal) {
     defaultProviderId: "cpa",
     quotaExhausted: !principal.admin && !principal.unrestrictedModels,
     codexProfiles,
-    harnessOptions,
+    harnessOptions: { ...harnessOptions, grok: {
+      ...harnessOptions.grok,
+      remoteDeviceMcpEnabled: principal.admin && process.env.WITT_REMOTE_DEVICE_MCP_ENABLED === "1",
+      remoteDeviceTokenFile: principal.admin ? (process.env.DROP_VAULT_TOKEN_FILE || "") : "",
+    } },
     allowedCodexProfiles: principal.admin
       ? Object.keys(codexProfiles)
       : (principal.codexProfiles || ["default"]),
@@ -351,6 +361,8 @@ function chatFor(principal) {
 
 const { handleDevelopmentWorkflow, handleDevelopmentWorkflowAction, developmentWorkflow } =
   createDevelopmentRoutes({ chatFor, sendJson, readJsonBody });
+const deviceGateway = new DeviceGateway();
+const deviceRoutes = createDeviceRoutes({ gateway: deviceGateway, sendJson, authorized });
 
 function filesFor(principal) {
   return principal.legacy ? dataDir : path.join(userDirectory(principal.userId), "files");
@@ -745,7 +757,7 @@ function handleLicre(req, res, url) {
   return true;
 }
 
-http.createServer((req, res) => {
+const httpServer = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${host}:${port}`);
   if (url.pathname === "/health") {
     sendJson(res, 200, { ok: true });
@@ -786,6 +798,7 @@ http.createServer((req, res) => {
     sendJson(res, 404, { error: "交互预览不存在或已失效" });
     return;
   }
+  if (deviceRoutes.handleInternal(req, res, url)) return;
   const legacyAuthorized = authorized(req);
   const imageRequest = /^\/chat-images\/[a-f0-9-]{36}$/.test(url.pathname);
   let principal = principalFor(req);
@@ -801,6 +814,7 @@ http.createServer((req, res) => {
     return;
   }
   if (cpaQuotaRoutes(req, res, url, principal)) return;
+  if (deviceRoutes.handlePublic(req, res, url, principal)) return;
   if (url.pathname === "/failover/claim") {
     if (req.method !== "POST") {
       sendJson(res, 405, { error: "请求方式不支持" });
@@ -934,7 +948,9 @@ http.createServer((req, res) => {
     return;
   }
   sendJson(res, 404, { error: "接口不存在" });
-}).listen(port, host, () => {
+});
+deviceGateway.attach(httpServer);
+httpServer.listen(port, host, () => {
   console.log(`Witt API listening on http://${host}:${port}`);
   recoverTasks();
   if (port === 3003 && path.resolve(codexWorkDir) === "/opt/witt") {

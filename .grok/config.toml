@@ -1,0 +1,4 @@
+[mcp_servers.witt_remote_device]
+command = "node"
+args = ["/opt/witt/backend/mcp/remote-device.js"]
+enabled = false

@@ -2832,6 +2832,8 @@ class ChatService {
       cwd: this.effectiveWorkDir(conversation),
       envKey: options.envKey || "WITT_CPA_KEY",
       envValue: options.envValue || "",
+      remoteDeviceMcpEnabled: options.remoteDeviceMcpEnabled === true,
+      remoteDeviceTokenFile: options.remoteDeviceTokenFile || "",
       permissionMode: options.permissionMode || grokPermissionMode(conversation.accessMode),
       reasoningEffort: options.reasoningEffort || null,
       timeoutMs: options.timeoutMs,

@@ -1,0 +1,10 @@
+#customerDevices { margin: 20px 0; padding: 16px; border: 1px solid rgba(80,110,105,.22); border-radius: 16px; }
+#customerDevices header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#customerDevices h3 { margin: 0; font-size: 16px; }
+#customerDevices p, #customerDevices small, #customerDevices output { color: var(--ws-muted,#718181); font-size: 12px; line-height: 1.5; }
+#customerDevices button { border: 1px solid rgba(80,110,105,.28); border-radius: 10px; padding: 8px 11px; background: transparent; color: inherit; cursor: pointer; }
+#customerDevices button:disabled { opacity: .45; cursor: default; }
+.customer-device { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px 12px; padding: 15px 0; border-top: 1px solid rgba(80,110,105,.17); }
+.customer-device strong, .customer-device small { display: block; overflow-wrap: anywhere; }
+.customer-device output { grid-column: 1 / -1; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .customer-device { grid-template-columns: 1fr; } .customer-device button { justify-self: start; } }

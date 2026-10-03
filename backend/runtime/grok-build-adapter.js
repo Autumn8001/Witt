@@ -56,6 +56,8 @@ class GrokBuildAdapter {
     this.cwd = options.cwd || process.cwd();
     this.envKey = options.envKey || "WITT_CPA_KEY";
     this.envValue = options.envValue || "";
+    this.remoteDeviceMcpEnabled = options.remoteDeviceMcpEnabled === true;
+    this.remoteDeviceTokenFile = options.remoteDeviceTokenFile || "";
     this.permissionMode = options.permissionMode || "default";
     this.reasoningEffort = options.reasoningEffort || null;
     this.timeoutMs = Number(options.timeoutMs || 15 * 60 * 1000);
@@ -72,6 +74,10 @@ class GrokBuildAdapter {
   childEnv() {
     const env = {};
     if (this.envKey && this.envValue) env[this.envKey] = this.envValue;
+    env.WITT_REMOTE_DEVICE_MCP_ENABLED = this.remoteDeviceMcpEnabled ? "1" : "0";
+    if (this.remoteDeviceMcpEnabled && this.remoteDeviceTokenFile) {
+      env.DROP_VAULT_TOKEN_FILE = this.remoteDeviceTokenFile;
+    }
     return env;
   }
 
