@@ -1761,7 +1761,7 @@ if (!(await page.locator("#sendButton").evaluate((node) => node.classList.contai
 }
 await page.locator(".message.user.sending").waitFor({ state: "detached" });
 await page.locator(".message.user").waitFor();
-for (const viewport of [{ width: 360, height: 800 }, { width: 620, height: 900 }]) {
+for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 620, height: 900 }]) {
   await page.setViewportSize(viewport);
   const layout = await page.evaluate(() => ({
     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -1909,7 +1909,7 @@ if (!(await page.locator('[data-quota-family="grok"] details').evaluate((node) =
 await page.locator('[data-quota-family="grok"] summary').click();
 for (const theme of ["light", "dark"]) {
   await page.evaluate((value) => document.documentElement.dataset.theme = value, theme);
-  for (const viewport of [{ width: 360, height: 800 }, { width: 620, height: 900 }, { width: 1024, height: 900 }, { width: 844, height: 390 }]) {
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 620, height: 900 }, { width: 1024, height: 900 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport);
     const overflow = await page.locator(".profile-panel").evaluate((node) => node.scrollWidth > node.clientWidth + 1);
     if (overflow) throw new Error("Model quota profile overflows " + JSON.stringify({ theme, viewport }));
@@ -1933,6 +1933,20 @@ for (const theme of ["light", "dark"]) {
   await page.screenshot({ path: "tests/ui-profile-desktop-" + theme + ".png", fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator(".profile-panel").evaluate((node) => { node.scrollTop = 0; });
+  const phoneLayout = await page.locator(".profile-panel").evaluate((panel) => {
+    const cards = [...panel.querySelectorAll(".model-quota-card")].map((node) => node.getBoundingClientRect());
+    const buttons = [...panel.querySelectorAll("#closeProfile, [data-refresh-quota], [data-extension-settings], .model-quota-card summary")].map((node) => node.getBoundingClientRect());
+    const paragraphs = [...panel.querySelectorAll(".profile-extension-list p")];
+    const bounded = [...panel.querySelectorAll("#modelQuotaOverview *, .profile-extension-list *")].every((node) => node.scrollWidth <= node.clientWidth + 1);
+    return {
+      stacked: cards.length === 2 && cards[1].top >= cards[0].bottom - 1 && Math.abs(cards[0].left - cards[1].left) < 1,
+      wide: cards.every((box) => box.width >= 280),
+      tappable: buttons.every((box) => box.width >= 44 && box.height >= 44),
+      fullDescriptions: paragraphs.every((node) => node.getBoundingClientRect().width >= node.closest("article").getBoundingClientRect().width - 1),
+      bounded,
+    };
+  });
+  if (Object.values(phoneLayout).some((value) => !value)) throw new Error("390px profile layout failed: " + JSON.stringify({ theme, phoneLayout }));
   await page.screenshot({ path: "tests/ui-profile-" + theme + ".png", fullPage: false });
 }
 expectedQuotaErrors.add("503");
