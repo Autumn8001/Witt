@@ -59,6 +59,14 @@ async function capabilities(service, sent) {
   return { status: last.status, payload: last.body, raw: JSON.stringify(last.body) };
 }
 
+test("the shared developer prompt is provider-neutral", (t) => {
+  const { service, root } = makeService();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const prompt = service.buildDeveloperInstructions({ workDir: root });
+  assert.match(prompt, /AI 开发助手 Witt/);
+  assert.doesNotMatch(prompt, /Codex 助手 Witt/);
+});
+
 function queueTurn(service, conversationId, text = "hello") {
   const conversation = service.readConversation(conversationId);
   const userId = crypto.randomUUID();

@@ -396,7 +396,7 @@ function runNextTask() {
   writeTask(task);
 
   const context = [
-    "你是运行在用户私人服务器上的 Codex 助手 Witt。",
+    "你是运行在用户私人服务器上的 AI 开发助手 Witt。",
     `固定工作目录：${codexWorkDir}`,
     `Witt 文件目录：${dataDir}`,
     "只处理用户这条消息明确要求的任务；保留现有数据和未提交修改。",

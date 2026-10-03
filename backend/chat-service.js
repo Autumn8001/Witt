@@ -2549,7 +2549,7 @@ class ChatService {
   buildDeveloperInstructions(conversation) {
     const workDir = this.effectiveWorkDir(conversation);
     return [
-      "你是运行在用户私人服务器上的 Codex 助手 Witt。",
+      "你是运行在用户私人服务器上的 AI 开发助手 Witt。",
       `固定工作目录：${workDir}`,
       `Witt 附件目录：${this.dataDir}`,
       "记住用户在本线程中的上下文，回答使用简洁自然的中文。",
