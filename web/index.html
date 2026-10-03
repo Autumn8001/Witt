@@ -125,8 +125,8 @@
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
   <link rel="stylesheet" href="/vault/browser-chatgpt.css?v=1.0.0">
-  <link rel="stylesheet" href="/vault/component-interactions.css?v=1">
-  <link rel="stylesheet" href="/vault/profile-overview.css?v=3-mobile-layout">
+  <link rel="stylesheet" href="/vault/component-interactions.css?v=2-transcript-inset">
+  <link rel="stylesheet" href="/vault/profile-overview.css?v=4-profile-hierarchy">
 </head>
 <body>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -414,7 +414,7 @@
           <article class="model-quota-card"><h4>Grok</h4><p class="model-quota-no-data">打开页面后读取真实额度</p></article>
           <article class="model-quota-card"><h4>Gemini</h4><p class="model-quota-no-data">额度可单独查询，执行暂未启用</p></article>
         </div>
-        <p data-quota-note role="status">连接 CPA 后展示额度，未提供的总量不会估算。</p><small data-quota-updated>额度更新：暂无</small>
+        <details class="quota-information" data-quota-information><summary>额度说明与更新时间</summary><p data-quota-note role="status">连接 CPA 后展示额度，未提供的总量不会估算。</p><small data-quota-updated>额度更新：暂无</small></details>
       </section>
       <section class="profile-extensions" aria-label="能力与扩展">
         <header class="profile-extension-head"><div><h3>能力与扩展</h3><p>先完成单设备，再逐步开放</p></div><button type="button" data-extension-settings>执行设置</button></header>

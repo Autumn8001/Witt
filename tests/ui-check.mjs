@@ -965,6 +965,11 @@ if (nextShell.videoCount !== 0 || nextShell.atmosphereLayers !== 3 ||
   throw new Error(`Workspace shell was not applied: ${JSON.stringify(nextShell)}`);
 }
 await page.waitForTimeout(80);
+const transcriptInset = await page.evaluate(() => ({
+  top: document.getElementById("chatStage").getBoundingClientRect().top,
+  controls: Math.max(...[...document.querySelectorAll(".compact-nav-button")].map((node) => node.getBoundingClientRect().bottom)),
+}));
+if (transcriptInset.top < transcriptInset.controls) throw new Error("Transcript scroll viewport overlaps navigation: " + JSON.stringify(transcriptInset));
 await page.screenshot({ path: "tests/ui-next-chat-mobile.png", fullPage: false });
 await page.setViewportSize({ width: 844, height: 390 });
 await page.waitForTimeout(140);
@@ -1893,7 +1898,7 @@ for (const [status, stage, sha, button] of [
 await page.locator("#profileButton").evaluate((node) => node.click());
 await page.waitForFunction(() => document.querySelector('[data-quota-family="grok"] .model-quota-value strong')?.textContent === "70%");
 if (!(await page.locator('[data-quota-family="grok"]').textContent()).includes("$200")) throw new Error("Grok total quota not shown");
-if (!(await page.locator('[data-quota-family="grok"] .model-quota-capacity').textContent()).includes("1个账号额度为 100%")) throw new Error("Grok full-account capacity not shown");
+if (!(await page.locator('[data-quota-family="grok"] .model-quota-capacity').textContent()).includes("满额账号1/ 2")) throw new Error("Grok full-account capacity not shown");
 if (!(await page.locator('[data-quota-family="grok"] .model-quota-capacity').textContent()).includes("共 2 个账号 · 部分额度 1 · 已耗尽 0")) throw new Error("Grok account capacity breakdown not shown");
 if ((await page.locator('[data-quota-family="gemini"] .model-quota-capacity').count()) !== 0) throw new Error("Grok-specific account capacity leaked into Gemini");
 if (!(await page.locator('[data-quota-family="gemini"]').textContent()).includes("未提供")) throw new Error("Unknown Gemini total was invented");
@@ -1949,12 +1954,17 @@ for (const theme of ["light", "dark"]) {
   if (Object.values(phoneLayout).some((value) => !value)) throw new Error("390px profile layout failed: " + JSON.stringify({ theme, phoneLayout }));
   await page.screenshot({ path: "tests/ui-profile-" + theme + ".png", fullPage: false });
 }
+if (await page.locator("[data-quota-information]").evaluate((node) => node.open)) throw new Error("Healthy quota details must start compact");
+await page.locator("[data-quota-information] > summary").click();
+await page.locator("[data-quota-note]").waitFor({ state: "visible" });
+await page.locator("[data-quota-information] > summary").click();
 expectedQuotaErrors.add("503");
 expectedQuotaErrors.add("403");
 cpaQuotaScenario = "error";
 await page.locator("[data-refresh-quota]").click();
 await page.waitForFunction(() => document.querySelector("#modelQuotaOverview").dataset.state === "stale");
 if ((await page.locator('[data-quota-family="grok"] .model-quota-value strong').textContent()) !== "70%") throw new Error("Refresh failure lost last quota");
+if (!(await page.locator("[data-quota-information]").evaluate((node) => node.open))) throw new Error("Refresh failure explanation hidden");
 cpaQuotaScenario = "missing";
 await page.locator("[data-refresh-quota]").click();
 await page.waitForFunction(() => document.querySelector("#modelQuotaOverview").dataset.state === "management_auth_required");

@@ -7,6 +7,7 @@
   const note = root.querySelector("[data-quota-note]");
   const refreshButton = root.querySelector("[data-refresh-quota]");
   const updated = root.querySelector("[data-quota-updated]");
+  const information = root.querySelector("[data-quota-information]");
   const statusText = {
     management_auth_required: "未连接 CPA 额度管理权限",
     quota_unavailable: "暂时无法读取额度",
@@ -45,7 +46,7 @@
     const exhausted = Number.isInteger(capacity.exhausted) ? capacity.exhausted : 0;
     const unknown = Number.isInteger(capacity.unknown) ? capacity.unknown : 0;
     return `<section class="model-quota-capacity" aria-label="Grok 账号容量">
-      <div><strong>${full}</strong><span>个账号额度为 100%</span></div>
+      <div><span>满额账号</span><strong>${full}</strong><span>/ ${family.accounts}</span></div>
       <p>共 ${family.accounts} 个账号 · 部分额度 ${partial} · 已耗尽 ${exhausted}${unknown ? ` · 未读到 ${unknown}` : ""}</p>
     </section>`;
   }
@@ -74,6 +75,7 @@
       : body.status === "management_auth_required" ? "真实额度需要服务端 CPA 管理认证。请勿在页面填写密钥。"
       : "只汇总可比较的真实额度；满额账号按该账号最低剩余窗口判断，不同窗口不相加。CPA 未提供的绝对总量显示“未提供”。";
     root.dataset.state = body.stale ? "stale" : body.status;
+    if (information && (body.stale || body.status !== "ready")) information.open = true;
   }
   async function refresh(force = false) {
     if (loading) return;
@@ -102,6 +104,7 @@
       else render({ families: [], status: "quota_unavailable" });
       note.textContent = last ? "刷新失败，正在显示上次成功数据。" : (error.name === "AbortError" ? "CPA 额度读取超时，请稍后刷新。" : error.message);
       root.dataset.state = last ? "stale" : "error";
+      if (information) information.open = true;
     } finally {
       clearTimeout(timeout);
       controller = null;
@@ -126,15 +129,21 @@
       connection.dataset.state = "connected";
       badge.textContent = body.runtime?.["grok-build"]?.available && body.runtime?.codex?.available ? "可用" : "部分可用";
       if (!body.runtime?.["grok-build"]?.available && !body.runtime?.codex?.available) badge.textContent = "待连接";
+      badge.dataset.state = badge.textContent === "可用" ? "enabled" : badge.textContent === "部分可用" ? "partial" : "disabled";
       host.textContent = `Grok Build：${body.runtime?.["grok-build"]?.available ? "可用" : "暂不可用"} · Codex：${body.runtime?.codex?.available ? "可用" : "待认证或服务不可用"} · Gemini 执行暂停`;
       const browser = document.getElementById("browserMcpStatus");
       const device = document.getElementById("remoteDeviceStatus");
-      if (browser) browser.textContent = runtime.browserMcpEnabled ? "已启用" : "未启用";
-      if (device) device.textContent = runtime.remoteDeviceMcpEnabled ? "已启用" : "未启用";
+      if (browser) { browser.textContent = runtime.browserMcpEnabled ? "已启用" : "未启用"; browser.dataset.state = runtime.browserMcpEnabled ? "enabled" : "disabled"; }
+      if (device) { device.textContent = runtime.remoteDeviceMcpEnabled ? "已启用" : "未启用"; device.dataset.state = runtime.remoteDeviceMcpEnabled ? "enabled" : "disabled"; }
     } catch {
       connection.textContent = "连接待检查";
       connection.dataset.state = "unavailable";
       badge.textContent = "未读取";
+      badge.dataset.state = "unknown";
+      for (const id of ["browserMcpStatus", "remoteDeviceStatus"]) {
+        const status = document.getElementById(id);
+        if (status) { status.textContent = "未读取"; status.dataset.state = "unknown"; }
+      }
       host.textContent = "执行服务状态暂时无法读取，请重试刷新；Gemini 执行保持暂停。";
     }
   }

@@ -141,3 +141,11 @@ button:disabled {
     outline-offset: -3px;
   }
 }
+
+/* Keep the scroll viewport below floating controls throughout scrolling. */
+:root { --transcript-top: calc(84px + env(safe-area-inset-top)); }
+:root .app-shell .chat-stage { margin-top: var(--transcript-top); height: calc(100% - var(--transcript-top)); scroll-padding-top: 16px; }
+:root .app-shell .messages { padding-top: 16px !important; }
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --transcript-top: calc(68px + env(safe-area-inset-top)); }
+}

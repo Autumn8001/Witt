@@ -116,3 +116,26 @@
   .profile-sheet .profile-hero { grid-template-columns: 40px minmax(0, 1fr); row-gap: 6px; }
   #profileConnectionStatus { grid-column: 2; }
 }
+
+/* Compact overview; secondary explanations remain available on demand. */
+.model-quota-card { display: flex; flex-direction: column; }
+.model-quota-card footer { margin-top: auto; }
+.quota-information { margin-top: 12px; border-top: 1px solid var(--line); }
+.quota-information > summary { min-height: 44px; padding: 12px 0; color: var(--profile-muted); font-size: 12px; cursor: pointer; border-radius: 6px; }
+.quota-information [data-quota-note] { margin-top: 0; }
+.quota-information [data-quota-updated] { margin-bottom: 12px; }
+.profile-sheet .profile-extension-badge { padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; line-height: 1.5; }
+.profile-sheet .profile-extension-badge[data-state="enabled"] { color: var(--ui-focus); border-color: var(--ui-focus); background: var(--surface-solid); }
+.profile-extension-badge[data-state="partial"] { color: var(--ink); background: var(--ui-hover-surface); }
+@media (max-width: 600px) {
+  .profile-sheet .profile-hero { margin: 0 0 16px !important; padding-bottom: 12px; }
+  .profile-sheet .sheet-head { padding-bottom: 8px; }
+  .profile-sheet .sheet-handle { margin-bottom: 8px; }
+  .profile-sheet .profile-letter { grid-row: 1 / 3; }
+  .model-quota-card { padding: 14px 16px; }
+  .model-quota-card footer { margin-top: 4px; }
+  .model-quota-capacity { margin-top: 12px; padding: 10px 0; }
+  .model-quota-capacity p { margin-top: 4px; }
+  .model-quota-card details { margin-top: 8px; padding-top: 4px; }
+  .model-quota-totals { margin-top: 12px; }
+}
