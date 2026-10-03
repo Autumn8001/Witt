@@ -5,7 +5,8 @@ function createCpaQuotaRoutes({ service, sendJson }) {
     if (!principal?.admin) { sendJson(res, 403, { error: "admin_required" }); return true; }
     if (req.method !== "GET") { sendJson(res, 405, { error: "method_not_allowed" }); return true; }
     res.setHeader("Cache-Control", "no-store");
-    service.read().then((body) => sendJson(res, 200, body))
+    const force = url.searchParams?.get("refresh") === "1";
+    service.read({ force }).then((body) => sendJson(res, 200, body))
       .catch(() => sendJson(res, 503, { error: "quota_unavailable" }));
     return true;
   };

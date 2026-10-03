@@ -2,6 +2,7 @@
   "private": true,
   "type": "commonjs",
   "dependencies": {
+    "@playwright/mcp": "0.0.83",
     "ws": "^8.22.0"
   }
 }

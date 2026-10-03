@@ -14,4 +14,8 @@ Calls are disabled unless WITT_REMOTE_DEVICE_MCP_ENABLED=1. The API endpoint is 
 
 Project-scoped MCP servers also require a trusted folder in Grok. Review the exact server command and three capabilities before granting trust. The native live acceptance fixture passes --trust only for its reviewed temporary project and uses an isolated leader socket. This is not automatic trust for customer/user repositories.
 
-Validation: node --test backend/test-remote-device-mcp.js checks handshake, legal wire identifiers, logical descriptions, aliases, disabled authorization and invalid arguments. The separate native integration fixture exercises actual Gateway/TLS-WSS/Go Agent calls. Windows real-device acceptance and the production integration are pending; see docs/CUSTOMER-DEVICE-VALIDATION.md.
+Validation: node --test backend/test-remote-device-mcp.js checks handshake, legal wire identifiers, logical descriptions, aliases, disabled authorization and invalid arguments. The separate native integration fixture exercises actual Gateway/TLS-WSS/Go Agent calls. A Windows device has also passed production WSS connection, reconnect, replacement-session, hostname and MCP-to-device acceptance; see docs/CUSTOMER-DEVICE-VALIDATION.md.
+
+## Browser acceptance MCP
+
+`playwright.js` launches the pinned `@playwright/mcp` dependency in an isolated, headless Chromium profile. It is disabled unless `WITT_BROWSER_MCP_ENABLED=1`; the Grok adapter sets that gate explicitly for administrator sessions. The launcher blocks service workers, omits image payloads by default, enables DevTools inspection, and uses a 1440×900 starting viewport. Frontend work must additionally exercise a 390×844 mobile viewport.

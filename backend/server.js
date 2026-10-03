@@ -277,6 +277,7 @@ const chatService = new ChatService({
     ...harnessOptions.grok,
     remoteDeviceMcpEnabled: process.env.WITT_REMOTE_DEVICE_MCP_ENABLED === "1",
     remoteDeviceTokenFile: process.env.DROP_VAULT_TOKEN_FILE || "",
+    browserMcpEnabled: process.env.WITT_BROWSER_MCP_ENABLED === "1",
   } },
   // The owner-facing service is not model-restricted, so harness-served models
   // such as grok-4.7-high stay selectable and can bind to their own harness.
@@ -350,6 +351,7 @@ function chatFor(principal) {
       ...harnessOptions.grok,
       remoteDeviceMcpEnabled: principal.admin && process.env.WITT_REMOTE_DEVICE_MCP_ENABLED === "1",
       remoteDeviceTokenFile: principal.admin ? (process.env.DROP_VAULT_TOKEN_FILE || "") : "",
+      browserMcpEnabled: principal.admin && process.env.WITT_BROWSER_MCP_ENABLED === "1",
     } },
     allowedCodexProfiles: principal.admin
       ? Object.keys(codexProfiles)
@@ -867,6 +869,8 @@ const httpServer = http.createServer((req, res) => {
       harnesses: harnessInventory(),
       profiles: runtimeProfiles.list(),
       openWebuiConfigured: Boolean(process.env.OPEN_WEBUI_URL),
+      browserMcpEnabled: process.env.WITT_BROWSER_MCP_ENABLED === "1",
+      remoteDeviceMcpEnabled: process.env.WITT_REMOTE_DEVICE_MCP_ENABLED === "1",
     });
     return;
   }

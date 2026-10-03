@@ -173,10 +173,7 @@ summary:focus-visible {
 }
 
 :root[data-theme="colorful"] .app-atmosphere {
-  background:
-    linear-gradient(rgba(255, 255, 255, .018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, .018) 1px, transparent 1px);
-  background-size: 34px 34px;
+  background: radial-gradient(circle at 50% 12%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 58%);
   mask-image: linear-gradient(to bottom, black, transparent 78%);
 }
 
@@ -643,10 +640,7 @@ summary:focus-visible {
 }
 
 .welcome h1 em {
-  color: transparent;
-  background: linear-gradient(100deg, var(--accent-2), var(--accent) 48%, var(--mint));
-  background-clip: text;
-  -webkit-background-clip: text;
+  color: var(--accent);
   font-family: inherit;
   font-style: normal;
 }
@@ -2867,3 +2861,27 @@ summary:focus-visible {
 }
 
 .development-workflow-commit-label{display:grid;gap:6px;margin:10px 0;color:var(--muted);font-size:12px}.development-workflow-commit-label input{width:100%;min-width:0;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;color:var(--ink);background:var(--surface);font:inherit;font-size:13px}
+
+.open-webui-entry {
+  min-height: 58px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  text-decoration: none;
+}
+.open-webui-entry[hidden] { display: none; }
+.open-webui-entry span { min-width: 0; display: grid; gap: 4px; }
+.open-webui-entry strong { font-size: 13px; }
+.open-webui-entry small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.open-webui-entry i { color: var(--muted); font-size: 18px; font-style: normal; }
+@media (hover: hover) {
+  .open-webui-entry:hover { border-color: var(--ui-focus); background: var(--ui-hover-surface); }
+}
+.open-webui-entry:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }

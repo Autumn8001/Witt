@@ -72,8 +72,12 @@ with open(path, 'w', encoding='utf-8') as handle:
         'DROP_VAULT_CODEX_WORKDIR=/root/witt-grok-work',
         'WITT_GROK_BIN=/root/.local/bin/grok',
         'WITT_CPA_URL=http://127.0.0.1:8317/v1',
+        'WITT_CPA_MANAGEMENT_KEY_FILE=/root/.witt/cpa-management-key',
+        'WITT_CPA_QUOTA_CONCURRENCY=16',
         'WITT_SUB2API_URL=http://127.0.0.1:8080/v1',
-        'OPEN_WEBUI_URL=http://186.244.203.27:3000/',
+        'OPEN_WEBUI_URL=https://cpa.stellarbit.site:9443/',
+        'WITT_REMOTE_DEVICE_MCP_ENABLED=1',
+        'WITT_BROWSER_MCP_ENABLED=1',
         'WITT_RUNTIME_LOG=1',
         '',
     ]))

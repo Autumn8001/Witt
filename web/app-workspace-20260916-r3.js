@@ -860,7 +860,7 @@
         link.hidden = false;
         link.href = payload.openWebuiUrl;
         link.target = "_blank";
-        link.rel = "noreferrer";
+          link.rel = "noopener noreferrer";
       } else {
         link.hidden = true;
       }

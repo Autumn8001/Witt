@@ -2,6 +2,17 @@
 const fs = require("node:fs");
 
 const FAMILY_IDS = ["grok", "gemini"];
+const DEFAULT_QUOTA_CONCURRENCY = 4;
+const MIN_QUOTA_CONCURRENCY = 1;
+const MAX_QUOTA_CONCURRENCY = 32;
+function quotaConcurrency(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return DEFAULT_QUOTA_CONCURRENCY;
+  const raw = String(value).trim();
+  if (!/^\d+$/.test(raw)) return DEFAULT_QUOTA_CONCURRENCY;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed)) return DEFAULT_QUOTA_CONCURRENCY;
+  return Math.max(MIN_QUOTA_CONCURRENCY, Math.min(MAX_QUOTA_CONCURRENCY, parsed));
+}
 const numeric = (value) => {
   if (value && typeof value === "object") value = value.val;
   if (typeof value !== "number" && typeof value !== "string") return null;
@@ -180,11 +191,10 @@ class CpaQuotaService {
       const family = payload.families.find((item) => item.id === (/^(xai|grok)$/.test(provider) ? "grok" : /^(antigravity|gemini|gemini-cli)$/.test(provider) ? "gemini" : ""));
       if (!family) continue;
       family.accounts++;
-      if (jobs.filter((job) => job.family === family).length >= 6) { family.skippedAccounts++; continue; }
       jobs.push({ account, family, number: family.accounts });
     }
     let cursor = 0;
-    await Promise.all(Array.from({ length: Math.min(4, jobs.length) }, async () => {
+    await Promise.all(Array.from({ length: Math.min(quotaConcurrency(this.env.WITT_CPA_QUOTA_CONCURRENCY), jobs.length) }, async () => {
       while (cursor < jobs.length) {
         const { account, family, number } = jobs[cursor++];
         try {
@@ -220,9 +230,10 @@ class CpaQuotaService {
     await discovery;
     return payload;
   }
-  async read() {
-    if (this.cache && this.now() - this.cache.time < 30000) return { ...this.cache.value, cached: true };
+  async read(options = {}) {
+    const force = options && typeof options === "object" && options.force === true;
     if (this.pending) return this.pending;
+    if (!force && this.cache && this.now() - this.cache.time < 30000) return { ...this.cache.value, cached: true };
     this.pending = this.collect().then((value) => {
       // Never replace previously known numbers with invented zeros on refresh failures.
       if (this.cache?.value.quotaCheckedAt && !value.quotaCheckedAt) {

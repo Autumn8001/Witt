@@ -62,7 +62,7 @@
       : "只汇总可比较的真实额度；不同窗口显示最低剩余，不相加。CPA 未提供的绝对总量显示“未提供”。";
     root.dataset.state = body.stale ? "stale" : body.status;
   }
-  async function refresh() {
+  async function refresh(force = false) {
     if (loading) return;
     loading = true;
     refreshButton.disabled = true;
@@ -72,7 +72,7 @@
     const timeout = setTimeout(() => controller?.abort(), 25000);
     if (!last) note.textContent = "正在连接 CPA，读取真实模型额度…";
     try {
-      const response = await fetch("/vault-api/providers/cpa/quotas", {
+      const response = await fetch("/vault-api/providers/cpa/quotas" + (force ? "?refresh=1" : ""), {
         credentials: "same-origin", cache: "no-store", signal: controller.signal,
       });
       if (!response.ok) {
@@ -94,7 +94,7 @@
       controller = null;
       loading = false;
       refreshButton.disabled = false;
-      refreshButton.textContent = "刷新额度";
+      refreshButton.textContent = "立即刷新";
       root.setAttribute("aria-busy", "false");
     }
   }
@@ -103,14 +103,21 @@
     const connection = document.getElementById("profileConnectionStatus");
     const badge = document.getElementById("extensionRuntimeBadge");
     try {
-      const response = await fetch("/vault-api/chat/capabilities", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(8000) });
-      if (!response.ok) throw new Error("runtime_unavailable");
-      const body = await response.json();
+      const [response, runtimeResponse] = await Promise.all([
+        fetch("/vault-api/chat/capabilities", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(8000) }),
+        fetch("/vault-api/runtime/harnesses", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(8000) }),
+      ]);
+      if (!response.ok || !runtimeResponse.ok) throw new Error("runtime_unavailable");
+      const [body, runtime] = await Promise.all([response.json(), runtimeResponse.json()]);
       connection.textContent = "服务已连接";
       connection.dataset.state = "connected";
       badge.textContent = body.runtime?.["grok-build"]?.available && body.runtime?.codex?.available ? "可用" : "部分可用";
       if (!body.runtime?.["grok-build"]?.available && !body.runtime?.codex?.available) badge.textContent = "待连接";
       host.textContent = `Grok Build：${body.runtime?.["grok-build"]?.available ? "可用" : "暂不可用"} · Codex：${body.runtime?.codex?.available ? "可用" : "待认证或服务不可用"} · Gemini 执行暂停`;
+      const browser = document.getElementById("browserMcpStatus");
+      const device = document.getElementById("remoteDeviceStatus");
+      if (browser) browser.textContent = runtime.browserMcpEnabled ? "已启用" : "未启用";
+      if (device) device.textContent = runtime.remoteDeviceMcpEnabled ? "已启用" : "未启用";
     } catch {
       connection.textContent = "连接待检查";
       connection.dataset.state = "unavailable";
@@ -128,7 +135,7 @@
   }
   new MutationObserver(sync).observe(profile, { attributes: true, attributeFilter: ["class"] });
   document.addEventListener("visibilitychange", sync);
-  refreshButton.addEventListener("click", () => { refresh(); refreshCapabilities(); });
+  refreshButton.addEventListener("click", () => { refresh(true); refreshCapabilities(); });
   document.querySelector("[data-extension-settings]")?.addEventListener("click", () => {
     document.getElementById("closeProfile")?.click();
     document.getElementById("runtimeSettingsButton")?.click();

@@ -58,7 +58,7 @@
   <link rel="stylesheet" href="/vault/chat-links.css?v=2.2.9-links1">
   <link rel="stylesheet" href="/vault/completed-turn.css?v=2.2.10-result1">
   <link rel="stylesheet" href="/vault/drawer-layout.css?v=2.2.11-drawer2">
-  <link rel="stylesheet" href="/vault/witt-next.css?v=3.2.4-mobile-file-events">
+  <link rel="stylesheet" href="/vault/witt-next.css?v=3.2.5-tools-webui">
   <link rel="stylesheet" href="/vault/artifact-preview.css?v=3.0.0">
   <link rel="stylesheet" href="/vault/claude-app.css?v=1.0.0">
   <link rel="stylesheet" href="/vault/vendor/xterm/xterm.css?v=6.0.0">
@@ -409,7 +409,7 @@
         <span id="profileConnectionStatus" data-state="checking" role="status">检查连接</span>
       </section>
       <section id="modelQuotaOverview" aria-label="CPA 模型额度" aria-busy="false">
-        <header class="model-quota-head"><div><h3>CPA 模型额度</h3><p>Grok 与 Gemini · 每分钟自动刷新</p></div><button type="button" data-refresh-quota>刷新额度</button></header>
+        <header class="model-quota-head"><div><h3>CPA 模型额度</h3><p>全部账号真实查询 · 每分钟自动刷新</p></div><button type="button" data-refresh-quota>立即刷新</button></header>
         <div class="model-quota-cards" data-quota-cards>
           <article class="model-quota-card"><h4>Grok</h4><p class="model-quota-no-data">打开页面后读取真实额度</p></article>
           <article class="model-quota-card"><h4>Gemini</h4><p class="model-quota-no-data">额度可单独查询，执行暂未启用</p></article>
@@ -420,8 +420,8 @@
         <header class="profile-extension-head"><div><h3>能力与扩展</h3><p>先完成单设备，再逐步开放</p></div><button type="button" data-extension-settings>执行设置</button></header>
         <div class="profile-extension-list">
           <article><div><strong>模型执行</strong><p id="extensionRuntimeStatus">打开后检查 Grok Build 与 Codex；Gemini 执行暂停。</p></div><span class="profile-extension-badge" id="extensionRuntimeBadge">检查中</span></article>
-          <article><div><strong>远程设备</strong><p>先验证一台 Windows 电脑连接、hostname 执行及结果回传。</p></div><span class="profile-extension-badge">待实机验收</span></article>
-          <article><div><strong>设备工具连接</strong><p>预留设备列表、设备详情和 hostname 工具；生产接入后再开放。</p></div><span class="profile-extension-badge">待接入</span></article>
+          <article><div><strong>浏览器验收</strong><p>Grok 可调用 Playwright，在手机与桌面视口检查页面、交互和控制台。</p></div><span class="profile-extension-badge" id="browserMcpStatus">检查中</span></article>
+          <article><div><strong>Windows 设备</strong><p>公网 WSS 连接、hostname 执行、断线重连与 MCP 调用已完成实机验收。</p></div><span class="profile-extension-badge" id="remoteDeviceStatus">检查中</span></article>
           <article><div><strong>客户与多设备</strong><p>保留扩展位置，单设备验收后再设计账号归属与多设备管理。</p></div><span class="profile-extension-badge">后续阶段</span></article>
         </div>
       </section>
@@ -606,7 +606,9 @@
       <section>
         <div class="settings-section-head"><h3>Servers</h3><small id="serverCenterChecked">未检查</small></div>
         <div id="serverCenterStatus">正在读取服务器概览…</div>
-        <p><a id="openWebuiLink" href="#" hidden>Ask Server Admin</a></p>
+        <a class="open-webui-entry" id="openWebuiLink" href="#" hidden>
+          <span><strong>打开 Open WebUI</strong><small>通用聊天、知识库与文件问答 · 独立工作台</small></span><i>↗</i>
+        </a>
       </section>
       <section>
         <div class="settings-section-head"><h3>版本</h3><small id="deploymentVersionStatus" role="status">正在检查…</small></div>
@@ -660,7 +662,7 @@
   <aside class="image-viewer" id="imageViewer" aria-hidden="true">
     <button class="image-viewer-backdrop" id="imageViewerBackdrop" aria-label="关闭图片"></button>
     <div class="image-viewer-panel">
-      <img id="imageViewerImage" alt="">
+      <img id="imageViewerImage" src="/vault/icon.svg" alt="">
       <footer>
         <strong id="imageViewerName">Witt 图片</strong>
         <button class="icon-button" id="downloadImageViewer" aria-label="下载图片">
@@ -687,9 +689,9 @@
       <button class="workspace-refresh" id="refreshWorkspace">刷新状态</button>
     </section>
   </aside>
-  <script src="/vault/profile-overview.js?v=2"></script>
+  <script src="/vault/profile-overview.js?v=3"></script>
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
   <script src="/vault/customer-devices.js?v=1"></script>
-  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.4-development-workflow-files"></script>
+  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.5-tools-webui"></script>
 </body>
 </html>

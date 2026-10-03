@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
-import { chromium } from "playwright";
+import { createRequire } from "node:module";
+
+const require = createRequire(new URL("../backend/package.json", import.meta.url));
+const { chromium } = require("playwright");
 
 const androidSource = readFileSync(
   new URL("../android/app/src/main/java/com/codevibe/dropvault/MainActivity.java", import.meta.url),
@@ -61,7 +64,7 @@ let expectedQuotaErrorCount = 0;
 page.on("console", (message) => {
   if (message.type() === "error") {
     const status = message.text().match(/status of (\d+)/)?.[1];
-    if (message.location().url === "https://wit.test/vault-api/providers/cpa/quotas" && expectedQuotaErrors.has(status)) {
+    if (message.location().url.startsWith("https://wit.test/vault-api/providers/cpa/quotas") && expectedQuotaErrors.has(status)) {
       expectedQuotaErrorCount++;
       return;
     }
@@ -559,7 +562,7 @@ const cpaQuotaFixture = {
       rows: [{ account: 1, label: "Gemini 模型组", window: "weekly", remainingPercent: 45, resetAt: "2026-10-10T00:00:00Z" }] },
   ],
 };
-await page.route("**/vault-api/providers/cpa/quotas", (route) => {
+await page.route("**/vault-api/providers/cpa/quotas**", (route) => {
   cpaQuotaRequests++;
   if (cpaQuotaScenario === "error") return route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"quota_unavailable"}' });
   if (cpaQuotaScenario === "forbidden") return route.fulfill({ status: 403, contentType: "application/json", body: '{"error":"admin_required"}' });
@@ -582,6 +585,10 @@ await page.route("**/vault-api/runtime/profiles", (route) => route.fulfill({
   body: JSON.stringify({ profiles: [
     { id: "grok-main", name: "Grok Main", harness: "grok-build", model: "grok-4.7-high" },
   ] }),
+}));
+await page.route("**/vault-api/runtime/harnesses", (route) => route.fulfill({
+  contentType: "application/json",
+  body: JSON.stringify({ browserMcpEnabled: true, remoteDeviceMcpEnabled: true }),
 }));
 await page.route("**/vault-api/servers/overview", (route) => route.fulfill({
   contentType: "application/json",
@@ -1889,6 +1896,8 @@ if (!(await page.locator('[data-quota-family="gemini"]').textContent()).includes
 if ((await page.locator("#modelQuotaOverview [role=progressbar]").count()) !== 2) throw new Error("Known family quota progress missing");
 await page.waitForFunction(() => document.getElementById("profileConnectionStatus")?.dataset.state === "connected");
 if ((await page.locator("#extensionRuntimeBadge").textContent()) !== "部分可用") throw new Error("Unavailable Codex masked by a ready runtime badge");
+if ((await page.locator("#browserMcpStatus").textContent()) !== "已启用") throw new Error("Browser MCP status was not rendered");
+if ((await page.locator("#remoteDeviceStatus").textContent()) !== "已启用") throw new Error("Remote device MCP status was not rendered");
 await page.locator('[data-quota-family="grok"] summary').click();
 await page.locator("[data-refresh-quota]").click();
 await page.waitForFunction(() => document.getElementById("modelQuotaOverview").getAttribute("aria-busy") === "false");

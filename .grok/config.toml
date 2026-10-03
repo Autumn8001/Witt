@@ -1,4 +1,9 @@
 [mcp_servers.witt_remote_device]
 command = "node"
 args = ["/opt/witt/backend/mcp/remote-device.js"]
-enabled = false
+enabled = true
+
+[mcp_servers.playwright]
+command = "node"
+args = ["/opt/witt/backend/mcp/playwright.js"]
+enabled = true

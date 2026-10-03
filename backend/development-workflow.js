@@ -22,6 +22,7 @@ const DEFAULT_TESTS = [
   { command: 'node', args: ['backend/test-sqlite-store.js'] },
   { command: 'node', args: ['backend/test-workdir-roots.js'] },
   { command: 'node', args: ['tests/ui-mvp-check.cjs'] },
+  { command: 'node', args: ['tests/ui-check.mjs'] },
 ];
 
 function runProgram(command, args, options = {}) {

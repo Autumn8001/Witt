@@ -65,6 +65,62 @@ test("real-shaped CPA account responses aggregate without exposing identities or
   assert.equal((await service.read()).cached, true);
   assert.equal(calls.length, 4);
 });
+test("all eligible accounts are checked with bounded concurrency", async () => {
+  const credentials = Array.from({ length: 9 }, (_, index) => ({
+    provider: "xai", auth_index: `private-index-${index}`,
+  }));
+  let active = 0;
+  let maxActive = 0;
+  let quotaCalls = 0;
+  const service = new CpaQuotaService({
+    env: { WITT_CPA_MANAGEMENT_KEY: "management-sentinel", WITT_CPA_QUOTA_CONCURRENCY: "2" },
+    fetchImpl: async (url, options) => {
+      if (url.endsWith("/v1/models")) return reply({ data: [] });
+      if (url.endsWith("/credentials")) return reply({ files: credentials });
+      const request = JSON.parse(options.body);
+      assert.equal(request.url, "https://cli-chat-proxy.grok.com/v1/billing?format=credits");
+      quotaCalls++;
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active--;
+      return reply({ status_code: 200, body: { config: { creditUsagePercent: 10 } } });
+    },
+  });
+  const body = await service.read();
+  const family = body.families.find((item) => item.id === "grok");
+  assert.equal(family.accounts, credentials.length);
+  assert.equal(family.checkedAccounts, credentials.length);
+  assert.equal(family.failedAccounts, 0);
+  assert.equal(family.skippedAccounts, 0);
+  assert.equal(family.rows.length, credentials.length);
+  assert.equal(quotaCalls, credentials.length);
+  assert.equal(maxActive, 2);
+  const serialized = JSON.stringify(body);
+  assert.equal(serialized.includes("private-index-"), false);
+});
+test("ordinary reads use cache while force reads refresh and share pending work", async () => {
+  let quotaCalls = 0;
+  const service = new CpaQuotaService({
+    env: { WITT_CPA_MANAGEMENT_KEY: "management-sentinel" },
+    fetchImpl: async (url) => {
+      if (url.endsWith("/v1/models")) return reply({ data: [] });
+      if (url.endsWith("/credentials")) return reply({ files: [{ provider: "xai", auth_index: "private-index" }] });
+      quotaCalls++;
+      return reply({ status_code: 200, body: { config: { creditUsagePercent: 10 } } });
+    },
+  });
+  await service.read();
+  const cached = await service.read();
+  assert.equal(cached.cached, true);
+  assert.equal(quotaCalls, 1);
+  const refreshed = await service.read({ force: true });
+  assert.equal(refreshed.cached, false);
+  assert.equal(quotaCalls, 2);
+  const [first, second] = await Promise.all([service.read({ force: true }), service.read({ force: true })]);
+  assert.strictEqual(first, second);
+  assert.equal(quotaCalls, 3);
+});
 test("upstream authentication errors and partial account failures are explicit and sanitized", async () => {
   const service = new CpaQuotaService({ env: { WITT_CPA_MANAGEMENT_KEY: "secret" }, fetchImpl: async (url) =>
     url.endsWith("/v1/models") ? reply({ data: [] }) : reply({ error: "private-upstream-message" }, 401),
@@ -105,6 +161,22 @@ test("global CPA quotas require administrator authorization and reject writes", 
   handler({ method: "GET" }, { setHeader() {} }, url, { admin: true });
   assert.equal(called, true);
   assert.equal(handler({}, {}, new URL("http://localhost/other"), { admin: true }), false);
+});
+test("quota route forwards refresh=1 as a forced administrator refresh", async () => {
+  const calls = [];
+  const sent = [];
+  const handler = createCpaQuotaRoutes({
+    service: { read(options) { calls.push(options); return Promise.resolve({}); } },
+    sendJson: (_, status, body) => sent.push({ status, body }),
+  });
+  const response = { setHeader() {} };
+  handler({ method: "GET" }, response, new URL("http://localhost/providers/cpa/quotas"), { admin: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  handler({ method: "GET" }, response, new URL("http://localhost/providers/cpa/quotas?refresh=1"), { admin: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, [{ force: false }, { force: true }]);
+  assert.equal(sent.length, 2);
+  assert.ok(sent.every((item) => item.status === 200));
 });
 test("endpoint credentials and redirects cannot be used to leak management keys", async () => {
   let calls = 0;

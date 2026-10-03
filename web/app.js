@@ -646,7 +646,7 @@
           link.hidden = false;
           link.href = body.openWebuiUrl;
           link.target = "_blank";
-          link.rel = "noreferrer";
+          link.rel = "noopener noreferrer";
         }
       }
     } catch {}

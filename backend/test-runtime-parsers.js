@@ -122,9 +122,17 @@ test("remote device MCP authorization is explicit in every Grok child", () => {
     remoteDeviceTokenFile: "/run/witt/api-token",
   });
   assert.equal(disabled.childEnv().WITT_REMOTE_DEVICE_MCP_ENABLED, "0");
+  assert.equal(disabled.childEnv().WITT_BROWSER_MCP_ENABLED, "0");
   assert.equal(disabled.childEnv().DROP_VAULT_TOKEN_FILE, undefined);
   assert.equal(enabled.childEnv().WITT_REMOTE_DEVICE_MCP_ENABLED, "1");
   assert.equal(enabled.childEnv().DROP_VAULT_TOKEN_FILE, "/run/witt/api-token");
+});
+
+test("browser MCP authorization is explicit in every Grok child", () => {
+  const disabled = new GrokBuildAdapter({ bin: "grok" });
+  const enabled = new GrokBuildAdapter({ bin: "grok", browserMcpEnabled: true });
+  assert.equal(disabled.childEnv().WITT_BROWSER_MCP_ENABLED, "0");
+  assert.equal(enabled.childEnv().WITT_BROWSER_MCP_ENABLED, "1");
 });
 
 // --------------------------------------------------------------------------
