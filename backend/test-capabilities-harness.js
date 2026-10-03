@@ -511,3 +511,60 @@ test("T-SCRIPT-07 cleanup and signal handling have an executable test", () => {
     "SIGTERM behaviour is not exercised");
   assert.ok(/exit 1/.test(driver), "test does not fail when an assertion fails");
 });
+
+test("model selection rejects cross-family harness overrides without changing the session", () => {
+  for (const [model, harness] of [["gpt-5.6-sol", "grok-build"], ["grok-4.7-high", "codex"]]) {
+    const { service, sent } = makeService({ requestBody: { model, harness } });
+    const conversation = service.createConversation("routing", model);
+    service.updateConversationSettings({}, {}, conversation.id);
+    assert.equal(sent.at(-1).status, 400);
+    assert.equal(sent.at(-1).body.blockReason, "model_harness_mismatch");
+    assert.equal(service.readConversation(conversation.id).harnessId, conversation.harnessId);
+  }
+});
+
+test("Grok turns dispatch only to Grok Build; GPT turns use Codex app-server", async () => {
+  for (const model of ["grok-4.7-high", "gpt-5.6-sol", "gpt-6-astra"]) {
+    const { service } = makeService();
+    const conversation = service.createConversation("routing", model);
+    const calls = [];
+    service.runGrokTurn = async (...args) => { calls.push(["grok-build", args[3]]); };
+    service.clientFor = () => ({
+      async start() { calls.push(["codex-start"]); },
+      async request(method, params) {
+        calls.push([method, params.model]);
+        if (method === "thread/start") return { thread: { id: "routing-thread" } };
+        if (method === "turn/start") return { turn: { id: "routing-turn" } };
+        throw new Error(`Unexpected request ${method}`);
+      },
+    });
+    queueTurn(service, conversation.id);
+    await service.runNext();
+    assert.deepEqual(calls, model.startsWith("grok")
+      ? [["grok-build", model]]
+      : [["codex-start"], ["thread/start", model], ["turn/start", model]]);
+    service.active = null;
+  }
+});
+
+test("a persisted mismatched binding fails without launching either runtime or rewriting history", async () => {
+  for (const [model, harness] of [["gpt-5.6-sol", "grok-build"], ["grok-4.7-high", "codex"]]) {
+    const { service } = makeService();
+    const conversation = service.createConversation("legacy routing", model);
+    conversation.harnessId = harness;
+    conversation.harnessSessionId = "existing-context";
+    service.writeConversation(conversation);
+    let launched = false;
+    service.runGrokTurn = async () => { launched = true; };
+    service.clientFor = () => { launched = true; throw new Error("wrong runtime"); };
+    const { assistantId } = queueTurn(service, conversation.id);
+    await service.runNext();
+    const after = service.readConversation(conversation.id);
+    assert.equal(launched, false);
+    assert.equal(after.harnessId, harness);
+    assert.equal(after.harnessSessionId, "existing-context");
+    const assistant = after.messages.find((message) => message.id === assistantId);
+    assert.equal(assistant.status, "failed");
+    assert.match(assistant.text, /模型与 Harness 不匹配/);
+  }
+});

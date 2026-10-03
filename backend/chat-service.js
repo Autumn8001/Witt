@@ -1617,6 +1617,15 @@ class ChatService {
         this.sendJson(res, 400, { error: "Harness 不可用" });
         return;
       }
+      const modelHarness = resolveHarness(requestedModel, "auto");
+      if (nextHarness !== modelHarness) {
+        this.sendJson(res, 400, {
+          error: "模型与 Harness 不匹配：Grok 必须使用 Grok Build，GPT 必须使用 Codex。",
+          blockReason: "model_harness_mismatch",
+          expectedHarness: modelHarness,
+        });
+        return;
+      }
       const boundHarness = conversation.harnessId
         || resolveHarness(conversation.model, "auto");
       // Either runtime binding counts as existing context: a Codex thread or a
@@ -2673,6 +2682,18 @@ class ChatService {
     } catch {}
     const profile = this.profileFor(conversation);
     const harnessId = conversation.harnessId || resolveHarness(model, "auto");
+    if (harnessId !== resolveHarness(model, "auto")) {
+      const completedAt = new Date().toISOString();
+      user.status = "failed";
+      assistant.status = "failed";
+      assistant.completedAt = completedAt;
+      assistant.text = "模型与 Harness 不匹配，本轮未启动。请新建会话：Grok 使用 Grok Build，GPT 使用 Codex。";
+      assistant.activity = [{ type: "error", label: assistant.text, status: "failed" }];
+      conversation.updatedAt = completedAt;
+      this.writeConversation(conversation);
+      setImmediate(() => this.runNext());
+      return;
+    }
     if (harnessId === "grok-build") {
       await this.runGrokTurn(conversation, user, assistant, model, reasoning, attachments,
         gitBaseline, gitBaselineError);
