@@ -7,6 +7,7 @@ node_modules/
 __pycache__/
 *.pyc
 playwright-report/
+.playwright-mcp/
 *.apk
 *.aab
 .env
