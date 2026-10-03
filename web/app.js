@@ -2150,7 +2150,7 @@
     ].filter(Boolean).join("");
     const fallbackOptions = [
       { id: "accept", label: "允许一次", description: "仅批准当前这项操作", tone: "accepted" },
-      { id: "decline", label: "拒绝并继续", description: "不执行操作，让 Codex 尝试其他做法", tone: "declined" },
+      { id: "decline", label: "拒绝并继续", description: "不执行操作，让当前 AI 尝试其他做法", tone: "declined" },
     ];
     const options = Array.isArray(entry.approvalOptions) && entry.approvalOptions.length
       ? entry.approvalOptions : fallbackOptions;
@@ -2165,7 +2165,7 @@
     return `<section class="approval-card ${isUserInput ? "user-input" : ""} ${entry.status || "pending"}" data-approval-card="${escapeHtml(entry.approvalId)}" data-approval-type="${escapeHtml(entry.approvalType || "")}">
       <div class="approval-sheet-grabber" aria-hidden="true"></div>
       <header>
-        <div><small>${escapeHtml(typeLabels[entry.approvalType] || "APPROVAL")}</small><strong>${isUserInput ? "Codex 需要输入" : "Codex 请求确认"}</strong></div>
+        <div><small>${escapeHtml(typeLabels[entry.approvalType] || "APPROVAL")}</small><strong>${isUserInput ? "当前 AI 需要输入" : "当前 AI 请求确认"}</strong></div>
         <b data-approval-page>${pending && isUserInput && questionCount ? `1 / ${questionCount}` : pending ? "待确认" : escapeHtml(statusLabels[entry.status] || "已处理")}</b>
       </header>
       ${pending ? structuredHtml
@@ -2719,7 +2719,7 @@
     refreshActionButton();
     $("#composerHint").textContent = busy
       ? "处理中 · 你可以继续补充要求"
-      : "由你服务器上的 Codex 处理 · 重要操作会先确认";
+      : "由你服务器上的 AI Harness 处理 · 重要操作会先确认";
   }
 
   function hasComposerContent() {

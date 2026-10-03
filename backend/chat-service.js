@@ -2216,7 +2216,7 @@ class ChatService {
           "allow-session", "在本会话中允许", "本次 Codex 会话内不再重复询问相同权限",
           { permissions, scope: "session" }),
         makeChoice(
-          "decline", "拒绝并继续", "不授予权限，让 Codex 尝试其他做法",
+          "decline", "拒绝并继续", "不授予权限，让当前 AI 尝试其他做法",
           { permissions: {}, scope: "turn" }, "declined"),
       ];
     }
@@ -2278,7 +2278,7 @@ class ChatService {
       }
       if (decision === "decline") {
         return makeChoice(
-          id, "拒绝并继续", "不执行这项操作，让 Codex 尝试其他做法",
+          id, "拒绝并继续", "不执行这项操作，让当前 AI 尝试其他做法",
           { decision }, "declined");
       }
       if (decision === "cancel") {

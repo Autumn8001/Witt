@@ -120,7 +120,7 @@ const conversation = {
           approvalOptions: [
             { id: "choice-1", label: "允许一次", description: "仅批准当前这项操作", tone: "accepted" },
             { id: "choice-2", label: "在本会话中允许", description: "相同操作不再询问", tone: "accepted" },
-            { id: "choice-3", label: "拒绝并继续", description: "让 Codex 尝试其他做法", tone: "declined" },
+            { id: "choice-3", label: "拒绝并继续", description: "让当前 AI 尝试其他做法", tone: "declined" },
             { id: "choice-4", label: "拒绝并停止本轮", description: "立即停止当前任务", tone: "declined" },
           ],
         },
