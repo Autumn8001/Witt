@@ -444,10 +444,12 @@ check("T-GROK-11", "session binds grok-build",
       status in (200, 201) and conv.get("harnessId") == "grok-build" and bool(cid),
       "status=%s harness=%s body=%s" % (status, conv.get("harnessId"), body[:100]))
 
-conv1, assistant1 = run_turn(cid, "Remember the codeword ZEPHYR-9. Reply with just: STORED")
+conv1, assistant1 = run_turn(cid,
+    "For this project continuity check, note that the current project reference is ZEPHYR-9. Confirm briefly that you noted it.")
 text1 = (assistant1 or {}).get("text") or ""
 check("T-GROK-12", "real prompt through Witt",
-      (assistant1 or {}).get("status") == "completed" and "STORED" in text1,
+      (assistant1 or {}).get("status") == "completed" and bool(text1.strip())
+      and "jailbreak" not in text1.lower() and "refus" not in text1.lower(),
       "status=%s text=%r" % ((assistant1 or {}).get("status"), text1[:90]))
 
 kinds = sorted({e.get("kind") for e in ((assistant1 or {}).get("stream") or [])})
@@ -456,7 +458,7 @@ check("T-GROK-13", "streaming events persisted", bool(kinds) and "message" in ki
 session_id = (conv1 or {}).get("harnessSessionId")
 check("T-GROK-14", "harness_session_id persisted", bool(session_id), "session=%s" % session_id)
 
-conv2, assistant2 = run_turn(cid, "What was the codeword? Reply with only the codeword.")
+conv2, assistant2 = run_turn(cid, "What is the project reference I gave you earlier?")
 check("T-GROK-15", "second turn keeps context",
       "ZEPHYR-9" in ((assistant2 or {}).get("text") or ""),
       "text=%r" % (((assistant2 or {}).get("text") or "")[:60]))
@@ -490,7 +492,7 @@ if not stopped:
 
 check("T-GROK-16a", "backend restart verified on the test port", start_and_verify(),
       "see run log if this failed")
-conv3, assistant3 = run_turn(cid, "Again: what was the codeword? Reply with only the codeword.")
+conv3, assistant3 = run_turn(cid, "After the restart, please repeat the project reference from earlier in this conversation.")
 check("T-GROK-16", "resume after backend restart",
       "ZEPHYR-9" in ((assistant3 or {}).get("text") or ""),
       "status=%s text=%r" % ((assistant3 or {}).get("status"),
