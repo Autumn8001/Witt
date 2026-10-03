@@ -35,9 +35,10 @@
   function meter(value, label) {
     const number = pct(value);
     return number === null ? '<div class="model-quota-no-data">等待真实额度数据</div>'
-      : `<div class="model-quota-meter" role="progressbar" aria-label="${escape(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${number}"><i style="width:${number}%"></i></div>`;
+      : `<div class="model-quota-meter" role="progressbar" aria-label="${escape(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${number}"><i style="transform:scaleX(${number / 100})"></i></div>`;
   }
   function render(body) {
+    const expanded = new Set([...cards.querySelectorAll("[data-quota-family] details[open]")].map((node) => node.closest("[data-quota-family]").dataset.quotaFamily));
     const families = new Map((body.families || []).map((family) => [family.id, family]));
     cards.innerHTML = ["grok", "gemini"].map((id) => {
       const family = families.get(id) || {};
@@ -46,13 +47,13 @@
       const basis = family.basis === "total" ? "汇总剩余" : "最低剩余";
       const detail = (family.rows || []).map((row) => `<li><div><strong>${escape(row.label)}</strong><small>账号 ${escape(row.account)} · ${escape(windowLabel[row.window] || "周期未提供")}</small></div><span>${pct(row.remainingPercent) === null ? "未提供" : pct(row.remainingPercent) + "% 剩余"}</span><small class="quota-reset-at">重置：${escape(date(row.resetAt))}</small></li>`).join("");
       return `<article class="model-quota-card" data-quota-family="${id}">
-        <header><div><span class="model-family-mark">${id === "grok" ? "G" : "✦"}</span><h4>${label}</h4></div><small>${id === "gemini" ? "执行暂未启用" : "Grok Build"}</small></header>
+        <header><div><h4>${label}</h4></div><small>${id === "gemini" ? "执行暂未启用" : "Grok Build"}</small></header>
         <div class="model-quota-value"><strong>${remaining === null ? "—" : remaining + "%"}</strong><span>${remaining === null ? "额度未读取" : basis}</span></div>
         ${meter(remaining, label + " " + basis)}
         <div class="model-quota-totals"><span>额度总量 <b>${escape(amount(family.total, family.unit))}</b></span><span>已用 <b>${escape(amount(family.used, family.unit))}</b></span><span>剩余 <b>${escape(amount(family.remaining, family.unit))}</b></span></div>
         <p class="model-quota-status">${escape(statusText[family.status] || statusText.unknown)}</p>
-        <footer>${Number.isInteger(family.modelCount) ? family.modelCount + " 个模型" : "模型列表未读取"} · ${Number.isInteger(family.accounts) ? Number(family.checkedAccounts || 0) + "/" + family.accounts + " 个账号已读取" : "账号额度未读取"}${family.failedAccounts || family.skippedAccounts ? " · 部分数据缺失" : ""}</footer>
-        ${detail ? `<details><summary>查看额度窗口</summary><ul>${detail}</ul></details>` : ""}
+        <footer><span>${Number.isInteger(family.modelCount) ? family.modelCount + " 个模型" : "模型列表未读取"}</span><span>${Number.isInteger(family.accounts) ? "已读取账号 " + Number(family.checkedAccounts || 0) + "/" + family.accounts : "账号额度未读取"}</span>${family.failedAccounts || family.skippedAccounts ? "<span>部分数据缺失</span>" : ""}</footer>
+        ${detail ? `<details${expanded.has(id) ? " open" : ""}><summary>查看额度窗口</summary><ul>${detail}</ul></details>` : ""}
       </article>`;
     }).join("");
     updated.textContent = `额度更新：${date(body.quotaCheckedAt)} · 检查：${date(body.checkedAt)}${body.cached ? " · 缓存" : ""}`;
@@ -99,12 +100,23 @@
   }
   async function refreshCapabilities() {
     const host = document.getElementById("extensionRuntimeStatus");
+    const connection = document.getElementById("profileConnectionStatus");
+    const badge = document.getElementById("extensionRuntimeBadge");
     try {
       const response = await fetch("/vault-api/chat/capabilities", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(8000) });
       if (!response.ok) throw new Error("runtime_unavailable");
       const body = await response.json();
+      connection.textContent = "服务已连接";
+      connection.dataset.state = "connected";
+      badge.textContent = body.runtime?.["grok-build"]?.available && body.runtime?.codex?.available ? "可用" : "部分可用";
+      if (!body.runtime?.["grok-build"]?.available && !body.runtime?.codex?.available) badge.textContent = "待连接";
       host.textContent = `Grok Build：${body.runtime?.["grok-build"]?.available ? "可用" : "暂不可用"} · Codex：${body.runtime?.codex?.available ? "可用" : "待认证或服务不可用"} · Gemini 执行暂停`;
-    } catch { host.textContent = "执行服务状态暂时无法读取，Gemini 执行保持暂停。"; }
+    } catch {
+      connection.textContent = "连接待检查";
+      connection.dataset.state = "unavailable";
+      badge.textContent = "未读取";
+      host.textContent = "执行服务状态暂时无法读取，请重试刷新；Gemini 执行保持暂停。";
+    }
   }
   function sync() {
     clearInterval(timer);
@@ -116,7 +128,7 @@
   }
   new MutationObserver(sync).observe(profile, { attributes: true, attributeFilter: ["class"] });
   document.addEventListener("visibilitychange", sync);
-  refreshButton.addEventListener("click", refresh);
+  refreshButton.addEventListener("click", () => { refresh(); refreshCapabilities(); });
   document.querySelector("[data-extension-settings]")?.addEventListener("click", () => {
     document.getElementById("closeProfile")?.click();
     document.getElementById("runtimeSettingsButton")?.click();

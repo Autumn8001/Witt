@@ -4,24 +4,23 @@
 .model-quota-head h3, .profile-extension-head h3 { margin: 0; font-size: 16px; font-weight: 650; }
 .model-quota-head p, .profile-extension-head p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .model-quota-head button, .profile-extensions button { min-height: 44px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--surface-solid); cursor: pointer; font-size: 12px; flex-shrink: 0; }
-.model-quota-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.model-quota-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface-solid); }
+.model-quota-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface-solid); }
+.model-quota-card { min-width: 0; padding: 16px; border: 0; border-radius: 0; background: transparent; }
 .model-quota-card header, .model-quota-card header > div { display: flex; align-items: center; gap: 8px; }
 .model-quota-card header { justify-content: space-between; flex-wrap: wrap; }
 .model-quota-card h4 { margin: 0; font-size: 16px; }
-.model-family-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: var(--ui-focus); background: var(--ui-focus-halo); font-weight: 700; }
-.model-quota-card header small { font-size: 11px; color: var(--muted); }
+.model-quota-card header small { font-size: 12px; color: var(--muted); }
 .model-quota-value { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 18px 0 10px; }
 .model-quota-value strong { font-size: 30px; font-weight: 650; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
 .model-quota-value > span { color: var(--muted); font-size: 12px; }
 .model-quota-meter { height: 7px; border-radius: 8px; overflow: hidden; background: var(--line); }
-.model-quota-meter i { display: block; height: 100%; border-radius: inherit; background: var(--ui-focus); transition: width 200ms ease; }
+.model-quota-meter i { display: block; width: 100%; height: 100%; transform-origin: left center; border-radius: inherit; background: var(--ui-focus); transition: transform 200ms ease; }
 .model-quota-no-data { padding: 8px 0; font-size: 12px; color: var(--muted); border-bottom: 1px dashed var(--line); }
 .model-quota-totals { display: grid; gap: 7px; margin-top: 14px; font-size: 12px; }
 .model-quota-totals span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--muted); }
 .model-quota-totals b { color: var(--ink); font-weight: 550; font-variant-numeric: tabular-nums; }
 .model-quota-status { margin: 14px 0 7px; font-size: 12px; overflow-wrap: anywhere; }
-.model-quota-card footer, [data-quota-note], [data-quota-updated] { font-size: 11px; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; }
+.model-quota-card footer, [data-quota-note], [data-quota-updated] { font-size: 12px; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; }
 [data-quota-note] { margin: 12px 0 5px; }
 [data-quota-updated] { display: block; }
 .model-quota-card details { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
@@ -29,16 +28,56 @@
 .model-quota-card ul { list-style: none; padding: 0; margin: 0; }
 .model-quota-card li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px 0; font-size: 12px; border-top: 1px solid var(--line); }
 .model-quota-card li div { display: grid; gap: 4px; }
-.model-quota-card li small { color: var(--muted); font-size: 11px; }
+.model-quota-card li small { color: var(--muted); font-size: 12px; }
 .quota-reset-at { width: 100%; }
 #modelQuotaOverview[data-state="stale"] .model-quota-status { color: #a36a22; }
 .profile-extensions { border-top: 1px solid var(--line); padding-top: 20px; }
-.profile-extension-list { display: grid; gap: 9px; }
-.profile-extension-list article { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-solid); }
+.profile-extension-list { display: grid; gap: 0; }
+.profile-extension-list article { display: flex; align-items: center; gap: 12px; padding: 16px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
 .profile-extension-list article > div { display: grid; gap: 5px; flex: 1; min-width: 0; }
 .profile-extension-list strong { font-size: 13px; }
 .profile-extension-list p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; overflow-wrap: anywhere; }
-.profile-extension-badge { font-size: 11px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); flex-shrink: 0; }
+.profile-extension-badge { font-size: 12px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); flex-shrink: 0; }
 .profile-usage-heading { margin: 20px 0 12px; font-size: 16px; font-weight: 650; }
-@media (max-width: 420px) { .model-quota-cards { gap: 9px; } .model-quota-card { padding: 12px; } .model-quota-card header { min-height: 54px; align-content: flex-start; } .model-quota-value strong { font-size: 26px; } .model-quota-value { margin-top: 12px; } .model-quota-value > span { font-size: 11px; } .model-quota-card footer { min-height: 36px; } .model-quota-totals { font-size: 11px; } .profile-extension-head { align-items: flex-start; } .profile-extension-list article { align-items: flex-start; } }
+@media (max-width: 420px) { .model-quota-card { padding: 12px; } .model-quota-card header { min-height: 54px; align-content: flex-start; } .model-quota-value strong { font-size: 26px; } .model-quota-value { margin-top: 12px; } .model-quota-value > span { font-size: 12px; } .model-quota-card footer { min-height: 36px; } .model-quota-totals { font-size: 12px; } .profile-extension-head { align-items: flex-start; } .profile-extension-list article { align-items: flex-start; } }
 @media (prefers-reduced-motion: reduce) { .model-quota-meter i { transition: none; } }
+
+/* Operate mode: quiet surfaces, readable metadata and explicit service states. */
+.profile-sheet { --profile-muted: #59635e; }
+:root[data-theme="dark"] .profile-sheet { --profile-muted: #b7c1bb; }
+.profile-sheet ::selection { color: var(--ink); background: var(--ui-focus-halo); }
+.profile-panel { scrollbar-color: var(--line) transparent; scrollbar-width: thin; }
+.profile-sheet .profile-hero { margin: 8px 0 24px !important; padding: 4px 0 16px; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; }
+.profile-sheet .profile-letter { width: 40px; height: 40px; border-radius: 12px; color: var(--ui-focus); background: var(--ui-focus-halo); font-weight: 650; }
+.profile-sheet .profile-hero strong { font-size: 14px; color: var(--ink); }
+.profile-sheet .profile-hero small { font-size: 12px; color: var(--profile-muted); }
+.profile-sheet .profile-hero > span { padding: 0; border-radius: 0; background: transparent !important; color: var(--profile-muted) !important; font-size: 12px; font-weight: 500; }
+.profile-sheet .profile-hero > span[data-state="connected"] { color: var(--ui-focus) !important; }
+.model-quota-card + .model-quota-card { border-left: 1px solid var(--line); }
+.model-quota-card header { flex-direction: column; align-items: flex-start; gap: 5px; }
+.model-quota-value { min-height: 58px; align-content: flex-end; }
+.model-quota-card :is(header small, .model-quota-value > span, .model-quota-no-data, footer, li small),
+.profile-sheet :is(.model-quota-head p, .profile-extension-head p, .model-quota-totals span, [data-quota-note], [data-quota-updated], .profile-extension-list p, .profile-extension-badge) { color: var(--profile-muted); }
+.profile-extension-badge { padding: 4px 0 4px 8px; border: 0; border-radius: 0; text-align: right; }
+.profile-extension-list article:first-child { border-top: 0; }
+.model-quota-status { line-height: 1.6; }
+#modelQuotaOverview[data-state="stale"] .model-quota-status { color: #875415; }
+:root[data-theme="dark"] #modelQuotaOverview[data-state="stale"] .model-quota-status { color: #f0c17b; }
+.model-quota-card summary { min-height: 44px; display: list-item; align-content: center; border-radius: 6px; }
+@media (hover: hover) and (pointer: fine) {
+  .profile-sheet :is([data-refresh-quota], [data-extension-settings], .model-quota-card summary):hover { background: var(--ui-hover-surface); border-color: var(--ui-focus); }
+}
+.profile-sheet :is([data-refresh-quota], [data-extension-settings]):active { background: var(--ui-pressed-surface); }
+@media (max-width: 420px) {
+  .profile-sheet .profile-hero { grid-template-columns: 40px minmax(0, 1fr); row-gap: 6px; }
+  #profileConnectionStatus { grid-column: 2; }
+  .model-quota-value { min-height: 62px; gap: 4px; }
+  .model-quota-value > span { flex-basis: 100%; }
+  .profile-extension-badge { max-width: 80px; line-height: 1.6; }
+}
+@media (forced-colors: active) {
+  .model-quota-meter { border: 1px solid CanvasText; }
+  .model-quota-meter i { background: Highlight; forced-color-adjust: none; }
+}
+
+.model-quota-card footer { display: grid; gap: 2px; }

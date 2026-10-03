@@ -1882,14 +1882,37 @@ await page.waitForFunction(() => document.querySelector('[data-quota-family="gro
 if (!(await page.locator('[data-quota-family="grok"]').textContent()).includes("$200")) throw new Error("Grok total quota not shown");
 if (!(await page.locator('[data-quota-family="gemini"]').textContent()).includes("未提供")) throw new Error("Unknown Gemini total was invented");
 if ((await page.locator("#modelQuotaOverview [role=progressbar]").count()) !== 2) throw new Error("Known family quota progress missing");
-await page.locator("#extensionRuntimeStatus").waitFor();
+await page.waitForFunction(() => document.getElementById("profileConnectionStatus")?.dataset.state === "connected");
+if ((await page.locator("#extensionRuntimeBadge").textContent()) !== "部分可用") throw new Error("Unavailable Codex masked by a ready runtime badge");
+await page.locator('[data-quota-family="grok"] summary').click();
+await page.locator("[data-refresh-quota]").click();
+await page.waitForFunction(() => document.getElementById("modelQuotaOverview").getAttribute("aria-busy") === "false");
+if (!(await page.locator('[data-quota-family="grok"] details').evaluate((node) => node.open))) throw new Error("Quota refresh collapsed the account window");
+await page.locator('[data-quota-family="grok"] summary').click();
 for (const theme of ["light", "dark"]) {
   await page.evaluate((value) => document.documentElement.dataset.theme = value, theme);
-  for (const viewport of [{ width: 360, height: 800 }, { width: 620, height: 900 }, { width: 844, height: 390 }]) {
+  for (const viewport of [{ width: 360, height: 800 }, { width: 620, height: 900 }, { width: 1024, height: 900 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport);
     const overflow = await page.locator(".profile-panel").evaluate((node) => node.scrollWidth > node.clientWidth + 1);
     if (overflow) throw new Error("Model quota profile overflows " + JSON.stringify({ theme, viewport }));
   }
+  const contrastFailures = await page.locator(".profile-panel").evaluate((root) => {
+    const rgb = (value) => value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+    const lum = (values) => values.map((value) => { const c = value / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; }).reduce((sum, value, i) => sum + value * [.2126, .7152, .0722][i], 0);
+    return [...root.querySelectorAll(".profile-hero small, #profileConnectionStatus, .model-quota-head p, .model-quota-card header small, .model-quota-value span, .model-quota-totals span, .model-quota-status, .model-quota-card footer, [data-quota-note], [data-quota-updated], .profile-extension-head p, .profile-extension-list p, .profile-extension-badge, [data-refresh-quota], [data-extension-settings]")].flatMap((node) => {
+      const style = getComputedStyle(node);
+      let surface = node;
+      while (surface.parentElement && getComputedStyle(surface).backgroundColor === "rgba(0, 0, 0, 0)") surface = surface.parentElement;
+      const fg = lum(rgb(style.color));
+      const bg = lum(rgb(getComputedStyle(surface).backgroundColor));
+      const ratio = (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05);
+      return ratio < 4.5 ? [{ text: node.textContent.slice(0, 45), ratio }] : [];
+    });
+  });
+  if (contrastFailures.length) throw new Error("Profile metadata contrast failed: " + JSON.stringify({ theme, contrastFailures }));
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.locator(".profile-panel").evaluate((node) => { node.scrollTop = 0; });
+  await page.screenshot({ path: "tests/ui-profile-desktop-" + theme + ".png", fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator(".profile-panel").evaluate((node) => { node.scrollTop = 0; });
   await page.screenshot({ path: "tests/ui-profile-" + theme + ".png", fullPage: false });
