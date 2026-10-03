@@ -37,6 +37,18 @@
     return number === null ? '<div class="model-quota-no-data">等待真实额度数据</div>'
       : `<div class="model-quota-meter" role="progressbar" aria-label="${escape(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${number}"><i style="transform:scaleX(${number / 100})"></i></div>`;
   }
+  function accountCapacity(family, id) {
+    const capacity = family.accountCapacity;
+    if (id !== "grok" || !capacity || !Number.isInteger(family.accounts)) return "";
+    const full = Number.isInteger(capacity.full) ? capacity.full : 0;
+    const partial = Number.isInteger(capacity.partial) ? capacity.partial : 0;
+    const exhausted = Number.isInteger(capacity.exhausted) ? capacity.exhausted : 0;
+    const unknown = Number.isInteger(capacity.unknown) ? capacity.unknown : 0;
+    return `<section class="model-quota-capacity" aria-label="Grok 账号容量">
+      <div><strong>${full}</strong><span>个账号额度为 100%</span></div>
+      <p>共 ${family.accounts} 个账号 · 部分额度 ${partial} · 已耗尽 ${exhausted}${unknown ? ` · 未读到 ${unknown}` : ""}</p>
+    </section>`;
+  }
   function render(body) {
     const expanded = new Set([...cards.querySelectorAll("[data-quota-family] details[open]")].map((node) => node.closest("[data-quota-family]").dataset.quotaFamily));
     const families = new Map((body.families || []).map((family) => [family.id, family]));
@@ -50,6 +62,7 @@
         <header><div><h4>${label}</h4></div><small>${id === "gemini" ? "执行暂未启用" : "Grok Build"}</small></header>
         <div class="model-quota-value"><strong>${remaining === null ? "—" : remaining + "%"}</strong><span>${remaining === null ? "额度未读取" : basis}</span></div>
         ${meter(remaining, label + " " + basis)}
+        ${accountCapacity(family, id)}
         <div class="model-quota-totals"><span>额度总量 <b>${escape(amount(family.total, family.unit))}</b></span><span>已用 <b>${escape(amount(family.used, family.unit))}</b></span><span>剩余 <b>${escape(amount(family.remaining, family.unit))}</b></span></div>
         <p class="model-quota-status">${escape(statusText[family.status] || statusText.unknown)}</p>
         <footer><span>${Number.isInteger(family.modelCount) ? family.modelCount + " 个模型" : "模型列表未读取"}</span><span>${Number.isInteger(family.accounts) ? "已读取账号 " + Number(family.checkedAccounts || 0) + "/" + family.accounts : "账号额度未读取"}</span>${family.failedAccounts || family.skippedAccounts ? "<span>部分数据缺失</span>" : ""}</footer>
@@ -59,7 +72,7 @@
     updated.textContent = `额度更新：${date(body.quotaCheckedAt)} · 检查：${date(body.checkedAt)}${body.cached ? " · 缓存" : ""}`;
     note.textContent = body.stale ? "刷新失败，正在显示上次成功数据。"
       : body.status === "management_auth_required" ? "真实额度需要服务端 CPA 管理认证。请勿在页面填写密钥。"
-      : "只汇总可比较的真实额度；不同窗口显示最低剩余，不相加。CPA 未提供的绝对总量显示“未提供”。";
+      : "只汇总可比较的真实额度；满额账号按该账号最低剩余窗口判断，不同窗口不相加。CPA 未提供的绝对总量显示“未提供”。";
     root.dataset.state = body.stale ? "stale" : body.status;
   }
   async function refresh(force = false) {

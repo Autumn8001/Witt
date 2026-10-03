@@ -24,6 +24,7 @@ const percent = (value) => {
   const n = numeric(value);
   return n !== null && n <= 100 ? n : null;
 };
+const FULL_REMAINING_PERCENT = 99.999999;
 const resetAt = (value) => {
   const n = typeof value === "string" ? Date.parse(value) : NaN;
   return Number.isFinite(n) ? new Date(n).toISOString() : null;
@@ -97,6 +98,29 @@ function summarize(rows) {
   }
   return { remainingPercent: Math.min(...known.map((row) => row.remainingPercent)), basis: "lowest", total: null, used: null, remaining: null, unit: null };
 }
+function summarizeAccounts(rows, accountCount = null) {
+  const accounts = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row || (typeof row.account !== "number" && typeof row.account !== "string") || String(row.account).trim() === "") continue;
+    const key = String(row.account);
+    if (!accounts.has(key)) accounts.set(key, null);
+    const remainingPercent = percent(row.remainingPercent);
+    if (remainingPercent !== null) {
+      const previous = accounts.get(key);
+      accounts.set(key, previous === null ? remainingPercent : Math.min(previous, remainingPercent));
+    }
+  }
+  const result = { full: 0, partial: 0, exhausted: 0, unknown: 0 };
+  for (const remainingPercent of accounts.values()) {
+    if (remainingPercent === null) result.unknown++;
+    else if (remainingPercent >= FULL_REMAINING_PERCENT) result.full++;
+    else if (remainingPercent <= 0) result.exhausted++;
+    else result.partial++;
+  }
+  const total = Number.isSafeInteger(accountCount) && accountCount >= 0 ? accountCount : accounts.size;
+  result.unknown += Math.max(0, total - accounts.size);
+  return result;
+}
 class CpaQuotaService {
   constructor(options = {}) {
     this.env = options.env || process.env;
@@ -165,7 +189,7 @@ class CpaQuotaService {
     const payload = {
       provider: "cpa", status: "unknown", checkedAt: new Date(this.now()).toISOString(), quotaCheckedAt: null,
       stale: false, cached: false,
-      families: FAMILY_IDS.map((id) => ({ id, modelCount: null, status: "unknown", accounts: null, checkedAccounts: 0, failedAccounts: 0, skippedAccounts: 0, rows: [], ...summarize([]) })),
+      families: FAMILY_IDS.map((id) => ({ id, modelCount: null, status: "unknown", accounts: null, checkedAccounts: 0, failedAccounts: 0, skippedAccounts: 0, rows: [], accountCapacity: summarizeAccounts([]), ...summarize([]) })),
     };
     const discovery = this.json("/v1/models", this.env.WITT_CPA_API_KEY || "").then((body) => {
       if (!Array.isArray(body?.data)) return;
@@ -230,7 +254,7 @@ class CpaQuotaService {
       }
     }));
     for (const family of payload.families) {
-      Object.assign(family, summarize(family.rows));
+      Object.assign(family, summarize(family.rows), { accountCapacity: summarizeAccounts(family.rows, family.accounts) });
       family.status = family.accounts === 0 ? "no_accounts" : family.checkedAccounts === 0 ? "quota_unavailable" :
         family.failedAccounts || family.skippedAccounts ? "partial" : "ready";
     }
@@ -255,4 +279,4 @@ class CpaQuotaService {
     return this.pending;
   }
 }
-module.exports = { CpaQuotaService, grokRows, geminiRows, summarize };
+module.exports = { CpaQuotaService, grokRows, geminiRows, summarize, summarizeAccounts };

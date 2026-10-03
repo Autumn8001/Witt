@@ -16,6 +16,11 @@
 .model-quota-meter { height: 7px; border-radius: 8px; overflow: hidden; background: var(--line); }
 .model-quota-meter i { display: block; width: 100%; height: 100%; transform-origin: left center; border-radius: inherit; background: var(--ui-focus); transition: transform 200ms ease; }
 .model-quota-no-data { padding: 8px 0; font-size: 12px; color: var(--muted); border-bottom: 1px dashed var(--line); }
+.model-quota-capacity { margin-top: 14px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.model-quota-capacity div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.model-quota-capacity strong { color: var(--ink); font-size: 24px; font-weight: 650; letter-spacing: -.4px; font-variant-numeric: tabular-nums; }
+.model-quota-capacity span { color: var(--ink); font-size: 13px; font-weight: 550; }
+.model-quota-capacity p { margin: 5px 0 0; color: var(--profile-muted, var(--muted)); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .model-quota-totals { display: grid; gap: 7px; margin-top: 14px; font-size: 12px; }
 .model-quota-totals span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--muted); }
 .model-quota-totals b { color: var(--ink); font-weight: 550; font-variant-numeric: tabular-nums; }

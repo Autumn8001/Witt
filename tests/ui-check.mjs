@@ -556,6 +556,7 @@ const cpaQuotaFixture = {
   families: [
     { id: "grok", modelCount: 4, status: "ready", accounts: 2, checkedAccounts: 2,
       remainingPercent: 70, basis: "total", total: 20000, used: 6000, remaining: 14000, unit: "USD cents",
+      accountCapacity: { full: 1, partial: 1, exhausted: 0, unknown: 0 },
       rows: [{ account: 1, label: "Grok 月度额度", window: "monthly", remainingPercent: 70, resetAt: "2026-11-01T00:00:00Z" }] },
     { id: "gemini", modelCount: 9, status: "ready", accounts: 1, checkedAccounts: 1,
       remainingPercent: 45, basis: "lowest", total: null, used: null, remaining: null, unit: null,
@@ -1892,6 +1893,9 @@ for (const [status, stage, sha, button] of [
 await page.locator("#profileButton").evaluate((node) => node.click());
 await page.waitForFunction(() => document.querySelector('[data-quota-family="grok"] .model-quota-value strong')?.textContent === "70%");
 if (!(await page.locator('[data-quota-family="grok"]').textContent()).includes("$200")) throw new Error("Grok total quota not shown");
+if (!(await page.locator('[data-quota-family="grok"] .model-quota-capacity').textContent()).includes("1个账号额度为 100%")) throw new Error("Grok full-account capacity not shown");
+if (!(await page.locator('[data-quota-family="grok"] .model-quota-capacity').textContent()).includes("共 2 个账号 · 部分额度 1 · 已耗尽 0")) throw new Error("Grok account capacity breakdown not shown");
+if ((await page.locator('[data-quota-family="gemini"] .model-quota-capacity').count()) !== 0) throw new Error("Grok-specific account capacity leaked into Gemini");
 if (!(await page.locator('[data-quota-family="gemini"]').textContent()).includes("未提供")) throw new Error("Unknown Gemini total was invented");
 if ((await page.locator("#modelQuotaOverview [role=progressbar]").count()) !== 2) throw new Error("Known family quota progress missing");
 await page.waitForFunction(() => document.getElementById("profileConnectionStatus")?.dataset.state === "connected");

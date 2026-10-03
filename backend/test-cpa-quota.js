@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { CpaQuotaService, grokRows, geminiRows, summarize } = require("./cpa-quota");
+const { CpaQuotaService, grokRows, geminiRows, summarize, summarizeAccounts } = require("./cpa-quota");
 const { createCpaQuotaRoutes } = require("./routes/cpa-quota");
 const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 test("missing management authentication returns real model counts and unknown quotas", async () => {
@@ -15,6 +15,10 @@ test("missing management authentication returns real model counts and unknown qu
   assert.ok(body.families.every((item) => item.total === null && item.remainingPercent === null));
   assert.equal(calls.length, 1);
   assert.equal(JSON.stringify(body).includes("secret-sentinel"), false);
+  assert.deepEqual(body.families.map((item) => item.accountCapacity), [
+    { full: 0, partial: 0, exhausted: 0, unknown: 0 },
+    { full: 0, partial: 0, exhausted: 0, unknown: 0 },
+  ]);
 });
 test("quota units, unknown totals, malformed data and incompatible windows are not fabricated", () => {
   assert.deepEqual(grokRows({ config: { used: null, monthlyLimit: "", creditUsagePercent: "bad" } }, 1), []);
@@ -43,6 +47,22 @@ test("Grok weekly protobuf zero shape reports a real unused window", () => {
   assert.equal(rows[0].remainingPercent, 100);
   assert.equal(rows[0].resetAt, "2026-10-08T00:00:00.000Z");
 });
+test("account capacity uses the lowest valid window without exposing account identities", () => {
+  const rows = [
+    { account: 1, remainingPercent: 100 },
+    { account: 1, remainingPercent: 99.9999995 },
+    { account: 2, remainingPercent: 100 },
+    { account: 2, remainingPercent: 75 },
+    { account: 3, remainingPercent: 0 },
+    { account: 3, remainingPercent: null },
+    { account: 4, remainingPercent: null },
+    { account: 5, remainingPercent: 101 },
+  ];
+  assert.deepEqual(summarizeAccounts(rows, 9), { full: 1, partial: 1, exhausted: 1, unknown: 6 });
+  assert.deepEqual(summarizeAccounts([], 0), { full: 0, partial: 0, exhausted: 0, unknown: 0 });
+  assert.deepEqual(summarizeAccounts(null), { full: 0, partial: 0, exhausted: 0, unknown: 0 });
+  assert.equal(JSON.stringify(summarizeAccounts(rows, 9)).includes("account"), false);
+});
 test("real-shaped CPA account responses aggregate without exposing identities or credentials", async () => {
   const calls = [];
   const service = new CpaQuotaService({
@@ -70,6 +90,10 @@ test("real-shaped CPA account responses aggregate without exposing identities or
   const [first, second] = await Promise.all([service.read(), service.read()]);
   assert.deepEqual(first, second);
   assert.deepEqual(first.families.map((item) => item.remainingPercent), [70, 40]);
+  assert.deepEqual(first.families.map((item) => item.accountCapacity), [
+    { full: 0, partial: 1, exhausted: 0, unknown: 0 },
+    { full: 0, partial: 1, exhausted: 0, unknown: 0 },
+  ]);
   assert.equal(first.status, "ready");
   const serialized = JSON.stringify(first);
   for (const secret of ["management-sentinel", "model-sentinel", "private-index", "private-email", "private-secret", "private-project"]) assert.equal(serialized.includes(secret), false);
