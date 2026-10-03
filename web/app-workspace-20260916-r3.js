@@ -58,6 +58,10 @@
     nativeInitialized: false,
     nativeVersion: "",
     detailRequest: null,
+    detailEntry: null,
+    pendingDevelopmentWorkflowKey: "",
+    developmentWorkflowJobs: new Map(),
+    pendingDevelopmentAction: "",
     usage: null,
     usageLoading: false,
     authenticated: false,
@@ -863,7 +867,28 @@
     }
   }
 
+  async function loadVersionInfo() {
+    const readSha = async (url, field) => {
+      const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
+      if (!response.ok) return "";
+      const body = await response.json();
+      const sha = String(body?.[field] || "").toLowerCase();
+      return /^[a-f0-9]{7,40}$/.test(sha) ? sha : "";
+    };
+    const [backend, frontend] = await Promise.allSettled([
+      readSha("/vault-api/version", "backendSha"),
+      readSha("/vault/version.json", "frontendSha"),
+    ]);
+    const backendSha = backend.status === "fulfilled" ? backend.value : "";
+    const frontendSha = frontend.status === "fulfilled" ? frontend.value : "";
+    $("#backendVersionSha").textContent = backendSha ? backendSha.slice(0, 8) : "unknown";
+    $("#frontendVersionSha").textContent = frontendSha ? frontendSha.slice(0, 8) : "unknown";
+    $("#deploymentVersionStatus").textContent = !backendSha || !frontendSha
+      ? "版本未知" : backendSha === frontendSha ? "前后端一致" : "前后端不一致";
+  }
+
   async function loadRuntimeExtras() {
+    void loadVersionInfo();
     state.runtimeProfilesError = "";
     state.serverOverviewError = "";
     renderRuntimeControls();
@@ -1799,6 +1824,7 @@
     state.draftReasoning = state.reasoning;
     state.draftAccessMode = state.accessMode;
     updateModelControls();
+    void loadVersionInfo();
     $("#settingsSheet").classList.add("open");
     $("#settingsSheet").setAttribute("aria-hidden", "false");
   }
@@ -1893,6 +1919,7 @@
 
   function openActionDetail(messageId, entryId, label) {
     state.detailRequest = { messageId, entryId };
+    state.detailEntry = null;
     $("#actionDetailTitle").textContent = label || "执行详情";
     $("#actionDetailContent").innerHTML = `<div class="detail-loading"><i></i><span>正在读取详情</span></div>`;
     $("#actionDetailSheet").classList.add("open");
@@ -1907,6 +1934,7 @@
 
   function closeActionDetail() {
     state.detailRequest = null;
+    state.detailEntry = null;
     $("#actionDetailSheet").classList.remove("open");
     $("#actionDetailSheet").setAttribute("aria-hidden", "true");
   }
@@ -1935,34 +1963,193 @@
     return `<section class="detail-block ${className}"><h3>${escapeHtml(title)}</h3><pre>${escapeHtml(value)}</pre></section>`;
   }
 
+  function developmentWorkflowKey(conversationId, messageId) {
+    return `${conversationId || ""}:${messageId || ""}`;
+  }
+
+  function developmentWorkflowLabel(job) {
+    if (!job) return "尚未开始";
+    const statusLabels = {
+      queued: "已排队", pending: "等待开始", running: "正在执行",
+      awaiting_commit_confirmation: "测试通过，等待提交确认",
+      awaiting_deploy_confirmation: "已推送，等待部署确认",
+      restart_queued: "等待延迟重启", restarting: "服务重启中",
+      completed: "已完成", succeeded: "已完成", failed: "执行失败",
+      cancelled: "已取消", canceled: "已取消",
+    };
+    const stageLabels = {
+      test: "测试", testing: "测试", staging: "准备提交", commit: "提交",
+      committing: "提交", push: "推送", pushing: "推送", deploy: "部署",
+      restart: "重启", restart_queued: "等待重启", restarting: "重启",
+      health: "健康检查", health_check: "健康检查",
+    };
+    const parts = [
+      statusLabels[String(job.status || "").toLowerCase()] || job.status || "",
+      stageLabels[String(job.stage || "").toLowerCase()] || job.stage || "",
+      job.message || job.failureReason || job.error || "",
+    ].filter(Boolean);
+    return parts.join(" · ") || "正在处理";
+  }
+
+  function developmentWorkflowMarkup(entry, details, changes) {
+    const conversation = state.active;
+    const conversationId = conversation?.id;
+    const messageId = state.detailRequest?.messageId;
+    const message = conversation?.messages?.find((item) => item.id === messageId);
+    const latestAssistant = conversation?.messages?.filter((item) => item.role === "assistant").at(-1);
+    const latestUser = conversation?.messages?.filter((item) => item.role === "user").at(-1);
+    const taskSummary = String(latestUser?.text || "更新项目文件").replace(/\s+/g, " ").trim().slice(0, 72) || "更新项目文件";
+    const commitSeed = `Witt: ${taskSummary}`;
+    const branch = conversation?.gitBranch || conversation?.branch ||
+      details.branch || details.gitBranch || entry.branch || "";
+    const allowedHarness = ["grok-build", "codex"].includes(conversation?.harnessId);
+    const incompleteChanges = Number(details.omitted || 0) > 0 ||
+      Number(details.baselineUnavailable || 0) > 0 || Boolean(details.baselineDirty || details.branchChanged) || changes.some((change) => {
+      const kind = String(change.kind || "").toLowerCase();
+      const deleted = ["delete", "deleted"].includes(kind);
+      return Boolean(change.baselineDirty || change.baselineUnavailable || change.afterHashUnavailable) ||
+        (!deleted && !change.afterHash);
+    });
+    if (!conversationId || !messageId || state.activeId !== conversationId ||
+        !state.admin || state.busy || conversation.busy || conversation.workDir !== "/opt/witt" ||
+        !allowedHarness || branch !== "platform/personal-ai-ops" ||
+        message?.status !== "completed" || latestAssistant?.id !== messageId ||
+        entry.id !== "turn-git-changes" || entry.kind !== "file" ||
+        entry.status !== "completed" || !changes.length || incompleteChanges) return "";
+
+    const key = developmentWorkflowKey(conversationId, messageId);
+    const savedJob = state.developmentWorkflowJobs.get(key);
+    const streamJobEntry = message?.stream?.findLast((item) =>
+      ["development_workflow", "workflow"].includes(item.kind));
+    const streamJob = streamJobEntry
+      ? { ...(streamJobEntry.details || {}), ...(streamJobEntry.job || {}),
+        id: streamJobEntry.jobId || streamJobEntry.job?.id || streamJobEntry.details?.id,
+        sha: streamJobEntry.sha || streamJobEntry.job?.sha || streamJobEntry.details?.sha,
+        status: streamJobEntry.status || streamJobEntry.job?.status || streamJobEntry.details?.status,
+        stage: streamJobEntry.stage || streamJobEntry.job?.stage || streamJobEntry.details?.stage,
+        message: streamJobEntry.message || streamJobEntry.job?.message || streamJobEntry.details?.message,
+        failureReason: streamJobEntry.failureReason || streamJobEntry.job?.failureReason ||
+          streamJobEntry.details?.failureReason || streamJobEntry.details?.error,
+      }
+      : null;
+    // Persisted stream events are the recovery source of truth. The bridge map
+    // only fills the gap before the first stream update reaches the conversation.
+    const job = streamJob || savedJob;
+    const running = job && ["queued", "pending", "running", "restart_queued", "restarting"].includes(String(job.status || "").toLowerCase());
+    const finished = job && ["completed", "succeeded"].includes(String(job.status || "").toLowerCase());
+    const canRetry = job && ["failed", "cancelled", "canceled"].includes(String(job.status || "").toLowerCase());
+    const canResumePush = Boolean(canRetry && job?.sha && job?.id);
+    const canDeploy = Boolean(job?.id && job?.sha &&
+      String(job.status || "").toLowerCase() === "awaiting_deploy_confirmation");
+    const canCommit = Boolean(job?.id && !job?.sha &&
+      String(job.status || "").toLowerCase() === "awaiting_commit_confirmation");
+    const canCancelRunning = Boolean(running && job?.id && !job?.sha &&
+      !["committing", "pushing", "restart_queued", "restarting", "health_check"].includes(job.stage));
+    const launchLabel = canRetry ? "重新运行测试" : "运行测试";
+    return `
+      <section class="development-workflow" data-workflow-key="${escapeHtml(key)}">
+        <strong>项目交付</strong>
+        <p>先对 ${escapeHtml(branch)} 本轮变更运行测试；测试通过后分别确认提交推送与部署。</p>
+        ${job ? `<p class="development-workflow-status" data-development-workflow-status data-workflow-key="${escapeHtml(key)}" role="status" aria-live="polite">${escapeHtml(developmentWorkflowLabel(job))}</p>` : ""}
+        ${canCancelRunning ? `<button type="button" class="secondary development-workflow-stop" data-workflow-stop data-job-id="${escapeHtml(job.id)}">取消交付</button>` : ""}
+        ${canResumePush ? `<button type="button" class="development-workflow-launch" data-workflow-prepare-resume>准备重试推送</button>
+          <div class="development-workflow-confirm" data-workflow-resume-confirm-panel hidden>
+            <p>上次提交已创建但推送未完成。确认后仅重试推送产品分支。</p>
+            <div><button type="button" class="secondary" data-workflow-cancel-resume>返回</button><button type="button" data-workflow-resume-push data-job-id="${escapeHtml(job.id)}">确认重试推送</button></div>
+          </div>` : ""}
+        ${canCommit ? `<button type="button" class="development-workflow-launch" data-workflow-prepare-commit>准备提交并推送</button>
+          <div class="development-workflow-confirm" data-workflow-commit-confirm-panel hidden>
+            <p>测试已通过。请再次确认本轮 Diff 与提交说明；确认后将精确暂存、创建提交并推送产品分支。</p>
+            <label class="development-workflow-commit-label">提交说明<input type="text" maxlength="120" data-workflow-commit-message value="${escapeHtml(commitSeed)}"></label>
+            <div><button type="button" class="secondary" data-workflow-cancel-commit>暂不提交</button><button type="button" data-workflow-confirm-commit data-job-id="${escapeHtml(job.id)}">确认提交并推送</button></div>
+          </div>` : ""}
+        ${canDeploy ? `<button type="button" class="development-workflow-launch" data-workflow-prepare-deploy>准备部署</button>
+          <div class="development-workflow-confirm" data-workflow-deploy-confirm-panel hidden>
+            <p>已提交并推送到产品分支。确认后将重启 Witt 服务并检查健康状态；也可以暂不部署。</p>
+            <div><button type="button" class="secondary" data-workflow-cancel-deploy>暂不部署</button><button type="button" data-workflow-confirm-deploy data-job-id="${escapeHtml(job.id)}">确认部署并重启</button></div>
+          </div>` : ""}
+        ${finished || canResumePush || canCommit || canDeploy ? "" : running
+          ? ""
+          : `<button type="button" class="development-workflow-launch" data-workflow-prepare>${launchLabel}</button>
+            <div class="development-workflow-confirm" data-workflow-confirm-panel hidden>
+              <p>确认后仅运行测试；不会提交、推送、部署或重启服务。</p>
+              <div><button type="button" class="secondary" data-workflow-cancel>返回</button><button type="button" data-workflow-confirm-send>确认运行测试</button></div>
+            </div>`}
+      </section>`;
+  }
+
   function renderActionDetail(entry) {
     const details = entry.details || {};
-    if (entry.kind === "command") {
+    if (entry.kind === "command" || entry.kind === "tool") {
       const status = entry.status === "completed" ? "已完成"
         : entry.status === "failed" ? "失败" : "执行中";
+      const exitCode = Number.isInteger(details.exitCode) ? details.exitCode : null;
+      const failure = details.error || details.failureReason || details.reason || "";
       const meta = [
         status,
-        Number.isInteger(details.exitCode) ? `退出码 ${details.exitCode}` : "",
+        exitCode !== null ? `退出码 ${exitCode}` : "",
         Number.isInteger(details.durationMs) ? `${(details.durationMs / 1000).toFixed(2)} 秒` : "",
       ].filter(Boolean).join(" · ");
-      $("#actionDetailTitle").textContent = "命令执行详情";
+      $("#actionDetailTitle").textContent = entry.kind === "tool" ? "工具执行详情" : "命令执行详情";
       $("#actionDetailContent").innerHTML = `
-        <div class="detail-summary"><span>⌘</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || "未提供工作目录")}</small></div></div>
-        ${detailBlock("完整命令", details.command, "command")}
-        ${detailBlock("执行输出", details.output || "该命令没有输出", "output")}`;
+        <div class="detail-summary"><span>${entry.kind === "tool" ? "✦" : "⌘"}</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || details.workDir || "未提供工作目录")}</small></div></div>
+        ${detailBlock(entry.kind === "tool" ? "工具" : "完整命令", details.command || details.tool || entry.label, "command")}
+        ${failure ? detailBlock("失败原因", failure, "failure") : ""}
+        ${detailBlock("执行输出", details.output || "该操作没有输出", "output")}`;
       return;
     }
-    const kindNames = { add: "新增", update: "修改", delete: "删除" };
-    $("#actionDetailTitle").textContent = "文件修改详情";
+
     const changes = Array.isArray(details.changes) ? details.changes : [];
+    const kindNames = {
+      add: "新增", added: "新增", create: "新增",
+      update: "修改", modified: "修改",
+      delete: "删除", deleted: "删除",
+      rename: "重命名", renamed: "重命名",
+      untracked: "未跟踪文本",
+    };
+    const fileSize = (value) => {
+      if (value === null || value === undefined || value === "") return "";
+      const bytes = Number(value);
+      return Number.isFinite(bytes) && bytes >= 0 ? formatBytes(bytes) : "";
+    };
+    $("#actionDetailTitle").textContent = changes.length
+      ? `本轮文件变更 · ${changes.length} 个` : "本轮文件变更";
     $("#actionDetailContent").innerHTML = changes.length
-      ? changes.map((change) => `
-        <article class="file-change-detail">
-          <header><span class="${escapeHtml(change.kind)}">${escapeHtml(kindNames[change.kind] || "修改")}</span><strong>${escapeHtml(change.path)}</strong></header>
-          ${change.movePath ? `<p>移动到：${escapeHtml(change.movePath)}</p>` : ""}
-          ${change.diff ? `<pre>${escapeHtml(change.diff)}</pre>` : `<p>没有可显示的差异内容</p>`}
-        </article>`).join("")
-      : `<div class="detail-error">暂时没有可显示的文件差异。</div>`;
+      ? changes.map((change) => {
+        const kind = String(change.kind || "update").toLowerCase();
+        const isRename = ["rename", "renamed"].includes(kind) || Boolean(change.oldPath || change.movePath);
+        const isUntracked = kind === "untracked" || Boolean(change.untracked);
+        const label = isUntracked ? kindNames.untracked : isRename ? kindNames.rename : (kindNames[kind] || "修改");
+        const className = isUntracked ? "untracked" : isRename ? "rename" : kind;
+        const oldPath = change.oldPath || (isRename ? change.movePath : "");
+        const path = change.path || change.newPath || oldPath || "未知路径";
+        const size = fileSize(change.bytes);
+        const flags = [
+          change.binary ? "二进制文件，无法显示文本 Diff" : "",
+          change.large ? `大文件${size ? `（${size}）` : ""}，Diff 可能不完整` : "",
+          change.truncated ? "Diff 已截断，仅显示部分内容" : "",
+          change.baselineUnavailable ? "基线超过采集上限，无法准确归因" : "",
+        ].filter(Boolean);
+        const diff = typeof change.diff === "string" ? change.diff : "";
+        const diffHtml = diff && !change.binary
+          ? `<pre>${escapeHtml(diff)}</pre>`
+          : flags.length
+            ? ""
+            : `<p class="file-change-empty">没有可显示的文本 Diff</p>`;
+        return `
+          <article class="file-change-detail">
+            <header><span class="${escapeHtml(className)}">${escapeHtml(label)}</span><strong>${escapeHtml(path)}</strong></header>
+            ${oldPath && oldPath !== path ? `<p class="file-change-path">原路径：${escapeHtml(oldPath)}</p>` : ""}
+            ${size ? `<p class="file-change-size">文件大小：${escapeHtml(size)}</p>` : ""}
+            ${flags.map((flag) => `<p class="file-change-notice">${escapeHtml(flag)}</p>`).join("")}
+            ${diffHtml}
+          </article>`;
+      }).join("") + (Number(details.baselineUnavailable || 0) > 0
+        ? `<p class="file-change-notice">基线超过采集上限，无法准确归因</p>` : "") +
+        (details.baselineDirty && Number(details.baselineUnavailable || 0) === 0
+          ? `<p class="file-change-notice">回合开始前工作区已有修改，无法确认这些内容均由本轮产生</p>` : "") +
+        developmentWorkflowMarkup(entry, details, changes)
+      : `<div class="detail-error">本轮没有可显示的文件变更。</div>`;
   }
 
   function renderConversations() {
@@ -2284,8 +2471,21 @@
       ? `data-stream-detail="${escapeHtml(entry.id)}" data-message-id="${escapeHtml(message.sourceMessageId || message.id)}"`
       : "";
     const tag = entry.hasDetails ? "button" : "div";
+    const details = entry.details || {};
+    const status = entry.status === "completed" ? "已完成"
+      : entry.status === "failed" ? "失败" : entry.status === "running" ? "执行中" : "";
+    const actualExitCode = Number.isInteger(details.exitCode) ? details.exitCode
+      : Number.isInteger(entry.exitCode) ? entry.exitCode : null;
+    const exitCode = actualExitCode !== null ? `退出码 ${actualExitCode}` : "";
+    const failure = details.error || details.failureReason || details.reason ||
+      entry.error || entry.failureReason || "";
+    const meta = [status, exitCode, failure].filter(Boolean).join(" · ");
+    const fileCount = Number.isFinite(Number(entry.count)) && Number(entry.count) > 0
+      ? `${Number(entry.count)} 个文件` : "";
+    const subline = entry.kind === "file" ? fileCount
+      : entry.kind === "command" || entry.kind === "tool" ? meta : "";
     return `<${tag} ${entry.hasDetails ? 'type="button"' : ""} class="stream-action ${entry.kind || "tool"} ${entry.status || ""} ${entry.hasDetails ? "clickable" : ""}" ${detailAttributes}>
-      <span>${icon}</span><p>${escapeHtml(entry.label || "正在处理")}</p>
+      <span>${icon}</span><div class="stream-action-copy"><p>${escapeHtml(entry.label || "正在处理")}</p>${subline ? `<small>${escapeHtml(subline)}</small>` : ""}</div>
       <div class="stream-tail"><i></i>${entry.hasDetails ? `<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>` : ""}</div>
     </${tag}>`;
   }
@@ -3056,6 +3256,10 @@
     updateModelControls();
     setConnected(true, conversation.busy ? "Witt 正在处理" : "服务器在线");
     renderMessages(true);
+    if (state.detailRequest && state.detailEntry &&
+        $("#actionDetailSheet").classList.contains("open")) {
+      renderActionDetail(state.detailEntry);
+    }
     if (pendingLatestConversationId === conversation.id) {
       scrollOpenedConversationToLatest(conversation.id, true);
     }
@@ -3757,12 +3961,55 @@
     onStreamDetail(json) {
       const payload = JSON.parse(json);
       if (!state.detailRequest || !payload.entry) return;
+      state.detailEntry = payload.entry;
       renderActionDetail(payload.entry);
     },
     onStreamDetailError(message) {
       if (!state.detailRequest) return;
       $("#actionDetailContent").innerHTML =
         `<div class="detail-error">${escapeHtml(message || "暂时无法读取执行详情")}</div>`;
+    },
+    onDevelopmentWorkflowError(message) {
+      const key = state.pendingDevelopmentWorkflowKey;
+      const action = state.pendingDevelopmentAction;
+      state.pendingDevelopmentWorkflowKey = "";
+      state.pendingDevelopmentAction = "";
+      if (key) {
+        const previous = state.developmentWorkflowJobs.get(key) || {};
+        const failed = ["commit", "deploy", "resume-push"].includes(action)
+          ? previous
+          : { ...previous, status: "failed", stage: previous.stage || "test",
+            message: message || "无法提交项目交付请求" };
+        state.developmentWorkflowJobs.set(key, failed);
+        if (state.detailEntry) renderActionDetail(state.detailEntry);
+      }
+      toast(message || "项目交付请求失败");
+    },
+    onDevelopmentWorkflow(json) {
+      try {
+        const payload = typeof json === "string" ? JSON.parse(json) : json;
+        const job = payload?.job && typeof payload.job === "object" ? payload.job : payload;
+        const messageId = payload?.messageId || job?.messageId;
+        const conversationId = payload?.conversationId || job?.conversationId ||
+          (state.active?.messages?.some((item) => item.id === messageId) ? state.activeId : "");
+        if (!conversationId || !messageId) return;
+        const update = { ...job, ...payload, conversationId, messageId };
+        if (payload?.job) Object.assign(update, payload.job);
+        const key = developmentWorkflowKey(conversationId, messageId);
+        if (state.pendingDevelopmentWorkflowKey === key) {
+          state.pendingDevelopmentWorkflowKey = "";
+          state.pendingDevelopmentAction = "";
+        }
+        state.developmentWorkflowJobs.set(key, update);
+        if (state.detailEntry && state.detailRequest?.messageId === messageId &&
+            state.activeId === conversationId) renderActionDetail(state.detailEntry);
+        if (state.activeId === conversationId && state.appVisible &&
+            ["completed", "succeeded", "failed"].includes(String(update.status || "").toLowerCase())) {
+          toast(update.message || update.error || developmentWorkflowLabel(update));
+        }
+      } catch {
+        // Ignore malformed progress events; the conversation stream remains usable.
+      }
     },
   };
 
@@ -4093,6 +4340,169 @@
   $("#closeDelivery").addEventListener("click", closeDelivery);
   $("#deliveryBackdrop").addEventListener("click", closeDelivery);
   $("#closeActionDetail").addEventListener("click", closeActionDetail);
+  $("#actionDetailContent").addEventListener("click", (event) => {
+    const prepareCommit = event.target.closest("[data-workflow-prepare-commit]");
+    if (prepareCommit) {
+      prepareCommit.hidden = true;
+      prepareCommit.parentElement?.querySelector("[data-workflow-commit-confirm-panel]")?.removeAttribute("hidden");
+      return;
+    }
+    if (event.target.closest("[data-workflow-cancel-commit]")) {
+      const section = event.target.closest(".development-workflow");
+      const prepareButton = section?.querySelector("[data-workflow-prepare-commit]");
+      if (prepareButton) prepareButton.hidden = false;
+      section?.querySelector("[data-workflow-commit-confirm-panel]")?.setAttribute("hidden", "");
+      return;
+    }
+    const confirmCommit = event.target.closest("[data-workflow-confirm-commit]");
+    if (confirmCommit) {
+      if (typeof bridge()?.confirmDevelopmentCommit !== "function") {
+        toast("请更新 Witt App 后再提交");
+        return;
+      }
+      const section = event.target.closest(".development-workflow");
+      const key = section?.dataset.workflowKey || "";
+      const input = section?.querySelector("[data-workflow-commit-message]");
+      const commitMessage = String(input?.value || "").trim().slice(0, 120);
+      if (!commitMessage) {
+        toast("请填写提交说明");
+        input?.focus();
+        return;
+      }
+      if (!key || !confirmCommit.dataset.jobId || state.pendingDevelopmentWorkflowKey) return;
+      state.pendingDevelopmentWorkflowKey = key;
+      state.pendingDevelopmentAction = "commit";
+      confirmCommit.disabled = true;
+      confirmCommit.textContent = "正在请求提交";
+      bridge().confirmDevelopmentCommit(confirmCommit.dataset.jobId, commitMessage);
+      return;
+    }
+    const prepareResume = event.target.closest("[data-workflow-prepare-resume]");
+    if (prepareResume) {
+      prepareResume.hidden = true;
+      prepareResume.parentElement?.querySelector("[data-workflow-resume-confirm-panel]")?.removeAttribute("hidden");
+      return;
+    }
+    if (event.target.closest("[data-workflow-cancel-resume]")) {
+      const section = event.target.closest(".development-workflow");
+      const prepareButton = section?.querySelector("[data-workflow-prepare-resume]");
+      if (prepareButton) prepareButton.hidden = false;
+      section?.querySelector("[data-workflow-resume-confirm-panel]")?.setAttribute("hidden", "");
+      return;
+    }
+    const prepareDeploy = event.target.closest("[data-workflow-prepare-deploy]");
+    if (prepareDeploy) {
+      prepareDeploy.hidden = true;
+      prepareDeploy.parentElement?.querySelector("[data-workflow-deploy-confirm-panel]")?.removeAttribute("hidden");
+      return;
+    }
+    if (event.target.closest("[data-workflow-cancel-deploy]")) {
+      const section = event.target.closest(".development-workflow");
+      const prepareButton = section?.querySelector("[data-workflow-prepare-deploy]");
+      if (prepareButton) prepareButton.hidden = false;
+      section?.querySelector("[data-workflow-deploy-confirm-panel]")?.setAttribute("hidden", "");
+      return;
+    }
+    const confirmDeploy = event.target.closest("[data-workflow-confirm-deploy]");
+    if (confirmDeploy) {
+      if (typeof bridge()?.confirmDevelopmentDeploy !== "function") {
+        toast("请更新 Witt App 后再部署");
+        return;
+      }
+      const key = event.target.closest(".development-workflow")?.dataset.workflowKey || "";
+      if (!key || !confirmDeploy.dataset.jobId || state.pendingDevelopmentWorkflowKey) return;
+      state.pendingDevelopmentWorkflowKey = key;
+      state.pendingDevelopmentAction = "deploy";
+      confirmDeploy.disabled = true;
+      confirmDeploy.textContent = "正在请求部署";
+      bridge().confirmDevelopmentDeploy(confirmDeploy.dataset.jobId);
+      return;
+    }
+    const stop = event.target.closest("[data-workflow-stop]");
+    if (stop) {
+      if (typeof bridge()?.cancelDevelopmentWorkflow !== "function") {
+        toast("请更新 Witt App 后再取消交付");
+        return;
+      }
+      stop.disabled = true;
+      bridge().cancelDevelopmentWorkflow(stop.dataset.jobId);
+      return;
+    }
+    const resumePush = event.target.closest("[data-workflow-resume-push]");
+    if (resumePush) {
+      if (typeof bridge()?.resumeDevelopmentPush !== "function") {
+        toast("请更新 Witt App 后再重试推送");
+        return;
+      }
+      if (state.pendingDevelopmentWorkflowKey) return;
+      state.pendingDevelopmentWorkflowKey = event.target.closest(".development-workflow")?.dataset.workflowKey || "";
+      state.pendingDevelopmentAction = "resume-push";
+      resumePush.disabled = true;
+      bridge().resumeDevelopmentPush(resumePush.dataset.jobId);
+      return;
+    }
+    const prepare = event.target.closest("[data-workflow-prepare]");
+    if (prepare) {
+      const panel = prepare.parentElement?.querySelector("[data-workflow-confirm-panel]");
+      if (panel) {
+        prepare.hidden = true;
+        panel.hidden = false;
+      }
+      return;
+    }
+    if (event.target.closest("[data-workflow-cancel]")) {
+      const section = event.target.closest(".development-workflow");
+      const prepareButton = section?.querySelector("[data-workflow-prepare]");
+      const panel = section?.querySelector("[data-workflow-confirm-panel]");
+      if (prepareButton) prepareButton.hidden = false;
+      if (panel) panel.hidden = true;
+      return;
+    }
+    if (!event.target.closest("[data-workflow-confirm-send]")) return;
+    const request = state.detailRequest;
+    if (!request || !state.activeId || !state.active || state.busy || state.active.busy) {
+      toast("当前对话状态已变化，请刷新后再试");
+      return;
+    }
+    const native = bridge();
+    if (typeof native?.startDevelopmentWorkflow !== "function") {
+      toast("请更新 Witt App 后再使用项目交付");
+      bridge()?.checkForUpdates?.();
+      return;
+    }
+    const key = developmentWorkflowKey(state.activeId, request.messageId);
+    const section = event.target.closest(".development-workflow");
+    const button = event.target.closest("[data-workflow-confirm-send]");
+    button.disabled = true;
+    button.textContent = "正在提交请求";
+    const queued = {
+      conversationId: state.activeId,
+      messageId: request.messageId,
+      status: "queued",
+      stage: "test",
+      message: "已请求运行测试；提交与部署需另行确认",
+    };
+    state.developmentWorkflowJobs.set(key, queued);
+    state.pendingDevelopmentWorkflowKey = key;
+    state.pendingDevelopmentAction = "delivery";
+    const status = section?.querySelector("[data-development-workflow-status]");
+    if (status) {
+      status.hidden = false;
+      status.textContent = developmentWorkflowLabel(queued);
+      status.dataset.workflowKey = key;
+    } else if (section) {
+      const statusNode = document.createElement("p");
+      statusNode.className = "development-workflow-status";
+      statusNode.dataset.developmentWorkflowStatus = "";
+      statusNode.dataset.workflowKey = key;
+      statusNode.setAttribute("role", "status");
+      statusNode.setAttribute("aria-live", "polite");
+      statusNode.textContent = developmentWorkflowLabel(queued);
+      section.insertBefore(statusNode, section.querySelector("[data-workflow-confirm-panel]"));
+    }
+    section?.querySelector("[data-workflow-confirm-panel]")?.setAttribute("hidden", "");
+    native.startDevelopmentWorkflow(state.activeId, request.messageId, "");
+  });
   $("#actionDetailBackdrop").addEventListener("click", closeActionDetail);
   $("#closeImageViewer").addEventListener("click", closeImageViewer);
   $("#downloadImageViewer").addEventListener("click", () => {

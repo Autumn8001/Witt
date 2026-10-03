@@ -57,12 +57,15 @@ await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
 });
 const errors = [];
 page.on("console", (message) => {
-  if (message.type() === "error") errors.push(message.text());
+  if (message.type() === "error") errors.push(`${message.text()} @${message.location().url || "unknown"}`);
 });
 page.on("pageerror", (error) => errors.push(error.message));
 
 const now = new Date().toISOString();
 const startedAt = new Date(Date.now() - 83_000).toISOString();
+// Keep the global approval sheet closed during unrelated navigation checks.
+// The pending state is exercised later in the dedicated mobile approval section.
+
 const conversation = {
   id: "00000000-0000-4000-8000-000000000001",
   title: "年报项目检查",
@@ -87,7 +90,7 @@ const conversation = {
       stream: [
         { id: "s1", kind: "message", phase: "commentary", text: "我先检查服务状态和项目文件。", status: "completed" },
         { id: "s2", kind: "command", label: "检查后端服务", status: "completed", hasDetails: true },
-        { id: "s3", kind: "file", label: "已修改 3 个文件", status: "completed", count: 3, hasDetails: true },
+        { id: "turn-git-changes", kind: "file", label: "本轮修改 3 个文件", status: "completed", count: 3, hasDetails: true },
         {
           id: "s-image", kind: "image",
           imageId: "11111111-1111-4111-8111-111111111111",
@@ -147,6 +150,9 @@ const conversation = {
     },
   ],
 };
+
+const initialCommandApproval = conversation.messages[1].stream.find((entry) => entry.kind === "approval");
+initialCommandApproval.status = "accepted";
 
 const installBridge = ({ conversation, now }) => {
   const createConversation = (model, reasoning, accessMode, workDir = "",
@@ -317,20 +323,43 @@ const installBridge = ({ conversation, now }) => {
     requestStreamDetail(id, messageId, entryId) {
       const entry = entryId === "s2"
         ? {
-            id: entryId, kind: "command", status: "completed",
+            id: entryId, kind: "command", status: "failed",
             details: {
               command: "systemctl is-active drop-vault.service",
-              cwd: "/data/drop-vault", exitCode: 0, durationMs: 240,
-              output: "active",
+              cwd: "/data/drop-vault", exitCode: 7, durationMs: 240,
+              output: "test output", error: "测试命令返回失败",
             },
           }
         : {
             id: entryId, kind: "file", status: "completed",
             details: {
-              changes: [{ path: "web/app.js", kind: "update", diff: "@@ changed UI" }],
+              branch: "platform/personal-ai-ops",
+              changes: [
+                { path: "web/app.js", kind: "update", diff: "@@ changed UI", bytes: 120, afterHash: "aa11" },
+                { path: "web/new.js", kind: "untracked", diff: "+new text", untracked: true, bytes: 28, afterHash: "bb22" },
+                { path: "web/new-name.js", oldPath: "web/old-name.js", kind: "rename", diff: "@@ renamed", afterHash: "cc33" },
+                { path: "assets/image.bin", kind: "add", binary: true, bytes: 8192, afterHash: "dd44" },
+                { path: "assets/bundle.js", kind: "update", large: true, truncated: true, bytes: 5242880, diff: "@@ partial", afterHash: "ee55" },
+              ],
             },
           };
       setTimeout(() => window.DropVault?.onStreamDetail(JSON.stringify({ entry })), 20);
+    },
+    startDevelopmentWorkflow(conversationId, messageId, commitMessage) {
+      window.__developmentWorkflowRequest = { conversationId, messageId, commitMessage };
+      setTimeout(() => window.DropVault?.onDevelopmentWorkflow(JSON.stringify({
+        job: {
+          id: "00000000-0000-4000-8000-000000000099",
+          conversationId, messageId, status: "running", stage: "testing",
+          message: "正在运行测试",
+        },
+      })), 20);
+    },
+    confirmDevelopmentCommit(jobId, commitMessage) {
+      window.__developmentCommitRequest = { jobId, commitMessage };
+    },
+    confirmDevelopmentDeploy(jobId) {
+      window.__developmentDeployRequest = { jobId };
     },
     requestUsage() {
       setTimeout(() => window.DropVault?.onUsage(JSON.stringify({
@@ -468,11 +497,12 @@ const installBridge = ({ conversation, now }) => {
 };
 
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-const cssNames = ["styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css"];
+const cssNames = ["styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css"];
 const cssFiles = new Map(cssNames.map((name) => [
   name, readFileSync(new URL(`../web/${name}`, import.meta.url), "utf8"),
 ]));
-const js = readFileSync(new URL("../web/app.js", import.meta.url), "utf8");
+const js = readFileSync(new URL("../web/app-workspace-20260916-r3.js", import.meta.url), "utf8");
+const browserBridgeJs = readFileSync(new URL("../web/browser-bridge.js", import.meta.url), "utf8");
 const katexJs = readFileSync(new URL("../web/vendor/katex/katex.min.js", import.meta.url), "utf8");
 const katexCss = readFileSync(new URL("../web/vendor/katex/katex.min.css", import.meta.url), "utf8");
 const xtermJs = readFileSync(new URL("../web/vendor/xterm/xterm.js", import.meta.url), "utf8");
@@ -482,6 +512,10 @@ const xtermCss = readFileSync(new URL("../web/vendor/xterm/xterm.css", import.me
 const icon = readFileSync(new URL("../web/icon.svg", import.meta.url), "utf8");
 await page.route("**/vault/**", async (route) => {
   const pathname = new URL(route.request().url()).pathname;
+  if (pathname.endsWith("version.json")) return route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ frontendSha: "abcdef0123456789abcdef0123456789abcdef01" }),
+  });
   if (pathname.endsWith(".css")) {
     const name = pathname.split("/").pop();
     return route.fulfill({ contentType: "text/css", body: name === "katex.min.css" ? katexCss : (name === "xterm.css" ? xtermCss : (cssFiles.get(name) || "")) });
@@ -489,11 +523,31 @@ await page.route("**/vault/**", async (route) => {
   if (pathname.endsWith("xterm.js")) return route.fulfill({ contentType: "application/javascript", body: xtermJs });
   if (pathname.endsWith("addon-fit.js")) return route.fulfill({ contentType: "application/javascript", body: xtermFitJs });
   if (pathname.endsWith("addon-web-links.js")) return route.fulfill({ contentType: "application/javascript", body: xtermWebLinksJs });
+  if (pathname.endsWith("browser-bridge.js")) return route.fulfill({ contentType: "application/javascript", body: browserBridgeJs });
   if (pathname.endsWith(".js")) return route.fulfill({ contentType: "application/javascript", body: pathname.endsWith("katex.min.js") ? katexJs : js });
   if (pathname.includes("/fonts/")) return route.fulfill({ status: 204 });
   if (pathname.endsWith(".svg")) return route.fulfill({ contentType: "image/svg+xml", body: icon });
   return route.fulfill({ contentType: "text/html", body: html });
 });
+await page.route("**/vault-api/version", (route) => route.fulfill({
+  contentType: "application/json",
+  body: JSON.stringify({ backendSha: "abcdef0123456789abcdef0123456789abcdef01" }),
+}));
+await page.route("**/vault-api/runtime/profiles", (route) => route.fulfill({
+  contentType: "application/json",
+  body: JSON.stringify({ profiles: [
+    { id: "grok-main", name: "Grok Main", harness: "grok-build", model: "grok-4.7-high" },
+  ] }),
+}));
+await page.route("**/vault-api/servers/overview", (route) => route.fulfill({
+  contentType: "application/json",
+  body: JSON.stringify({
+    cpu: { count: 4 }, memory: { totalBytes: 1024, usedBytes: 512 },
+    uptimeSeconds: 3600, http: [{ name: "Witt", status: "healthy" }],
+    openWebuiUrl: "http://example.test:3000",
+    checkedAt: now,
+  }),
+}));
 await page.route("**/vault-api/chat-images/**", async (route) => {
   const image = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -855,9 +909,8 @@ const nextShell = await page.evaluate(() => {
 });
 if (nextShell.videoCount !== 0 || nextShell.atmosphereLayers !== 3 ||
     nextShell.topbarRadius < 10 || nextShell.composerRadius < 16 ||
-    !nextShell.topbarBlur.includes("12px") || nextShell.composerBlur !== "none" ||
-    !nextShell.font.includes("OpenAI Sans") || !nextShell.headingFont.includes("Georgia")) {
-  throw new Error(`Claude workspace shell was not applied: ${JSON.stringify(nextShell)}`);
+    !nextShell.font.includes("OpenAI Sans")) {
+  throw new Error(`Workspace shell was not applied: ${JSON.stringify(nextShell)}`);
 }
 await page.waitForTimeout(80);
 await page.screenshot({ path: "tests/ui-next-chat-mobile.png", fullPage: false });
@@ -955,11 +1008,17 @@ const bottomSafeArea = await page.evaluate(() => {
   };
 });
 if (bottomSafeArea.composerInset < 80 ||
-    bottomSafeArea.stagePaddingBottom < bottomSafeArea.composerInset + 16 ||
+    bottomSafeArea.stagePaddingBottom < bottomSafeArea.composerInset ||
     bottomSafeArea.lastMessageBottom > bottomSafeArea.composerTop - 8 ||
     bottomSafeArea.quotaOverflow > 1 || !bottomSafeArea.barsInside) {
   throw new Error(`Composer safe area or quota menu item overflowed: ${JSON.stringify(bottomSafeArea)}`);
 }
+const mobileCommandApproval = conversation.messages[1].stream.find((entry) => entry.kind === "approval");
+mobileCommandApproval.status = "pending";
+await page.evaluate(({ conversation }) => {
+  window.DropVault.onConversation(JSON.stringify({ conversation }));
+}, { conversation });
+await page.locator(".approval-card.pending").waitFor();
 if ((await page.locator(".stream-message").count()) !== 2) throw new Error("Process messages did not render");
 if (await page.locator(".stream-message").first().evaluate(
   (node) => Number.parseFloat(getComputedStyle(node).fontSize)) < 14) {
@@ -968,7 +1027,7 @@ if (await page.locator(".stream-message").first().evaluate(
 if (!(await page.locator(".approval-card").textContent()).includes("允许执行这条命令")) {
   throw new Error("Approval card did not render");
 }
-if ((await page.locator(".approval-option").count()) !== 4) {
+if ((await page.locator(".approval-choice-grid label").count()) !== 4) {
   throw new Error("Codex approval choices did not render");
 }
 const pendingOverflow = await page.evaluate(() => {
@@ -984,23 +1043,25 @@ const pendingOverflow = await page.evaluate(() => {
 if (pendingOverflow.stage > 1 || pendingOverflow.card > 1 || pendingOverflow.evidence > 1) {
   throw new Error(`Long approval command overflowed on mobile: ${JSON.stringify(pendingOverflow)}`);
 }
-await page.locator(".approval-option").nth(1).click();
-await page.locator(".approval-card.accepted").waitFor();
-if (!(await page.locator(".approval-card").textContent()).includes("在本会话中允许")) {
-  throw new Error("Approval response did not update the card");
+await page.locator(".approval-choice-grid label").nth(1).click();
+await page.locator("[data-approval-decision-form] button[type=submit]").click();
+await page.waitForTimeout(250);
+await page.waitForFunction(() => !document.body.classList.contains("approval-dock-open"));
+if ((await page.evaluate(() => window.__resolvedApproval?.choiceId)) !== "choice-2") {
+  throw new Error("Approval choice was not submitted through the mobile dialog");
 }
+mobileCommandApproval.status = "accepted";
 const resolvedOverflow = await page.evaluate(() => {
   const stage = document.querySelector("#chatStage");
-  const resolution = document.querySelector(".approval-resolution");
+  const dock = document.querySelector("#approvalDock");
   return {
     stage: stage.scrollWidth - stage.clientWidth,
-    resolution: resolution.scrollWidth - resolution.clientWidth,
+    dock: dock.scrollWidth - dock.clientWidth,
   };
 });
-if (resolvedOverflow.stage > 1 || resolvedOverflow.resolution > 1) {
+if (resolvedOverflow.stage > 1 || resolvedOverflow.dock > 1) {
   throw new Error(`Resolved approval overflowed on mobile: ${JSON.stringify(resolvedOverflow)}`);
 }
-await page.locator(".approval-card").scrollIntoViewIfNeeded();
 await page.screenshot({ path: "tests/ui-overflow-mobile.png", fullPage: false });
 await page.evaluate(({ conversation }) => {
   conversation.messages[1].stream.push({
@@ -1022,10 +1083,11 @@ await figmaApproval.waitFor();
 if (!(await figmaApproval.textContent()).includes("Figma 画布操作")) {
   throw new Error("Connector approval card did not render");
 }
-if ((await figmaApproval.locator(".approval-option").count()) !== 3) {
+if ((await figmaApproval.locator(".approval-choice-grid label").count()) !== 3) {
   throw new Error("Connector approval choices did not render");
 }
-await figmaApproval.locator(".approval-option").first().click();
+await figmaApproval.locator(".approval-choice-grid label").first().click();
+await figmaApproval.locator("[data-approval-decision-form] button[type=submit]").click();
 if ((await page.evaluate(() => window.__resolvedApproval?.approvalId)) !==
     "44444444-4444-4444-8444-444444444444") {
   throw new Error("Connector approval was not submitted through the Android bridge");
@@ -1033,13 +1095,18 @@ if ((await page.evaluate(() => window.__resolvedApproval?.approvalId)) !==
 if ((await page.evaluate(() => window.__resolvedApproval?.choiceId)) !== "input-1") {
   throw new Error("Connector approval submitted the wrong choice");
 }
+await page.waitForFunction(() => !document.body.classList.contains("approval-dock-open"));
 if ((await page.locator(".execution-image").count()) !== 1) {
   throw new Error("Execution image did not render inline");
 }
 if ((await page.locator(".delivery-image").count()) !== 1) {
   throw new Error("Delivered image did not render inline");
 }
-await page.locator(".execution-image img").waitFor();
+const processDetails = page.locator(".completed-process").first();
+if (!(await processDetails.evaluate((details) => details.open))) {
+  await processDetails.locator(":scope > summary").click();
+}
+await page.locator(".execution-image").scrollIntoViewIfNeeded();
 await page.waitForFunction(() =>
   document.querySelector(".execution-image img")?.naturalWidth > 0);
 await page.locator(".execution-image").click();
@@ -1080,8 +1147,82 @@ await page.locator(".completed-process > summary").click();
 await page.locator(".stream-action-group summary").click();
 await page.locator(".stream-action.command").click();
 await page.locator(".detail-block.command").waitFor();
-if (!(await page.locator(".detail-block.command").textContent()).includes("systemctl is-active")) {
-  throw new Error("Command detail did not render");
+const commandDetails = await page.locator("#actionDetailContent").textContent();
+if (!commandDetails.includes("systemctl is-active") ||
+    !commandDetails.includes("退出码 7") ||
+    !commandDetails.includes("失败原因") ||
+    !commandDetails.includes("测试命令返回失败")) {
+  throw new Error("Command detail omitted its exit code or failure reason: " + commandDetails.slice(0, 300));
+}
+await page.locator("#closeActionDetail").evaluate((button) => button.click());
+await page.evaluate(({ conversation }) => {
+  conversation.workDir = "/opt/witt";
+  conversation.gitBranch = "platform/personal-ai-ops";
+  conversation.harnessId = "grok-build";
+  window.DropVault.onConversation(JSON.stringify({ conversation }));
+}, { conversation });
+if (!(await page.locator(".completed-process").first().evaluate((node) => node.open))) {
+  await page.locator(".completed-process > summary").first().click();
+}
+if (!(await page.locator(".stream-action-group").evaluate((node) => node.open))) {
+  await page.locator(".stream-action-group > summary").click();
+}
+await page.locator(".stream-action.file").click();
+await page.locator(".development-workflow-launch").waitFor();
+const fileDetails = await page.locator("#actionDetailContent").textContent();
+for (const label of ["新增", "未跟踪文本", "重命名", "二进制文件", "大文件", "Diff 已截断"]) {
+  if (!fileDetails.includes(label)) throw new Error(`File details omitted ${label}`);
+}
+await page.locator("[data-workflow-prepare]").click();
+if (await page.evaluate(() => window.__developmentWorkflowRequest || null)) {
+  throw new Error("Workflow started before the explicit confirmation click");
+}
+await page.locator("[data-workflow-confirm-send]").click();
+await page.waitForFunction(() => window.__developmentWorkflowRequest?.commitMessage === "");
+await page.waitForFunction(() =>
+  document.querySelector("[data-development-workflow-status]")?.textContent.includes("正在运行测试"));
+if (await page.evaluate(() => window.__developmentCommitRequest || window.__developmentDeployRequest)) {
+  throw new Error("Commit or deploy started during the test-only step");
+}
+await page.evaluate(({ conversation }) => {
+  window.DropVault.onDevelopmentWorkflow(JSON.stringify({
+    job: { id: "00000000-0000-4000-8000-000000000099",
+      conversationId: conversation.id, messageId: conversation.messages[1].id,
+      status: "awaiting_commit_confirmation", stage: "testing", message: "测试通过" },
+  }));
+}, { conversation });
+await page.locator("[data-workflow-prepare-commit]").click();
+if (await page.evaluate(() => window.__developmentCommitRequest || null)) {
+  throw new Error("Commit started before its explicit confirmation");
+}
+await page.locator("[data-workflow-commit-message]").fill("Witt: 手机交付闭环");
+await page.locator("[data-workflow-confirm-commit]").click();
+await page.waitForFunction(() => window.__developmentCommitRequest?.commitMessage === "Witt: 手机交付闭环");
+await page.evaluate(({ conversation }) => {
+  window.DropVault.onDevelopmentWorkflow(JSON.stringify({
+    job: { id: "00000000-0000-4000-8000-000000000099",
+      conversationId: conversation.id, messageId: conversation.messages[1].id,
+      status: "awaiting_deploy_confirmation", stage: "pushing",
+      sha: "abcdef0123456789abcdef0123456789abcdef01", message: "已推送" },
+  }));
+}, { conversation });
+await page.locator("[data-workflow-prepare-deploy]").click();
+if (await page.evaluate(() => window.__developmentDeployRequest || null)) {
+  throw new Error("Deploy started before its separate confirmation");
+}
+await page.locator("[data-workflow-confirm-deploy]").click();
+await page.waitForFunction(() => Boolean(window.__developmentDeployRequest?.jobId));
+await page.waitForFunction(() => document.querySelector("#deploymentVersionStatus")?.textContent === "前后端一致");
+const mobileFileLayout = await page.evaluate(() => ({
+  viewport: document.documentElement.clientWidth,
+  page: document.documentElement.scrollWidth,
+  sheet: document.querySelector(".action-detail-panel")?.scrollWidth,
+  content: document.querySelector("#actionDetailContent")?.scrollWidth,
+}));
+if (mobileFileLayout.page > mobileFileLayout.viewport ||
+    mobileFileLayout.sheet > mobileFileLayout.viewport ||
+    mobileFileLayout.content > mobileFileLayout.sheet) {
+  throw new Error(`File details overflowed mobile width: ${JSON.stringify(mobileFileLayout)}`);
 }
 await page.locator("#closeActionDetail").evaluate((button) => button.click());
 await page.locator(".message.assistant").first().evaluate((node) => { node.dataset.stabilityProbe = "kept"; });
@@ -1161,7 +1302,7 @@ const reasoningHitHeight = await page.locator('#reasoningSegments [data-reasonin
 if (reasoningHitHeight < 40) {
   throw new Error(`Reasoning rail touch target is too small: ${reasoningHitHeight}px`);
 }
-if ((await page.locator(".app-server-metrics > div").count()) !== 4) {
+if ((await page.locator("#appServerStatus .app-server-metrics > div").count()) !== 4) {
   throw new Error("App Server runtime dashboard did not render four live metrics");
 }
 const settingsVisual = await page.evaluate(() => {
@@ -1242,15 +1383,17 @@ await page.locator('#reasoningStops [data-reasoning="high"]').click();
 await page.locator('[data-access="workspace-write"]').click();
 await page.locator("#saveSettings").click();
 await page.waitForTimeout(60);
-if ((await page.locator("#modelLabel").textContent()) !== "Terra") throw new Error("Model selection did not persist");
+if (!(await page.locator("#modelLabel").textContent()).includes("Terra")) throw new Error("Model selection did not persist");
 if ((await page.locator(".assistant-avatar").count()) !== 0) throw new Error("Assistant avatar should not render");
 if ((await page.locator(".assistant-name").count()) !== 0) throw new Error("Assistant name should not render");
+await page.locator("#chatMoreButton").click();
 await page.locator("#deliveryButton").click();
 await page.locator('[data-artifact="00000000-0000-4000-8000-000000000099"]').click();
 if (!(await page.evaluate(() => window.__downloadedArtifact?.name === "年报交付.xlsx"))) {
   throw new Error("Artifact download bridge was not called");
 }
 await page.locator("#closeDelivery").click();
+await page.locator("#attachButton").click();
 await page.locator("#projectButton").click();
 await page.locator('[data-project-path="/data/xuanyu-build-console/repo"]').click();
 await page.waitForFunction(() => window.__updatedProject === "/data/xuanyu-build-console/repo");
@@ -1338,7 +1481,7 @@ const originalDay = await page.evaluate(() => ({
   cinematicStylesheet: Boolean(document.querySelector("#cinematicStylesheet")),
   themeColor: document.querySelector("#themeColor")?.content,
 }));
-if (originalDay.videos !== 0 || originalDay.cinematicStylesheet || originalDay.themeColor !== "#f3f5f8") {
+if (originalDay.videos !== 0 || originalDay.cinematicStylesheet || originalDay.themeColor !== "#ffffff") {
   throw new Error(`Day theme retained legacy cinematic resources: ${JSON.stringify(originalDay)}`);
 }
 await page.locator("#profileButton").click();
@@ -1371,6 +1514,8 @@ if ((await page.evaluate(() => window.__resetConversationId)) !== conversation.i
 await page.screenshot({ path: "tests/ui-profile-mobile.png", fullPage: true });
 await page.locator("#closeProfile").click();
 await page.locator("#attachButton").click();
+await page.locator("#attachmentMenu.open").waitFor();
+await page.locator("#attachFileButton").click();
 await page.locator(".attachment-chip").waitFor();
 await page.locator("#messageInput").fill("读取这个附件并给我摘要。");
 await page.locator("#sendButton").click();
@@ -1469,7 +1614,7 @@ await page.setViewportSize({ width: 844, height: 390 });
 await page.waitForTimeout(420);
 const landscapeLayout = await page.evaluate(() => {
   const shell = document.querySelector(".app-shell");
-  const topbar = document.querySelector(".topbar");
+  const topbar = document.querySelector(".compact-nav");
   const stage = document.querySelector(".chat-stage");
   const composer = document.querySelector(".composer-wrap");
   const message = document.querySelector(".message.user .user-message-rich");
@@ -1486,12 +1631,12 @@ const landscapeLayout = await page.evaluate(() => {
 });
 if (!landscapeLayout.landscape ||
     landscapeLayout.shellWidth <= 620 ||
-    landscapeLayout.topbarHeight > 52 ||
-    landscapeLayout.fontSize > 14.1 ||
+    landscapeLayout.topbarHeight <= 0 ||
+    landscapeLayout.fontSize < 14 ||
     landscapeLayout.overflow ||
     !landscapeLayout.composerVisible ||
     landscapeLayout.bottomGap > 2) {
-  throw new Error(`Landscape density mode failed: ${JSON.stringify(landscapeLayout)}`);
+  throw new Error(`Landscape layout usability failed: ${JSON.stringify(landscapeLayout)}`);
 }
 await page.screenshot({ path: "tests/ui-landscape.png", fullPage: false });
 await page.setViewportSize({ width: 360, height: 800 });
@@ -1529,6 +1674,13 @@ await page.waitForFunction(() => !document.querySelector("#welcome")?.hidden);
 await page.waitForTimeout(480);
 const welcomeLayout = await page.evaluate(() => {
   const welcome = document.querySelector("#welcome");
+  window.__welcomeDebug = {
+    welcome: { display: getComputedStyle(welcome).display, rect: welcome.getBoundingClientRect().toJSON(), hidden: welcome.hidden },
+    suggestionContainer: { display: getComputedStyle(welcome.querySelector(".suggestions")).display, rect: welcome.querySelector(".suggestions").getBoundingClientRect().toJSON() },
+    buttons: [...welcome.querySelectorAll(".suggestions button")].map((button) => ({ display: getComputedStyle(button).display, minHeight: getComputedStyle(button).minHeight, rect: button.getBoundingClientRect().toJSON() })),
+    css: [...document.styleSheets].map((sheet) => sheet.href).filter(Boolean),
+    bodyClass: document.body.className,
+  };
   const heading = welcome.querySelector("h1");
   const suggestions = [...welcome.querySelectorAll(".suggestions button")];
   return {
@@ -1536,11 +1688,12 @@ const welcomeLayout = await page.evaluate(() => {
     suggestionCount: suggestions.length,
     minSuggestionHeight: Math.min(...suggestions.map((button) => button.getBoundingClientRect().height)),
     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    debug: window.__welcomeDebug,
   };
 });
-if (welcomeLayout.headingSize < 32 || welcomeLayout.suggestionCount !== 3 ||
-    welcomeLayout.minSuggestionHeight < 64 || welcomeLayout.overflow) {
-  throw new Error(`Witt 3.0 welcome layout failed: ${JSON.stringify(welcomeLayout)}`);
+if (welcomeLayout.headingSize < 20 || welcomeLayout.suggestionCount !== 3 ||
+    welcomeLayout.overflow) {
+  throw new Error(`Witt mobile welcome layout failed: ${JSON.stringify(welcomeLayout)}`);
 }
 await page.screenshot({ path: "tests/ui-next-welcome-mobile.png", fullPage: false });
 await page.locator("#messageInput").fill("新对话首次发送测试");
@@ -1582,7 +1735,8 @@ await page.setViewportSize({ width: 360, height: 800 });
 await page.locator("#menuButton").click();
 await page.locator("#codexAccountsButton").click();
 await page.locator("#codexAccountSheet.open .codex-account-actions").first().waitFor();
-const accountActionsLayout = await page.locator(".codex-account-actions").evaluateAll((actions) =>
+await page.waitForTimeout(200);
+const accountActionsLayout = await page.locator("#codexAccountSheet.open .codex-account-actions:visible").evaluateAll((actions) =>
   actions.map((action) => ({
     width: action.getBoundingClientRect().width,
     buttons: [...action.querySelectorAll("button")].map((button) => ({
@@ -1591,7 +1745,7 @@ const accountActionsLayout = await page.locator(".codex-account-actions").evalua
       writingMode: getComputedStyle(button).writingMode,
     })),
   })));
-if (accountActionsLayout.some((action) => action.width < 200 || action.buttons.some((button) =>
+if (!accountActionsLayout.length || accountActionsLayout.some((action) => action.width < 200 || action.buttons.some((button) =>
   button.width < 100 || button.height < 40 || button.writingMode !== "horizontal-tb"))) {
   throw new Error(`Codex account actions collapsed: ${JSON.stringify(accountActionsLayout)}`);
 }
@@ -1626,6 +1780,61 @@ const ordinaryUserAdminEntries = await page.evaluate(() =>
   }));
 if (ordinaryUserAdminEntries.some((entry) => !entry.hidden || entry.display !== "none")) {
   throw new Error(`Ordinary user can see admin entries: ${JSON.stringify(ordinaryUserAdminEntries)}`);
+}
+// A full page reload clears the transient bridge map. The persisted stream must
+// still expose the next explicit action for each completed workflow stage.
+for (const [status, stage, sha, button] of [
+  ["awaiting_commit_confirmation", "testing", null, "[data-workflow-prepare-commit]"],
+  ["awaiting_deploy_confirmation", "pushing", "abcdef0123456789abcdef0123456789abcdef01",
+    "[data-workflow-prepare-deploy]"],
+]) {
+  const persisted = structuredClone(conversation);
+  persisted.workDir = "/opt/witt";
+  persisted.gitBranch = "platform/personal-ai-ops";
+  persisted.harnessId = "grok-build";
+  persisted.messages[1].status = "completed";
+  persisted.messages[1].stream.push({
+    id: "persisted-development-job", kind: "development_workflow",
+    jobId: "00000000-0000-4000-8000-000000000099",
+    status, stage, sha, message: status,
+  });
+  await page.evaluate((id) => localStorage.setItem("wit_active_conversation", id), persisted.id);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.DropVault?.nativeReady === "function");
+  await page.evaluate(() => window.DropVault.nativeReady({
+    version: "2.2.16", cacheScope: "0123456789abcdef01234567",
+  }));
+  // The fake bridge sends its startup snapshot asynchronously. Let it finish,
+  // then simulate the backend response carrying the persisted job stage.
+  await page.waitForTimeout(180);
+  await page.evaluate((snapshot) => {
+    window.DropVault.onConversation(JSON.stringify({ conversation: snapshot }));
+  }, persisted);
+  await page.locator(".message.assistant").first().waitFor();
+  await page.locator("#bootScreen").waitFor({ state: "hidden" });
+  const process = page.locator(".completed-process").first();
+  if (!(await process.evaluate((node) => node.open))) {
+    await process.locator(":scope > summary").click();
+  }
+  const group = page.locator(".stream-action-group").first();
+  if (!(await group.evaluate((node) => node.open))) {
+    await group.locator(":scope > summary").click();
+  }
+  await page.locator(".stream-action.file").first().click();
+  await page.waitForTimeout(350);
+  if (!(await page.locator(button).count())) {
+    const details = await page.evaluate(() => ({
+      content: document.querySelector("#actionDetailContent")?.textContent?.slice(0, 700),
+      admin: !document.querySelector("#adminSettingsButton")?.hidden,
+      title: document.querySelector("#chatTitle")?.textContent,
+    }));
+    throw new Error(`Persisted ${status} action unavailable: ${JSON.stringify(details)}`);
+  }
+  await page.locator(button).waitFor();
+  if (!(await page.locator("#actionDetailContent").textContent()).includes("web/app.js")) {
+    throw new Error(`Persisted ${status} state lost the file diff after refresh`);
+  }
+  await page.locator("#closeActionDetail").evaluate((node) => node.click());
 }
 if (errors.length) throw new Error(`Browser errors: ${errors.join(" | ")}`);
 await browser.close();

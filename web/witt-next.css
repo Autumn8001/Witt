@@ -2687,3 +2687,183 @@ summary:focus-visible {
 
   .settings-panel .model-options small { font-size: 6px; }
 }
+/* Run output and file diffs stay readable inside the mobile detail sheet. */
+.stream-action-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.stream-action-copy p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.stream-action-copy small {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.stream-action.failed .stream-action-copy small {
+  color: var(--danger);
+}
+.action-detail-content,
+.file-change-detail {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.action-detail-content {
+  overflow-x: hidden;
+}
+.file-change-detail {
+  overflow: hidden;
+}
+.file-change-detail header {
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.file-change-detail header strong,
+.file-change-path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.file-change-detail header span.rename {
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 10%, var(--surface-solid));
+}
+.file-change-detail header span.untracked {
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 10%, var(--surface-solid));
+}
+.file-change-detail .file-change-notice {
+  color: var(--danger);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.file-change-detail .file-change-size,
+.file-change-detail .file-change-empty {
+  overflow-wrap: anywhere;
+}
+.file-change-detail pre,
+.detail-block pre {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+@media (max-width: 600px) {
+  .action-detail-panel {
+    width: calc(100% - 8px);
+    max-width: calc(100vw - 8px);
+    min-width: 0;
+    max-height: min(92dvh, 780px);
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .action-detail-content {
+    width: 100%;
+  }
+  .file-change-detail {
+    padding: 10px;
+  }
+  .file-change-detail pre,
+  .detail-block pre {
+    max-height: min(36dvh, 280px);
+    font-size: 10px;
+  }
+}
+.development-workflow {
+  min-width: 0;
+  margin-top: 14px !important;
+  padding: 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-solid));
+}
+.development-workflow > strong {
+  display: block;
+  font-size: 12px;
+}
+.development-workflow > p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.development-workflow-status.failed {
+  color: var(--danger);
+}
+.development-workflow-status.completed {
+  color: var(--mint);
+}
+.development-workflow-launch,
+.development-workflow-confirm button {
+  min-height: 42px;
+  margin-top: 11px;
+  padding: 9px 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: 11px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-solid));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.development-workflow-confirm[hidden],
+.development-workflow-launch[hidden] {
+  display: none !important;
+}
+.development-workflow-confirm > p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.development-workflow-confirm > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.development-workflow-confirm button {
+  flex: 1 1 120px;
+}
+.development-workflow-confirm button.secondary {
+  color: var(--muted);
+  background: transparent;
+}
+.development-workflow-confirm button:disabled {
+  opacity: .6;
+  cursor: progress;
+}
+@media (max-width: 600px) {
+  .development-workflow {
+    padding: 11px;
+  }
+  .development-workflow-launch,
+  .development-workflow-confirm button {
+    width: 100%;
+    min-height: 44px;
+  }
+  .development-workflow-confirm > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.development-workflow-commit-label{display:grid;gap:6px;margin:10px 0;color:var(--muted);font-size:12px}.development-workflow-commit-label input{width:100%;min-width:0;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;color:var(--ink);background:var(--surface);font:inherit;font-size:13px}

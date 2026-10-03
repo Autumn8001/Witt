@@ -52,7 +52,7 @@
 | 后端 | `127.0.0.1:3003`，`/health` 返回 200 |
 | 公网 | `/vault/` 页面与 `/vault-api/health` 返回 200 |
 | 当前可用 Harness | Grok Build，默认 `grok-4.7-high` |
-| Codex | 适配代码存在，服务器未安装 CLI |
+| Codex | CLI 0.160.0 已安装；缺少本机认证，真实回合暂停 |
 | Gemini/Antigravity | 适配代码存在，当前服务器 CPU 不兼容官方二进制 |
 | CPA | 本机 `127.0.0.1:8317` |
 | 环境文件 | `/root/.witt/app.env`、`/root/.witt/cpa.env`，权限 `0600` |
@@ -309,3 +309,10 @@ Grok Build 已在生产服务器真实验证。Codex 或 Gemini 只有在对应�
 
 现在先验证 root SSH 登录。登录成功后检查生产服务器的 Git、Node、Grok、项目状态和服务状态，并验证单仓库 Deploy Key。不得再次发起 GitHub 设备授权，其他可在授权范围内完成的工作直接推进。
 ```
+
+
+## 12. 后续开发实现
+
+手机文件变更、交付状态机和恢复方法见 [PERSONAL-AI-OPS.md](PERSONAL-AI-OPS.md)。
+生产连接以当前 SSH 配置的 `witt-autumn-prod` 为准，当前使用本地反向通道。
+不得依据旧公网端口示例改变现有连接方式。

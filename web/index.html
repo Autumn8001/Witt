@@ -58,13 +58,13 @@
   <link rel="stylesheet" href="/vault/chat-links.css?v=2.2.9-links1">
   <link rel="stylesheet" href="/vault/completed-turn.css?v=2.2.10-result1">
   <link rel="stylesheet" href="/vault/drawer-layout.css?v=2.2.11-drawer2">
-  <link rel="stylesheet" href="/vault/witt-next.css?v=3.2.4-weekly">
+  <link rel="stylesheet" href="/vault/witt-next.css?v=3.2.4-mobile-file-events">
   <link rel="stylesheet" href="/vault/artifact-preview.css?v=3.0.0">
   <link rel="stylesheet" href="/vault/claude-app.css?v=1.0.0">
   <link rel="stylesheet" href="/vault/vendor/xterm/xterm.css?v=6.0.0">
   <link rel="stylesheet" href="/vault/local-terminal.css?v=2.2.16-terminal-workspace4">
   <link rel="stylesheet" href="/vault/night-contrast.css?v=2.2.13-nightfix1">
-  <link rel="stylesheet" href="/vault/approval-dock.css?v=3.2.1-swipefix1">
+  <link rel="stylesheet" href="/vault/approval-dock.css?v=3.2.1-approval-pointerfix1">
   <link rel="stylesheet" href="/vault/witt-white.css?v=3.0.18-modelrestore1">
   <style id="workspace-critical-style">
 /* Semantic workspace layer. Legacy terminal/artifact/theme styles stay intact. */
@@ -581,6 +581,10 @@
         <div id="serverCenterStatus">正在读取服务器概览…</div>
         <p><a id="openWebuiLink" href="#" hidden>Ask Server Admin</a></p>
       </section>
+      <section>
+        <div class="settings-section-head"><h3>版本</h3><small id="deploymentVersionStatus" role="status">正在检查…</small></div>
+        <p class="reasoning-note">Backend <code id="backendVersionSha">unknown</code> · Frontend <code id="frontendVersionSha">unknown</code></p>
+      </section>
       <section class="app-server-capabilities">
         <div class="app-server-heading">
           <div><span>CODEX RUNTIME</span><h3>APP SERVER</h3></div>
@@ -657,6 +661,6 @@
     </section>
   </aside>
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
-  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.4-hide-routine-status"></script>
+  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.4-development-workflow-files"></script>
 </body>
 </html>

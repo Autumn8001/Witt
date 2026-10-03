@@ -13,6 +13,10 @@ Witt is a self-hosted mobile client for Codex. It combines a dependency-light No
 > [!IMPORTANT]
 > Witt 是社区项目，不是 OpenAI 官方产品。使用前需要自行安装并登录 Codex CLI，并遵守相关服务条款。Witt 可以执行命令和修改文件，请只部署在你信任并正确隔离的服务器上。
 
+## Witt-Autumn 产品分支
+
+`platform/personal-ai-ops` 在原 Witt 上增加 Grok Build 工作区、只读服务器概览和 Open WebUI 外部入口。Codex 保留原有 App Server 路径；Gemini 在当前服务器不可运行。开发交付按“查看本轮 Diff → 运行测试 → 确认提交/推送 → 可选确认部署”进行，部署使用同一 Git 提交的前后端快照。实际状态与限制见 [架构](docs/ARCHITECTURE.md)、[Harness](docs/HARNESS.md)、[部署](docs/DEPLOYMENT.md)和[已知问题](docs/KNOWN-ISSUES.md)。
+
 ## 主要能力
 
 - 连续 Codex 会话、历史记录和本地缓存

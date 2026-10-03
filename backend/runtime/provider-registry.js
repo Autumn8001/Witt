@@ -69,7 +69,6 @@ class ProviderRegistry {
       model_discovery: input.model_discovery || null,
       capabilities: input.capabilities || {},
       last_checked_at: input.last_checked_at || null,
-      sticky: input.sticky !== false,
     };
     this.providers.set(id, provider);
     if (options.persist !== false) this.persist();

@@ -15,6 +15,7 @@ const { ProviderRegistry } = require("./runtime/provider-registry");
 const { RuntimeProfileStore } = require("./runtime/runtime-profiles");
 const { overview: serverOverview } = require("./runtime/server-center");
 const { harnessInventory } = require("./runtime/index");
+const { createDevelopmentRoutes } = require("./routes/development");
 
 const host = "127.0.0.1";
 const port = Number(process.env.DROP_VAULT_PORT || 3003);
@@ -344,6 +345,9 @@ function chatFor(principal) {
   userChatServices.set(principal.userId, service);
   return service;
 }
+
+const { handleDevelopmentWorkflow, handleDevelopmentWorkflowAction, developmentWorkflow } =
+  createDevelopmentRoutes({ chatFor, sendJson, readJsonBody });
 
 function filesFor(principal) {
   return principal.legacy ? dataDir : path.join(userDirectory(principal.userId), "files");
@@ -744,6 +748,10 @@ http.createServer((req, res) => {
     sendJson(res, 200, { ok: true });
     return;
   }
+  if (req.method === "GET" && url.pathname === "/version") {
+    sendJson(res, 200, { backendSha: process.env.WITT_DEPLOY_SHA || null });
+    return;
+  }
   if (url.pathname === "/xuanyu-preview") {
     res.writeHead(302, { Location: "/vault-api/xuanyu-preview/" });
     res.end();
@@ -888,6 +896,8 @@ http.createServer((req, res) => {
   if (req.method === "POST" && url.pathname === "/usage/reset") {
     url.pathname = "/chat/usage/reset";
   }
+  if (handleDevelopmentWorkflowAction(req, res, url, principal)) return;
+  if (handleDevelopmentWorkflow(req, res, url, principal, userChat)) return;
   if (imageRequest && userChat.handlePublicImage(req, res, url)) return;
   if (userChat.handle(req, res, url, principal)) return;
   if (req.method === "GET" && url.pathname === "/files") {
@@ -923,4 +933,8 @@ http.createServer((req, res) => {
 }).listen(port, host, () => {
   console.log(`Witt API listening on http://${host}:${port}`);
   recoverTasks();
+  if (port === 3003 && path.resolve(codexWorkDir) === "/opt/witt") {
+    developmentWorkflow.recover().catch((error) =>
+      console.error(`[development] recovery failed: ${String(error.message || error).slice(0, 160)}`));
+  }
 });

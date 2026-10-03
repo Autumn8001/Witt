@@ -380,3 +380,28 @@ test("runtime manager is lazy, tracks sessions and reaps idle runtimes", async (
   assert.equal(stops, 1);
   assert.equal(manager.status()[0].stopped, true);
 });
+
+
+test("Grok tool events expose command results without leaking credentials", () => {
+  const adapter = new GrokBuildAdapter({ bin: "grok" });
+  const command = adapter.formatToolCall({
+    tool: "shell_command",
+    input: { command: "node --version", authorization: "example-only" },
+  }, "/tmp/project");
+  assert.equal(command.kind, "command");
+  assert.equal(command.details.command, "node --version");
+  assert.equal(command.details.input.authorization, "[REDACTED]");
+  const failed = adapter.formatToolUpdate({
+    status: "failed",
+    output: { exitCode: 2, error: "test failed", secret: "example-only" },
+  }, { kind: command.kind });
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.exitCode, 2);
+  assert.equal(failed.details.exitCode, 2);
+  assert.equal(failed.details.output.includes("example-only"), false);
+  const read = adapter.formatToolCall({
+    tool: "read_file", input: { target_file: "README.md" },
+  }, "/tmp/project");
+  assert.equal(read.kind, "tool");
+  assert.deepEqual(read.details.input, { target_file: "README.md" });
+});

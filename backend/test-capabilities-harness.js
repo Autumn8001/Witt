@@ -145,8 +145,13 @@ test("T-CAP-06 runtime status uses the configured Grok binary", async () => {
   assert.equal(payload.runtime["grok-build"].status, "ready");
 });
 
-test("T-CAP-07 Codex-reported paused and retired models are filtered out", async () => {
-  const { service, sent } = makeService();
+test("T-CAP-07 Codex-reported paused and retired models are filtered out", async (t) => {
+  const { service, sent, root } = makeService();
+  // A local credential file gates the real CLI; this test uses a fake client and
+  // only needs the file-presence signal. No credential is read or sent.
+  fs.mkdirSync(path.join(root, "codex"), { recursive: true });
+  fs.writeFileSync(path.join(root, "codex", "auth.json"), "{}");
+  t.after(() => fs.rmSync(path.join(root, "codex", "auth.json"), { force: true }));
   // Simulate a reachable Codex that reports a mixed catalog.
   service.clientFor = () => ({
     async start() {},

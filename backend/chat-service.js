@@ -7,9 +7,10 @@ const { AppServerClient, sharedAppServer } = require("./app-server-client");
 const { ConversationStore } = require("./sqlite-store");
 const { workspaceOverview } = require("./workspace-overview");
 const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime/runtime-resolver");
-const { createHarness } = require("./runtime/index");
+const { GrokBuildAdapter } = require("./runtime/grok-build-adapter");
 const { describeBinary } = require("./runtime/runtime-binaries");
 const { RuntimeLogger } = require("./runtime/runtime-log");
+const { createGitChangeBaseline, collectGitChanges } = require("./git-change-collector");
 
 const ID_PATTERN = /^[a-f0-9-]{36}$/;
 const DEEPSEEK_MODELS = new Set(["deepseek-v4-pro", "deepseek-v4-flash"]);
@@ -77,7 +78,7 @@ function grokPermissionMode(accessMode) {
 // failure must surface as a short code. Raw messages can contain executable
 // paths, command arguments and other host detail, so they are never forwarded.
 const CODEX_REASON_CODES = new Set([
-  "executable_not_found", "startup_timeout", "process_exited", "unavailable",
+  "executable_not_found", "startup_timeout", "process_exited", "authentication_required", "unavailable",
 ]);
 
 function codexUnavailableReason(error) {
@@ -1049,6 +1050,14 @@ class ChatService {
       mcpServers: [], collaborationModes: [], features: [],
     };
     try {
+      // A present CLI is not a usable Codex runtime without local authentication.
+      // Check only for credential presence; never parse or log credential contents,
+      // and avoid opening the app server (which may initiate provider requests).
+      const authFiles = [profile.codexHome, "/root/.codex", "/home/ubuntu/.codex"]
+        .filter(Boolean).map((directory) => path.join(directory, "auth.json"));
+      const authenticated = Boolean(process.env.CODEX_ACCESS_TOKEN || process.env.OPENAI_API_KEY) ||
+        authFiles.some((file) => { try { return fs.statSync(file).isFile(); } catch { return false; } });
+      if (!authenticated) return { ...empty, reason: "authentication_required" };
       const client = this.clientFor(profile);
       await client.start();
       const settled = await Promise.allSettled([
@@ -1740,11 +1749,13 @@ class ChatService {
         createdAt: now,
         status: "queued",
       };
-      const activeAssistant = this.active?.conversationId === conversation.id &&
-          this.active?.ownerDeviceId === deviceId
+      const activeAssistant = this.active?.harnessId !== "grok-build" &&
+          this.active?.conversationId === conversation.id && this.active?.ownerDeviceId === deviceId
         ? conversation.messages.find((message) =>
           message.id === this.active.messageId && message.role === "assistant")
         : null;
+      const queuedAfterGrok = this.active?.harnessId === "grok-build" &&
+        this.active?.conversationId === conversation.id;
       if (activeAssistant) {
         userMessage.status = "running";
         userMessage.steeredInto = activeAssistant.id;
@@ -1778,7 +1789,9 @@ class ChatService {
         attachments: [],
         createdAt: now,
         status: "queued",
-        activity: [{ type: "queue", label: "消息已送达服务器", status: "completed" }],
+        activity: [{ type: "queue",
+          label: queuedAfterGrok ? "补充要求已排队，将在当前回合结束后处理" : "消息已送达服务器",
+          status: "completed" }],
         replyTo: userMessage.id,
       };
       conversation.messages.push(userMessage, assistantMessage);
@@ -2075,7 +2088,23 @@ class ChatService {
           }
         }
         if (message.role === "assistant" && message.status === "running") {
-          message.status = "queued";
+          // A process that was running when the service stopped may already have
+          // performed side effects. Never replay it automatically after restart.
+          message.status = "failed";
+          message.completedAt = new Date().toISOString();
+          message.text = "服务重启时本轮中断，执行结果无法确认。请先检查工作区，再决定是否重新提交任务。";
+          message.stream = Array.isArray(message.stream) ? message.stream : [];
+          for (const entry of message.stream) {
+            if (entry.status === "running") entry.status = "failed";
+          }
+          for (const activity of message.activity || []) {
+            if (activity.status === "running") activity.status = "failed";
+          }
+          changed = true;
+          continue;
+        }
+        if (message.role === "user" && message.status === "running") {
+          message.status = "failed";
           changed = true;
           continue;
         }
@@ -2636,10 +2665,17 @@ class ChatService {
     const accessMode = ALLOWED_ACCESS.has(conversation.accessMode)
       ? conversation.accessMode : "danger-full-access";
     const workDir = this.effectiveWorkDir(conversation);
+    let gitBaseline = null;
+    let gitBaselineError = "git_baseline_unavailable";
+    try {
+      gitBaseline = await createGitChangeBaseline(workDir);
+      gitBaselineError = null;
+    } catch {}
     const profile = this.profileFor(conversation);
     const harnessId = conversation.harnessId || resolveHarness(model, "auto");
     if (harnessId === "grok-build") {
-      await this.runGrokTurn(conversation, user, assistant, model, reasoning, attachments);
+      await this.runGrokTurn(conversation, user, assistant, model, reasoning, attachments,
+        gitBaseline, gitBaselineError);
       return;
     }
     if (harnessId !== "codex") {
@@ -2670,6 +2706,8 @@ class ChatService {
       pendingApprovals: new Map(),
       previewMessageBuffers: new Map(),
       codexHome: profile.codexHome,
+      gitBaseline,
+      gitBaselineError,
     };
     try {
       await client.start();
@@ -2723,9 +2761,51 @@ class ChatService {
     }
   }
 
+  async appendGitChanges(current) {
+    if (!current || current.gitChangesCollected) return;
+    current.gitChangesCollected = true;
+    const conversation = this.readConversation(current.conversationId);
+    const assistant = conversation?.messages.find((message) => message.id === current.messageId);
+    if (!conversation || !assistant) return;
+    try {
+      if (!current.gitBaseline) throw new Error(current.gitBaselineError || "git_baseline_unavailable");
+      const summary = await collectGitChanges(current.gitBaseline);
+      const count = summary.changes.length;
+      this.upsertStream(assistant, "turn-git-changes", {
+        kind: "file",
+        label: count ? `本轮修改 ${count} 个文件` : "本轮没有检测到文件修改",
+        status: "completed",
+        count,
+        branch: summary.branch || null,
+        baselineBranch: current.gitBaseline.branch || null,
+        branchChanged: summary.branchChanged,
+        details: {
+          changes: summary.changes,
+          omitted: summary.omitted,
+          total: summary.total,
+          baselineAt: new Date(current.gitBaseline.createdAt).toISOString(),
+          branch: summary.branch,
+          baselineBranch: current.gitBaseline.branch,
+          branchChanged: summary.branchChanged,
+          baselineUnavailable: summary.baselineUnavailable,
+          baselineDirty: current.gitBaseline.preexisting.size > 0 || summary.baselineUnavailable > 0 ||
+            summary.changes.some((change) => change.baselineDirty),
+        },
+      });
+    } catch {
+      this.upsertStream(assistant, "turn-git-changes", {
+        kind: "file", label: "无法收集本轮文件差异", status: "failed",
+        details: { error: "git_change_collection_failed" },
+      });
+      this.addActivity(assistant, "file", "无法核对本轮文件差异", "failed");
+    }
+    conversation.updatedAt = new Date().toISOString();
+    this.writeConversation(conversation);
+  }
+
   grokAdapter(model, conversation) {
     const options = this.harnessOptions.grok || {};
-    return createHarness("grok-build", {
+    return new GrokBuildAdapter({
       bin: options.bin,
       model,
       cwd: this.effectiveWorkDir(conversation),
@@ -2741,7 +2821,8 @@ class ChatService {
   // Runs one Grok Build turn through the real official CLI and maps its NDJSON
   // events onto the same assistant stream shape the Codex path produces, so the
   // existing UI renders it without a second code path.
-  async runGrokTurn(conversation, user, assistant, model, reasoning, attachments) {
+  async runGrokTurn(conversation, user, assistant, model, reasoning, attachments,
+      gitBaseline = null, gitBaselineError = "git_baseline_unavailable") {
     const workDir = this.effectiveWorkDir(conversation);
     const adapter = this.grokAdapter(model, conversation);
     const existingSession = conversation.harnessSessionId || null;
@@ -2765,6 +2846,8 @@ class ChatService {
       pendingSteers: [],
       pendingApprovals: new Map(),
       codexHome: null,
+      gitBaseline,
+      gitBaselineError,
     };
 
     try {
@@ -2798,6 +2881,12 @@ class ChatService {
       const live = this.readConversation(conversation.id) || conversation;
       const liveAssistant = live.messages.find((message) => message.id === assistant.id);
       if (!liveAssistant) return;
+      const discoveredSessionId = event.sessionId || event.raw?.sessionId;
+      if (discoveredSessionId) {
+        live.harnessSessionId = String(discoveredSessionId);
+        live.harnessId = "grok-build";
+        live.providerId = providerForModel(model) || live.providerId || null;
+      }
       if (event.type === "text_delta") {
         const entry = this.upsertStream(liveAssistant, "harness-message",
           { kind: "message", phase: "final_answer", status: "running" });
@@ -2808,25 +2897,18 @@ class ChatService {
           this.addActivity(liveAssistant, "thinking", "正在推理", "running");
         }
       } else if (event.type === "tool_call") {
-        const label = String(event.tool || "工具调用").slice(0, 90);
-        this.addActivity(liveAssistant, "command", label, "running");
+        const presented = adapter.formatToolCall(event, workDir);
+        this.addActivity(liveAssistant, presented.kind, presented.label, "running");
         const key = event.id || `tool-${current.toolEntries.size}`;
-        current.toolEntries.set(key, label);
-        this.upsertStream(liveAssistant, key, {
-          kind: "command", label, status: "running",
-          details: { command: label, cwd: workDir, input: event.input || null, output: "" },
-        });
+        current.toolEntries.set(key, { kind: presented.kind, label: presented.label });
+        this.upsertStream(liveAssistant, key, presented);
       } else if (event.type === "tool_call_update") {
         const key = event.id || [...current.toolEntries.keys()].at(-1);
         if (key) {
-          const entry = this.upsertStream(liveAssistant, key, {
-            kind: "command",
-            status: ["completed", "failed"].includes(event.status) ? event.status : "running",
-          });
-          if (event.output !== undefined) {
-            entry.details = { ...(entry.details || {}), output: String(
-              typeof event.output === "string" ? event.output : JSON.stringify(event.output)).slice(-8192) };
-          }
+          const presented = adapter.formatToolUpdate(event, current.toolEntries.get(key));
+          const { details, ...fields } = presented;
+          const entry = this.upsertStream(liveAssistant, key, fields);
+          if (details) entry.details = { ...(entry.details || {}), ...details };
         }
       } else if (event.type === "plan") {
         this.upsertStream(liveAssistant, "harness-plan", {
@@ -2837,14 +2919,15 @@ class ChatService {
           })).filter((step) => step.step),
         });
       } else if (event.type === "error") {
-        this.failActive(`Grok Build：${String(event.error || "运行失败").slice(0, 200)}`);
-        return;
+        current.harnessEventError = String(event.error || "运行失败").slice(0, 200);
+        this.addActivity(liveAssistant, "error", "Grok Build 返回错误事件", "failed");
       } else if (event.type === "end") {
         current.harnessUsage = event.usage || null;
         current.harnessStopReason = event.stopReason || null;
       }
       live.updatedAt = new Date().toISOString();
       this.writeConversation(live);
+      if (discoveredSessionId) this.store.save(live, { immediate: true });
     });
 
     const result = await handle.done;
@@ -2864,6 +2947,8 @@ class ChatService {
       // happens to be configured, so a stored binding is never mislabelled.
       finalConversation.providerId = providerForModel(model) || finalConversation.providerId || null;
     }
+    if (result.sessionId) this.writeConversation(finalConversation);
+    await this.appendGitChanges(this.active);
 
     if (result.timedOut) {
       finalConversation.updatedAt = new Date().toISOString();
@@ -2881,7 +2966,7 @@ class ChatService {
     }
     finalConversation.updatedAt = new Date().toISOString();
     this.writeConversation(finalConversation);
-    if (!result.ok) {
+    if (!result.ok || this.active.harnessEventError) {
       // stderr stays server-side and passes through RuntimeLogger redaction. It may
       // contain gateway diagnostics or credential-shaped values, so never return
       // it through the browser API/SSE surface.
@@ -2962,6 +3047,9 @@ class ChatService {
           assistant, "command", label.slice(0, 90), status);
         this.upsertStream(assistant, item.id, {
           kind: "command", label, status,
+          exitCode: Number.isInteger(item.exitCode) ? item.exitCode : null,
+          error: item.error ? String(item.error).slice(0, 500) : null,
+          failureReason: item.failureReason ? String(item.failureReason).slice(0, 300) : null,
           details: {
             command: String(item.command || ""),
             cwd: String(item.cwd || ""),
@@ -2974,22 +3062,10 @@ class ChatService {
           this.publishPreviewSnapshot(assistant, this.active.previewSourcePath);
         }
       } else if (item.type === "fileChange") {
-        const count = Array.isArray(item.changes) ? item.changes.length : 0;
-        const label = status === "completed"
-          ? (count ? `已修改 ${count} 个文件` : "文件修改已完成")
-          : "正在修改项目文件";
-        this.addActivity(assistant, "file", label, status);
-        this.upsertStream(assistant, item.id, {
-          kind: "file", label, status, count,
-          details: {
-            changes: (item.changes || []).slice(0, 100).map((change) => ({
-              path: String(change.path || ""),
-              kind: String(change.kind?.type || "update"),
-              movePath: change.kind?.move_path ? String(change.kind.move_path) : null,
-              diff: String(change.diff || "").slice(0, 64 * 1024),
-            })),
-          },
-        });
+        // Keep the live signal in the activity list; the authoritative file list
+        // is produced once at turn completion by the shared Git baseline collector.
+        this.addActivity(assistant, "file",
+          status === "completed" ? "文件变更已收到，正在核对本轮差异" : "正在修改项目文件", status);
         if (method === "item/completed" && this.active.previewSourcePath) {
           this.publishPreviewSnapshot(assistant, this.active.previewSourcePath);
         }
@@ -3113,7 +3189,14 @@ class ChatService {
       const interrupted = params.turn?.status === "interrupted";
       const success = params.turn?.status === "completed" && Boolean(response.trim());
       const detail = params.turn?.error?.message || "Codex 未返回有效结果";
-      this.finishActive(success, response, interrupted ? "已暂停" : detail, interrupted);
+      const current = this.active;
+      if (current.finishingTurn) return;
+      current.finishingTurn = true;
+      this.appendGitChanges(current).catch(() => {}).finally(() => {
+        if (this.active === current && !current.finished) {
+          this.finishActive(success, response, interrupted ? "已暂停" : detail, interrupted);
+        }
+      });
       return;
     } else {
       return;
@@ -3123,6 +3206,14 @@ class ChatService {
   }
 
   failActive(error) {
+    const current = this.active;
+    if (current?.gitBaseline && !current.gitChangesCollected && !current.finishingTurn) {
+      current.finishingTurn = true;
+      this.appendGitChanges(current).finally(() => {
+        if (this.active === current && !current.finished) this.finishActive(false, "", error);
+      });
+      return;
+    }
     this.finishActive(false, "", error);
   }
 
@@ -3453,7 +3544,7 @@ class ChatService {
     const conversation = this.readConversation(conversationId);
     const message = conversation?.messages.find((item) => item.id === messageId);
     const entry = message?.stream?.find((item) => item.id === entryId);
-    if (!entry?.details || !["command", "file"].includes(entry.kind)) {
+    if (!entry?.details || !["command", "file", "tool"].includes(entry.kind)) {
       this.sendJson(res, 404, { error: "这条过程记录没有可查看的详情" });
       return;
     }

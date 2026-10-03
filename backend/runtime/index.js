@@ -1,10 +1,6 @@
 "use strict";
 
-const { CodexHarnessAdapter } = require("./codex-harness-adapter");
 const { GrokBuildAdapter } = require("./grok-build-adapter");
-const { AntigravityAdapter } = require("./antigravity-adapter");
-const { DeclaredHarnessAdapter } = require("./declared-harness-adapter");
-const { HarnessRuntimeManager } = require("./harness-runtime-manager");
 const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime-resolver");
 const { ProviderRegistry } = require("./provider-registry");
 const { RuntimeProfileStore } = require("./runtime-profiles");
@@ -15,9 +11,9 @@ const {
 } = require("./event-parsers");
 
 function createHarness(id, options = {}) {
-  if (id === "codex") return new CodexHarnessAdapter(options);
+  if (id === "codex") return new (require("./codex-harness-adapter").CodexHarnessAdapter)(options);
   if (id === "grok-build") return new GrokBuildAdapter(options);
-  if (id === "google-antigravity") return new AntigravityAdapter(options);
+  if (id === "google-antigravity") return new (require("./antigravity-adapter").AntigravityAdapter)(options);
   throw new Error(`Unsupported harness: ${id}`);
 }
 
@@ -36,11 +32,11 @@ function harnessInventory(options = {}) {
 }
 
 module.exports = {
-  CodexHarnessAdapter,
+  get CodexHarnessAdapter() { return require("./codex-harness-adapter").CodexHarnessAdapter; },
   GrokBuildAdapter,
-  AntigravityAdapter,
-  DeclaredHarnessAdapter,
-  HarnessRuntimeManager,
+  get AntigravityAdapter() { return require("./antigravity-adapter").AntigravityAdapter; },
+  get DeclaredHarnessAdapter() { return require("./declared-harness-adapter").DeclaredHarnessAdapter; },
+  get HarnessRuntimeManager() { return require("./harness-runtime-manager").HarnessRuntimeManager; },
   ProviderRegistry,
   RuntimeProfileStore,
   RuntimeLogger,

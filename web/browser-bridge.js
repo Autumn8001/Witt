@@ -192,6 +192,33 @@
     interruptConversation(id) {
       conversationAction(id, "interrupt", {}, "onConversationInterruptRequested");
     },
+    startDevelopmentWorkflow(conversationId, messageId, commitMessage) {
+      if (!validId(conversationId) || !validId(messageId)) return;
+      run(`chat/conversations/${conversationId}/messages/${messageId}/development`,
+        { method: "POST", json: { commitMessage: String(commitMessage || "") } },
+        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "提交请求失败");
+    },
+    confirmDevelopmentCommit(jobId, commitMessage) {
+      if (!validId(jobId)) return;
+      run(`chat/development/${jobId}/commit`,
+        { method: "POST", json: { commitMessage: String(commitMessage || "") } },
+        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "提交推送请求失败");
+    },
+    confirmDevelopmentDeploy(jobId) {
+      if (!validId(jobId)) return;
+      run(`chat/development/${jobId}/deploy`, { method: "POST", json: {} },
+        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "部署请求失败");
+    },
+    cancelDevelopmentWorkflow(jobId) {
+      if (!validId(jobId)) return;
+      run(`chat/development/${jobId}/cancel`, { method: "POST", json: {} },
+        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "取消交付失败");
+    },
+    resumeDevelopmentPush(jobId) {
+      if (!validId(jobId)) return;
+      run(`chat/development/${jobId}/resume-push`, { method: "POST", json: {} },
+        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "重试推送失败");
+    },
     archiveConversation(id) {
       request(`chat/conversations/${id}`, { method: "DELETE" })
         .then(() => callback("onConversationArchived", id))

@@ -15,7 +15,7 @@
 set -u
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 
-APP_DIR=/root/witt-app
+APP_DIR=/opt/witt
 RUN_DIR=$(mktemp -d /tmp/witt-e2e-XXXXXXXX)
 chmod 700 "$RUN_DIR"
 PID_FILE="$RUN_DIR/witt.pid"
@@ -28,7 +28,7 @@ PORT=""
 LIFECYCLE_LIB="${WITT_LIFECYCLE_LIB:-}"
 if [ -z "$LIFECYCLE_LIB" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
-  for candidate in "$SCRIPT_DIR/lib/e2e-lifecycle.sh" "/root/witt-app/scripts/lib/e2e-lifecycle.sh"; do
+  for candidate in "$SCRIPT_DIR/lib/e2e-lifecycle.sh" "/opt/witt/scripts/lib/e2e-lifecycle.sh"; do
     if [ -f "$candidate" ]; then LIFECYCLE_LIB="$candidate"; break; fi
   done
 fi
@@ -195,7 +195,7 @@ PORT = int(os.environ["WITT_TEST_PORT"])
 BASE = "http://127.0.0.1:%d" % PORT
 RUN_DIR = os.environ["WITT_TEST_RUN_DIR"]
 PID_FILE = os.path.join(RUN_DIR, "witt.pid")
-APP_DIR = os.environ.get("PWD", "/root/witt-app")
+APP_DIR = os.environ.get("PWD", "/opt/witt")
 TOKEN = open(os.path.join(RUN_DIR, "legacy-token")).read().strip()
 CPA_KEY = os.environ.get("WITT_CPA_API_KEY", "")
 

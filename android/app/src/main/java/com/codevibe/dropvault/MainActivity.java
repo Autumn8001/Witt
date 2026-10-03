@@ -462,6 +462,16 @@ public class MainActivity extends Activity {
                 case "consumeRateLimitReset": webBridge.consumeRateLimitReset(args.optString(0)); break;
                 case "requestStreamDetail": webBridge.requestStreamDetail(
                     args.optString(0), args.optString(1), args.optString(2)); break;
+                case "startDevelopmentWorkflow": webBridge.startDevelopmentWorkflow(
+                    args.optString(0), args.optString(1), args.optString(2)); break;
+                case "cancelDevelopmentWorkflow": webBridge.cancelDevelopmentWorkflow(
+                    args.optString(0)); break;
+                case "resumeDevelopmentPush": webBridge.resumeDevelopmentPush(
+                    args.optString(0)); break;
+                case "confirmDevelopmentCommit": webBridge.confirmDevelopmentCommit(
+                    args.optString(0), args.optString(1)); break;
+                case "confirmDevelopmentDeploy": webBridge.confirmDevelopmentDeploy(
+                    args.optString(0)); break;
                 case "createConversation": webBridge.createConversation(
                     args.optString(0), args.optString(1), args.optString(2)); break;
                 case "createConversationWithPath": webBridge.createConversationWithPath(
@@ -875,11 +885,23 @@ public class MainActivity extends Activity {
 
     private void conversationAction(String id, String action, JSONObject payload,
                                     String successCallback) {
+        conversationAction(id, action, payload, successCallback,
+            "window.DropVault.onAppServerActionError");
+    }
+
+    private void conversationAction(String id, String action, JSONObject payload,
+                                    String successCallback, String errorCallback) {
         if (id == null || !id.matches("[a-f0-9-]{36}")) return;
+        postChatAction("chat/conversations/" + id + "/" + action, payload,
+            successCallback, errorCallback);
+    }
+
+    private void postChatAction(String endpoint, JSONObject payload,
+                                String successCallback, String errorCallback) {
         network.execute(() -> {
             HttpURLConnection connection = null;
             try {
-                connection = openApiConnection("chat/conversations/" + id + "/" + action, "POST");
+                connection = openApiConnection(endpoint, "POST");
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 byte[] body = (payload == null ? new JSONObject() : payload).toString()
@@ -892,14 +914,46 @@ public class MainActivity extends Activity {
                 if (status >= 200 && status < 300) {
                     callJs(successCallback + "(" + JSONObject.quote(response) + ")");
                 } else {
-                    callJs("window.DropVault.onAppServerActionError(" +
-                        JSONObject.quote(apiError(response)) + ")");
+                    callJs(errorCallback + "(" + JSONObject.quote(apiError(response)) + ")");
                 }
             } catch (Exception error) {
-                callJs("window.DropVault.onAppServerActionError(" +
-                    JSONObject.quote("App Server 操作失败，请重试") + ")");
+                callJs(errorCallback + "(" +
+                    JSONObject.quote("操作失败，请重试") + ")");
             } finally { if (connection != null) connection.disconnect(); }
         });
+    }
+
+    private void startDevelopmentWorkflow(String conversationId, String messageId,
+                                          String commitMessage) {
+        if (conversationId == null || !conversationId.matches("[a-f0-9-]{36}") ||
+            messageId == null || !messageId.matches("[a-f0-9-]{36}")) return;
+        try {
+            conversationAction(conversationId, "messages/" + messageId + "/development",
+                new JSONObject().put("commitMessage", commitMessage == null ? "" : commitMessage),
+                "window.DropVault.onDevelopmentWorkflow",
+                "window.DropVault.onDevelopmentWorkflowError");
+        } catch (Exception error) {
+            callJs("window.DropVault.onDevelopmentWorkflowError('提交请求无效')");
+        }
+    }
+
+    private void developmentJobAction(String jobId, String action) {
+        if (jobId == null || !jobId.matches("[a-f0-9-]{36}")) return;
+        postChatAction("chat/development/" + jobId + "/" + action, new JSONObject(),
+            "window.DropVault.onDevelopmentWorkflow",
+            "window.DropVault.onDevelopmentWorkflowError");
+    }
+
+    private void confirmDevelopmentCommit(String jobId, String commitMessage) {
+        if (jobId == null || !jobId.matches("[a-f0-9-]{36}")) return;
+        try {
+            postChatAction("chat/development/" + jobId + "/commit",
+                new JSONObject().put("commitMessage", commitMessage == null ? "" : commitMessage),
+                "window.DropVault.onDevelopmentWorkflow",
+                "window.DropVault.onDevelopmentWorkflowError");
+        } catch (Exception error) {
+            callJs("window.DropVault.onDevelopmentWorkflowError('提交请求无效')");
+        }
     }
 
     private void requestConversation(String id) {
@@ -1486,6 +1540,22 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void requestStreamDetail(
                 String conversationId, String messageId, String entryId) {
             MainActivity.this.requestStreamDetail(conversationId, messageId, entryId);
+        }
+        @JavascriptInterface public void startDevelopmentWorkflow(
+                String conversationId, String messageId, String commitMessage) {
+            MainActivity.this.startDevelopmentWorkflow(conversationId, messageId, commitMessage);
+        }
+        @JavascriptInterface public void cancelDevelopmentWorkflow(String jobId) {
+            MainActivity.this.developmentJobAction(jobId, "cancel");
+        }
+        @JavascriptInterface public void resumeDevelopmentPush(String jobId) {
+            MainActivity.this.developmentJobAction(jobId, "resume-push");
+        }
+        @JavascriptInterface public void confirmDevelopmentCommit(String jobId, String commitMessage) {
+            MainActivity.this.confirmDevelopmentCommit(jobId, commitMessage);
+        }
+        @JavascriptInterface public void confirmDevelopmentDeploy(String jobId) {
+            MainActivity.this.developmentJobAction(jobId, "deploy");
         }
         @JavascriptInterface public void createConversation(String model, String reasoning, String accessMode) {
             MainActivity.this.createConversation(model, reasoning, accessMode, "", "default");

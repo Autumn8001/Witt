@@ -7,6 +7,7 @@ const { parseGrokEvent } = require("./event-parsers");
 const { GROK_BUILD_CAPABILITIES } = require("./capabilities");
 const { resolveBinary } = require("./runtime-binaries");
 const { RuntimeLogger } = require("./runtime-log");
+const { redactHarnessText, sanitizeHarnessContent } = require("./tool-content");
 
 const HARNESS_ID = "grok-build";
 
@@ -182,6 +183,59 @@ class GrokBuildAdapter {
       cancel: (signal = "SIGTERM") => signal === "SIGTERM"
         ? child.terminate() : child.kill(signal),
     };
+  }
+
+  // Translate Grok tool events to the existing Witt stream shape. Keep this
+  // runtime-specific mapping here, leaving ChatService to persist and publish.
+  formatToolCall(event, cwd) {
+    const tool = redactHarnessText(event.tool || "工具调用", 90);
+    const rawInput = event.input && typeof event.input === "object" ? event.input : {};
+    const command = [rawInput.command, rawInput.cmd, rawInput.shell_command, rawInput.script]
+      .find((value) => typeof value === "string" && value.trim());
+    const safeCommand = command ? redactHarnessText(command, 4000) : null;
+    const isCommand = Boolean(command) || /terminal|shell|command|exec/i.test(tool);
+    const kind = isCommand ? "command" : "tool";
+    const label = isCommand
+      ? `命令：${String(safeCommand || tool).replace(/\s+/g, " ").slice(0, 120)}`
+      : `调用工具：${tool}`;
+    const input = sanitizeHarnessContent(event.input || null);
+    return {
+      kind, label, status: "running",
+      details: isCommand
+        ? { command: safeCommand || tool, cwd, input, output: "", exitCode: null }
+        : { input },
+    };
+  }
+
+  formatToolUpdate(event, info = {}) {
+    const output = event.output;
+    const exitCodeValue = output && typeof output === "object"
+      ? (output.exitCode ?? output.exit_code ?? output.code) : undefined;
+    const exitCode = exitCodeValue !== undefined && exitCodeValue !== null &&
+      Number.isInteger(Number(exitCodeValue)) ? Number(exitCodeValue) : null;
+    const failureReason = output && typeof output === "object"
+      ? (output.failureReason ?? output.failure_reason ?? output.error) : undefined;
+    const safeFailureReason = failureReason === undefined ? undefined
+      : redactHarnessText(failureReason, 500);
+    const patch = {
+      kind: info.kind || "tool",
+      ...(info.kind === "command" && exitCode !== null ? { exitCode } : {}),
+      ...(safeFailureReason ? {
+        error: safeFailureReason, failureReason: redactHarnessText(safeFailureReason, 300),
+      } : {}),
+      status: ["completed", "failed", "error"].includes(event.status)
+        ? (event.status === "error" ? "failed" : event.status) : "running",
+    };
+    if (output !== undefined) {
+      const safeOutput = sanitizeHarnessContent(output);
+      const outputText = typeof safeOutput === "string" ? safeOutput : JSON.stringify(safeOutput);
+      patch.details = {
+        output: String(outputText).slice(-8192),
+        ...(info.kind === "command" && exitCodeValue !== undefined && exitCodeValue !== null
+          ? { exitCode } : {}),
+      };
+    }
+    return patch;
   }
 
   cancel(handle, signal = "SIGTERM") {
