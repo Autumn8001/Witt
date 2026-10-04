@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,19 +16,110 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
 )
 
 const maxOutput = 256 * 1024
-const version = "0.1.0"
+const maxFileRead = 256 * 1024
+const maxListEntries = 200
+const maxScreenshotBytes = 1280 * 1024
+const version = "0.2.0"
+
+var deviceIDPattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+var drivePathPattern = regexp.MustCompile(`^[A-Za-z]:`)
+
+type agentConfig struct {
+	// roots contains canonical absolute paths. Keeping only canonical paths here
+	// means every operation uses the same boundary that was checked at startup.
+	roots              map[string]string
+	allowScreenCapture bool
+}
+
+type rootFlags struct {
+	values map[string]string
+}
+
+func (r *rootFlags) String() string {
+	if r == nil || len(r.values) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(r.values))
+	for alias, path := range r.values {
+		parts = append(parts, alias+"="+path)
+	}
+	return strings.Join(parts, ",")
+}
+
+func (r *rootFlags) Set(value string) error {
+	alias, path, ok := strings.Cut(value, "=")
+	if !ok || !deviceIDPattern.MatchString(alias) || strings.TrimSpace(path) == "" {
+		return errors.New("root must be alias=absolutePath")
+	}
+	path = strings.TrimSpace(path)
+	if !filepath.IsAbs(path) || strings.ContainsRune(path, '\x00') {
+		return errors.New("root path must be absolute")
+	}
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return errors.New("root path must exist")
+	}
+	info, err := os.Stat(canonical)
+	if err != nil || !info.IsDir() {
+		return errors.New("root path must be a directory")
+	}
+	if r.values == nil {
+		r.values = make(map[string]string)
+	}
+	if _, exists := r.values[alias]; exists {
+		return errors.New("duplicate root alias")
+	}
+	r.values[alias] = canonical
+	return nil
+}
+
+func configFromRoots(roots rootFlags, allowScreenCapture bool) agentConfig {
+	values := make(map[string]string, len(roots.values))
+	for alias, path := range roots.values {
+		values[alias] = path
+	}
+	return agentConfig{roots: values, allowScreenCapture: allowScreenCapture}
+}
+
+func advertisedCapabilities(config agentConfig) []string {
+	capabilities := []string{"system.hostname", "system.info"}
+	if len(config.roots) > 0 {
+		capabilities = append(capabilities, "filesystem.list", "filesystem.read")
+	}
+	if runtime.GOOS == "windows" && config.allowScreenCapture {
+		capabilities = append(capabilities, "screen.capture")
+	}
+	return capabilities
+}
+
+func advertisedRoots(config agentConfig) []string {
+	roots := make([]string, 0, len(config.roots))
+	for alias := range config.roots {
+		roots = append(roots, alias)
+	}
+	sort.Strings(roots)
+	return roots
+}
+
+func registrationPacket(deviceID, hostname string, config agentConfig) packet {
+	return packet{V: 1, Type: "register", DeviceID: deviceID, Hostname: hostname,
+		AgentVersion: version, Capabilities: advertisedCapabilities(config), Roots: advertisedRoots(config)}
+}
 
 type packet struct {
 	V            int               `json:"v"`
@@ -34,6 +128,8 @@ type packet struct {
 	DeviceID     string            `json:"device_id,omitempty"`
 	Hostname     string            `json:"hostname,omitempty"`
 	AgentVersion string            `json:"agent_version,omitempty"`
+	Capabilities []string          `json:"capabilities,omitempty"`
+	Roots        []string          `json:"roots,omitempty"`
 	Tool         string            `json:"tool,omitempty"`
 	Args         map[string]string `json:"args,omitempty"`
 	TimeoutMS    int               `json:"timeout_ms,omitempty"`
@@ -43,6 +139,8 @@ type packet struct {
 	DurationMS   int64             `json:"duration_ms,omitempty"`
 	Error        string            `json:"error,omitempty"`
 	Truncated    bool              `json:"truncated,omitempty"`
+	Mime         string            `json:"mime,omitempty"`
+	Data         string            `json:"data,omitempty"`
 }
 
 type boundedWriter struct {
@@ -68,14 +166,65 @@ func (w *boundedWriter) Write(p []byte) (int, error) {
 }
 
 func execute(ctx context.Context, p packet, deviceID string) packet {
+	return executeWithConfig(ctx, p, deviceID, agentConfig{})
+}
+
+func executeWithConfig(ctx context.Context, p packet, deviceID string, config agentConfig) packet {
 	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1}
-	if p.Type != "command" || p.ID == "" || p.Tool != "system" || len(p.Args) != 1 || p.Args["command"] != "hostname" || p.TimeoutMS < 1000 || p.TimeoutMS > 30000 {
+	if p.Type != "command" || p.ID == "" || p.TimeoutMS < 1000 || p.TimeoutMS > 30000 {
 		result.Error = "COMMAND_NOT_ALLOWED"
 		return result
 	}
 	start := time.Now()
 	commandCtx, cancel := context.WithTimeout(ctx, time.Duration(p.TimeoutMS)*time.Millisecond)
 	defer cancel()
+
+	switch p.Tool {
+	case "system":
+		if len(p.Args) != 1 {
+			result.Error = "COMMAND_NOT_ALLOWED"
+			return result
+		}
+		switch p.Args["command"] {
+		case "hostname":
+			result = executeHostname(commandCtx, p, deviceID)
+		case "info":
+			result = executeSystemInfo(commandCtx, p, deviceID)
+		default:
+			result.Error = "COMMAND_NOT_ALLOWED"
+		}
+	case "filesystem":
+		if len(p.Args) != 3 || (p.Args["operation"] != "list" && p.Args["operation"] != "read") {
+			result.Error = "COMMAND_NOT_ALLOWED"
+			return result
+		}
+		root, err := resolvePath(config, p.Args["root"], p.Args["path"])
+		if err != nil {
+			result.Error = err.Error()
+			return result
+		}
+		if p.Args["operation"] == "list" {
+			result = executeFileList(commandCtx, p, deviceID, config.roots[p.Args["root"]], root)
+		} else {
+			result = executeFileRead(commandCtx, p, deviceID, root)
+		}
+	case "screen":
+		if len(p.Args) != 1 || p.Args["operation"] != "capture" || !config.allowScreenCapture {
+			result.Error = "COMMAND_NOT_ALLOWED"
+			return result
+		}
+		result = executeScreenCapture(commandCtx, p, deviceID)
+	default:
+		result.Error = "COMMAND_NOT_ALLOWED"
+	}
+	if result.DurationMS == 0 {
+		result.DurationMS = time.Since(start).Milliseconds()
+	}
+	return result
+}
+
+func executeHostname(ctx context.Context, p packet, deviceID string) packet {
+	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1}
 	executable := "hostname"
 	if runtime.GOOS == "windows" {
 		executable = filepath.Join(os.Getenv("SystemRoot"), "System32", "hostname.exe")
@@ -84,7 +233,7 @@ func execute(ctx context.Context, p packet, deviceID string) packet {
 			return result
 		}
 	}
-	cmd := exec.CommandContext(commandCtx, executable)
+	cmd := exec.CommandContext(ctx, executable)
 	stdout := &boundedWriter{limit: maxOutput}
 	stderr := &boundedWriter{limit: maxOutput}
 	cmd.Stdout, cmd.Stderr = stdout, stderr
@@ -97,10 +246,9 @@ func execute(ctx context.Context, p packet, deviceID string) packet {
 	}
 	result.Stdout, result.Stderr = string(combined), string(stderr.data)
 	result.Truncated = stdout.truncated || stderr.truncated
-	result.DurationMS = time.Since(start).Milliseconds()
 	if err == nil {
 		result.ExitCode = 0
-	} else if errors.Is(commandCtx.Err(), context.DeadlineExceeded) {
+	} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		result.Error = "COMMAND_TIMEOUT"
 	} else {
 		result.Error = "COMMAND_FAILED"
@@ -108,7 +256,307 @@ func execute(ctx context.Context, p packet, deviceID string) packet {
 	return result
 }
 
+func executeSystemInfo(ctx context.Context, p packet, deviceID string) packet {
+	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1}
+	if ctx.Err() != nil {
+		result.Error = "COMMAND_TIMEOUT"
+		return result
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		result.Error = "COMMAND_FAILED"
+		return result
+	}
+	current, _ := user.Current()
+	username, homeDir := "", ""
+	if current != nil {
+		username, homeDir = current.Username, current.HomeDir
+	}
+	if homeDir == "" {
+		homeDir, _ = os.UserHomeDir()
+	}
+	info := map[string]string{
+		"hostname": hostname,
+		"os":       runtime.GOOS,
+		"arch":     runtime.GOARCH,
+		"username": username,
+		"home_dir": homeDir,
+	}
+	data, err := json.Marshal(info)
+	if err != nil || len(data) > maxOutput {
+		result.Error = "COMMAND_FAILED"
+		return result
+	}
+	result.Stdout = string(data)
+	result.ExitCode = 0
+	return result
+}
+
+func normalizeRelativePath(raw string) (string, error) {
+	if raw == "" {
+		return ".", nil
+	}
+	if strings.ContainsRune(raw, '\x00') || strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "\\") || drivePathPattern.MatchString(raw) {
+		return "", errors.New("PATH_NOT_ALLOWED")
+	}
+	// The wire format accepts slash-separated paths. Treat backslashes as
+	// separators on every host so a Windows traversal cannot be hidden in a
+	// Linux test or in a future cross-platform build.
+	normalized := strings.ReplaceAll(raw, "\\", string(filepath.Separator))
+	if filepath.IsAbs(normalized) {
+		return "", errors.New("PATH_NOT_ALLOWED")
+	}
+	clean := filepath.Clean(normalized)
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", errors.New("PATH_OUTSIDE_ROOT")
+	}
+	return clean, nil
+}
+
+func withinPath(root, target string) bool {
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
+}
+
+func resolvePath(config agentConfig, alias, rawPath string) (string, error) {
+	root, ok := config.roots[alias]
+	if !ok || alias == "" {
+		return "", errors.New("ROOT_NOT_CONFIGURED")
+	}
+	if !filepath.IsAbs(root) {
+		return "", errors.New("ROOT_UNAVAILABLE")
+	}
+	rel, err := normalizeRelativePath(rawPath)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.EvalSymlinks(filepath.Join(root, rel))
+	if err != nil {
+		return "", errors.New("PATH_NOT_FOUND")
+	}
+	if !withinPath(root, target) {
+		return "", errors.New("PATH_OUTSIDE_ROOT")
+	}
+	return target, nil
+}
+
+type fileMetadata struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Type    string `json:"type"`
+	Size    int64  `json:"size"`
+	ModTime string `json:"mod_time"`
+}
+
+func executeFileList(ctx context.Context, p packet, deviceID, allowedRoot, directory string) packet {
+	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1}
+	if ctx.Err() != nil {
+		result.Error = "COMMAND_TIMEOUT"
+		return result
+	}
+	info, err := os.Stat(directory)
+	if err != nil {
+		result.Error = "PATH_NOT_FOUND"
+		return result
+	}
+	if !info.IsDir() {
+		result.Error = "NOT_A_DIRECTORY"
+		return result
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		result.Error = "FILE_LIST_FAILED"
+		return result
+	}
+	metadata := make([]fileMetadata, 0, minInt(len(entries), maxListEntries))
+	for i, entry := range entries {
+		if i >= maxListEntries {
+			result.Truncated = true
+			break
+		}
+		entryPath := filepath.Join(directory, entry.Name())
+		resolved, resolveErr := filepath.EvalSymlinks(entryPath)
+		if resolveErr != nil || !withinPath(allowedRoot, resolved) {
+			// Do not follow a link outside the configured root, and do not expose
+			// its target metadata. The safe result remains useful for other files.
+			continue
+		}
+		entryInfo, infoErr := os.Lstat(entryPath)
+		if infoErr != nil {
+			continue
+		}
+		kind := "file"
+		if entryInfo.IsDir() {
+			kind = "directory"
+		} else if entryInfo.Mode()&os.ModeSymlink != 0 {
+			kind = "symlink"
+		}
+		rel, relErr := filepath.Rel(allowedRoot, entryPath)
+		if relErr != nil || !withinPath(allowedRoot, entryPath) {
+			continue
+		}
+		metadata = append(metadata, fileMetadata{
+			Name: entry.Name(), Path: filepath.ToSlash(rel), Type: kind,
+			Size: entryInfo.Size(), ModTime: entryInfo.ModTime().UTC().Format(time.RFC3339Nano),
+		})
+	}
+	data, err := json.Marshal(metadata)
+	if err != nil || len(data) > maxOutput {
+		result.Error = "OUTPUT_TOO_LARGE"
+		return result
+	}
+	result.Stdout = string(data)
+	result.ExitCode = 0
+	return result
+}
+
+func executeFileRead(ctx context.Context, p packet, deviceID, path string) packet {
+	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1}
+	if ctx.Err() != nil {
+		result.Error = "COMMAND_TIMEOUT"
+		return result
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		result.Error = "PATH_NOT_FOUND"
+		return result
+	}
+	if !info.Mode().IsRegular() {
+		result.Error = "NOT_A_FILE"
+		return result
+	}
+	if info.Size() > maxFileRead {
+		result.Error = "FILE_TOO_LARGE"
+		return result
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		result.Error = "FILE_READ_FAILED"
+		return result
+	}
+	if len(data) > maxFileRead {
+		result.Error = "FILE_TOO_LARGE"
+		return result
+	}
+	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 || looksBinary(data) {
+		result.Error = "BINARY_FILE"
+		return result
+	}
+	result.Stdout = string(data)
+	result.ExitCode = 0
+	return result
+}
+
+func looksBinary(data []byte) bool {
+	control := 0
+	for _, b := range data {
+		if b < 0x09 || (b > 0x0d && b < 0x20) {
+			control++
+		}
+	}
+	return control > 0 && control*20 > len(data)
+}
+
+func executeScreenCapture(ctx context.Context, p packet, deviceID string) packet {
+	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1}
+	data, err := captureScreen(ctx)
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
+	if len(data) == 0 || len(data) > maxScreenshotBytes {
+		result.Error = "SCREEN_CAPTURE_TOO_LARGE"
+		return result
+	}
+	result.Mime = "image/jpeg"
+	result.Data = base64.StdEncoding.EncodeToString(data)
+	result.ExitCode = 0
+	return result
+}
+
+const screenCaptureScript = `$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+$bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+$longest = [Math]::Max([int]$bounds.Width, [int]$bounds.Height)
+$scale = [Math]::Min(1.0, 1440.0 / [Math]::Max(1, $longest))
+$width = [Math]::Max(1, [int][Math]::Round($bounds.Width * $scale))
+$height = [Math]::Max(1, [int][Math]::Round($bounds.Height * $scale))
+$source = New-Object System.Drawing.Bitmap([Math]::Max(1, $bounds.Width), [Math]::Max(1, $bounds.Height))
+$sourceGraphics = [System.Drawing.Graphics]::FromImage($source)
+$bitmap = New-Object System.Drawing.Bitmap($width, $height)
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$stream = New-Object System.IO.MemoryStream
+try {
+  $sourceGraphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bounds.Size)
+  $graphics.DrawImage($source, (New-Object System.Drawing.Rectangle(0, 0, $width, $height)), 0, 0, $bounds.Width, $bounds.Height, [System.Drawing.GraphicsUnit]::Pixel)
+  $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
+  $quality = 85
+  do {
+    $stream.SetLength(0)
+    $parameters = New-Object System.Drawing.Imaging.EncoderParameters(1)
+    $parameters.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [long]$quality)
+    $bitmap.Save($stream, $codec, $parameters)
+    $parameters.Dispose()
+    $quality -= 10
+  } while ($stream.Length -gt 1310720 -and $quality -ge 35)
+  if ($stream.Length -gt 1310720) { throw 'SCREEN_CAPTURE_TOO_LARGE' }
+  [Console]::Out.Write([Convert]::ToBase64String($stream.ToArray()))
+} finally {
+  $stream.Dispose()
+  $graphics.Dispose()
+  $bitmap.Dispose()
+  $sourceGraphics.Dispose()
+  $source.Dispose()
+}`
+
+func captureScreen(ctx context.Context) ([]byte, error) {
+	if runtime.GOOS != "windows" {
+		return nil, errors.New("SCREEN_CAPTURE_UNSUPPORTED")
+	}
+	// The command and script are constants; no request data is interpolated or
+	// accepted as a script. PowerShell is used only as the Windows-native bridge
+	// to System.Drawing, and errors are returned without echoing command output.
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", screenCaptureScript)
+	output, err := cmd.Output()
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, errors.New("COMMAND_TIMEOUT")
+		}
+		return nil, errors.New("SCREEN_CAPTURE_FAILED")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(output)))
+	if err != nil || len(decoded) == 0 {
+		return nil, errors.New("SCREEN_CAPTURE_FAILED")
+	}
+	if len(decoded) > maxScreenshotBytes {
+		return nil, errors.New("SCREEN_CAPTURE_TOO_LARGE")
+	}
+	if len(decoded) < 4 || !bytes.HasPrefix(decoded, []byte{0xff, 0xd8}) || !bytes.HasSuffix(decoded, []byte{0xff, 0xd9}) {
+		return nil, errors.New("SCREEN_CAPTURE_FAILED")
+	}
+	return decoded, nil
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func runSession(ctx context.Context, url, deviceID, token string) error {
+	return runSessionWithConfig(ctx, url, deviceID, token, agentConfig{})
+}
+
+func runSessionWithConfig(ctx context.Context, url, deviceID, token string, config agentConfig) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	header := http.Header{}
@@ -127,7 +575,7 @@ func runSession(ctx context.Context, url, deviceID, token string) error {
 	var writeMu sync.Mutex
 	go func() { <-ctx.Done(); conn.Close() }()
 	hostname, _ := os.Hostname()
-	if err := conn.WriteJSON(packet{V: 1, Type: "register", DeviceID: deviceID, Hostname: hostname, AgentVersion: version}); err != nil {
+	if err := conn.WriteJSON(registrationPacket(deviceID, hostname, config)); err != nil {
 		return err
 	}
 	conn.SetReadLimit(300 * 1024)
@@ -191,7 +639,7 @@ func runSession(ctx context.Context, url, deviceID, token string) error {
 		go func(command packet) {
 			defer workers.Done()
 			defer func() { <-busy }()
-			result := execute(ctx, command, deviceID)
+			result := executeWithConfig(ctx, command, deviceID, config)
 			if ctx.Err() != nil {
 				return
 			}
@@ -209,10 +657,13 @@ func main() {
 	endpoint := flag.String("gateway", "", "WSS gateway URL")
 	deviceID := flag.String("device-id", "", "configured device ID")
 	tokenFile := flag.String("token-file", "", "file containing this device's bearer token")
+	var roots rootFlags
+	flag.Var(&roots, "root", "named filesystem root (repeatable): alias=absolutePath")
+	allowScreenCapture := flag.Bool("allow-screen-capture", false, "allow the built-in Windows screenshot operation")
 	flag.Parse()
 	parsed, parseErr := url.Parse(*endpoint)
 	if parseErr != nil || parsed.Scheme != "wss" || parsed.Host == "" || parsed.User != nil ||
-		parsed.RawQuery != "" || parsed.Fragment != "" || !regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$").MatchString(*deviceID) || *tokenFile == "" {
+		parsed.RawQuery != "" || parsed.Fragment != "" || !deviceIDPattern.MatchString(*deviceID) || *tokenFile == "" {
 		log.Fatal("gateway must be wss://; device-id and token-file are required")
 	}
 	raw, err := os.ReadFile(*tokenFile)
@@ -228,9 +679,10 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	config := configFromRoots(roots, *allowScreenCapture)
 	delay := time.Second
 	for ctx.Err() == nil {
-		err := runSession(ctx, *endpoint, *deviceID, token)
+		err := runSessionWithConfig(ctx, *endpoint, *deviceID, token, config)
 		if ctx.Err() != nil {
 			break
 		}

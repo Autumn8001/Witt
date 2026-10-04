@@ -3447,6 +3447,7 @@
         state.admin = Boolean(payload.principal?.admin);
         applyPrincipalPolicy(payload.principal);
         $("#adminSettingsButton").hidden = !state.admin;
+        $("#customerDevicesButton").hidden = !state.admin;
         $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
         hideActivation();
         bridge()?.requestCapabilities?.();
@@ -3473,6 +3474,7 @@
       state.admin = Boolean(payload.principal?.admin);
       applyPrincipalPolicy(payload.principal);
       $("#adminSettingsButton").hidden = !state.admin;
+      $("#customerDevicesButton").hidden = !state.admin;
       $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
       $("#inviteCode").value = "";
       hideActivation();

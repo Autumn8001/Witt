@@ -1,7 +1,7 @@
 "use strict";
 
 const { WebSocketServer } = require("ws");
-const { decodeMessage } = require("./protocol");
+const { decodeMessage, validateDeviceRegistration, MAX_MESSAGE_BYTES } = require("./protocol");
 const { DeviceRegistry } = require("./device-registry");
 const { CommandDispatcher } = require("./command-dispatcher");
 
@@ -12,7 +12,7 @@ class DeviceGateway {
     });
     this.now = options.now || Date.now;
     this.dispatcher = options.dispatcher || new CommandDispatcher(this.registry, { now: this.now });
-    this.wss = new WebSocketServer({ noServer: true, maxPayload: 300 * 1024, perMessageDeflate: false });
+    this.wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES, perMessageDeflate: false });
     this.sweepTimer = setInterval(() => this.sweep(), 20000);
     this.sweepTimer.unref?.();
   }
@@ -52,14 +52,19 @@ class DeviceGateway {
       try { message = decodeMessage(data); }
       catch { ws.close(1008, "invalid_message"); return; }
       if (message.type === "register") {
-        if (session.registered || message.device_id !== deviceId ||
-            typeof message.hostname !== "string" || message.hostname.length > 255 ||
-            typeof message.agent_version !== "string" || message.agent_version.length > 40) {
+        let registration;
+        try { registration = validateDeviceRegistration(message); } catch {
+          ws.close(1008, "invalid_register"); return;
+        }
+        if (session.registered || message.device_id !== deviceId) {
           ws.close(1008, "invalid_register"); return;
         }
         session.registered = true;
         session.hostname = message.hostname;
         session.agentVersion = message.agent_version;
+        const negotiated = this.registry.negotiate(deviceId, registration.capabilities, registration.roots);
+        session.capabilities = negotiated.capabilities;
+        session.roots = negotiated.roots;
         session.lastSeen = this.now();
         clearTimeout(registerTimer);
         const previous = this.registry.replace(deviceId, session);
@@ -67,7 +72,8 @@ class DeviceGateway {
           this.dispatcher.disconnect(previous);
           previous.ws.close(4001, "replaced");
         }
-        ws.send(JSON.stringify({ v: 1, type: "registered", device_id: deviceId }));
+        ws.send(JSON.stringify({ v: 1, type: "registered", device_id: deviceId,
+          capabilities: session.capabilities, roots: session.roots }));
         return;
       }
       if (!session.registered || this.registry.session(deviceId) !== session) {

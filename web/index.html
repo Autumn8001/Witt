@@ -63,7 +63,7 @@
   <link rel="stylesheet" href="/vault/claude-app.css?v=1.0.0">
   <link rel="stylesheet" href="/vault/vendor/xterm/xterm.css?v=6.0.0">
   <link rel="stylesheet" href="/vault/local-terminal.css?v=2.2.16-terminal-workspace4">
-  <link rel="stylesheet" href="/vault/customer-devices.css?v=1">
+  <link rel="stylesheet" href="/vault/customer-devices.css?v=2">
   <link rel="stylesheet" href="/vault/night-contrast.css?v=2.2.13-nightfix1">
   <link rel="stylesheet" href="/vault/approval-dock.css?v=3.2.1-approval-pointerfix1">
   <link rel="stylesheet" href="/vault/witt-white.css?v=3.0.18-modelrestore1">
@@ -351,6 +351,11 @@
             <span><strong>设备</strong><small>访问控制</small></span>
             <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
           </button>
+          <button class="drawer-profile drawer-admin-entry" id="customerDevicesButton" hidden aria-controls="customerDevicesSheet">
+            <span class="profile-monogram customer-device-monogram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11" rx="2"/><path d="M8 19.5h8M12 15.5v4M7 8h10M7 11h5"/></svg></span>
+            <span><strong>客户电脑</strong><small>远程操作工作台</small></span>
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
           <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
             <span class="profile-monogram">◎</span>
             <span><strong>账号</strong><small>Codex</small></span>
@@ -509,11 +514,26 @@
         <div id="latestInvite"></div>
         <div id="deviceList" class="device-list"></div>
       </section>
-      <section id="customerDevices" aria-label="客户电脑">
-        <header><h3>客户电脑</h3><button type="button" data-refresh-devices>刷新</button></header>
-        <p>通过 Device Gateway 查看已授权电脑。仅开放 hostname。</p>
-        <p data-customer-status role="status">打开时读取</p>
-        <div data-customer-list></div>
+    </div>
+  </aside>
+
+  <aside class="settings-sheet customer-devices-sheet" id="customerDevicesSheet" aria-hidden="true">
+    <div class="sheet-backdrop" id="customerDevicesBackdrop"></div>
+    <div class="sheet-panel customer-devices-panel">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head customer-devices-head">
+        <div><span class="eyebrow">CUSTOMER COMPUTERS</span><h2>客户电脑</h2></div>
+        <button class="icon-button" id="closeCustomerDevices" type="button" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div>
+      <p class="customer-devices-intro">选择一台已授权电脑，查看系统信息、文件和屏幕。仅可执行这里列出的只读操作。</p>
+      <section id="customerDevices" aria-label="客户电脑工作台">
+        <header class="customer-devices-toolbar">
+          <div><h3>已授权电脑</h3><p>在线设备可以立即响应；离线设备会保留最近连接信息。</p></div>
+          <button type="button" class="customer-refresh-button" data-refresh-devices><span aria-hidden="true">↻</span>刷新</button>
+        </header>
+        <p class="customer-status" data-customer-status role="status" aria-live="polite">打开时读取</p>
+        <div class="customer-device-list" data-customer-list></div>
+        <div class="customer-device-detail" data-customer-detail hidden></div>
       </section>
     </div>
   </aside>
@@ -691,7 +711,7 @@
   </aside>
   <script src="/vault/profile-overview.js?v=3"></script>
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
-  <script src="/vault/customer-devices.js?v=1"></script>
-  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.5-tools-webui"></script>
+  <script src="/vault/customer-devices.js?v=2"></script>
+  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.6-customer-workbench"></script>
 </body>
 </html>

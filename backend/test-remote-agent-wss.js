@@ -162,7 +162,8 @@ test("native Go agent completes a real TLS WebSocket hostname round trip", { tim
   });
   assert.equal((await rpc("initialize", { protocolVersion: "2024-11-05", capabilities: {} })).result.serverInfo.name, "witt-remote-device");
   const tools = (await rpc("tools/list")).result.tools;
-  assert.deepEqual(tools.map((tool) => tool.name), ["device_list", "device_get", "device_hostname"]);
+  assert.deepEqual(tools.map((tool) => tool.name), ["device_list", "device_get", "device_hostname",
+    "device_system_info", "device_file_list", "device_file_read", "device_screenshot"]);
   const invoke = async (name, args = {}) => {
     const response = await rpc("tools/call", { name, arguments: args });
     return response.result;
@@ -282,6 +283,8 @@ test("native Go agent completes a real TLS WebSocket hostname round trip", { tim
     assert.equal(completed.ok, true, "GROK_NATIVE_TURN_FAILED");
     assert.equal(turnLimitReached, false, "GROK_NATIVE_TURN_LIMIT");
     assert.ok(text.toLowerCase().includes(os.hostname().toLowerCase()), "GROK_NATIVE_HOSTNAME_MISSING");
+    // This native Grok turn intentionally exercises the legacy hostname flow;
+    // the additional read-only tools are covered by the local MCP/API tests.
     for (const name of ["device_list", "device_get", "device_hostname"]) {
       assert.ok(calls.some((call) => JSON.stringify(call).includes(name)), "GROK_TOOL_NOT_CALLED:" + name);
     }

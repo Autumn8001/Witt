@@ -2,7 +2,9 @@
 
 const fs = require("node:fs");
 const crypto = require("node:crypto");
-const { validDeviceId } = require("./protocol");
+const {
+  validDeviceId, validateCapabilityList, validateRootList, LEGACY_CAPABILITIES,
+} = require("./protocol");
 
 class DeviceRegistry {
   constructor(options = {}) {
@@ -18,7 +20,23 @@ class DeviceRegistry {
   }
 
   add(entry) {
-    if (!validDeviceId(entry.device_id) || !/^[a-f0-9]{64}$/i.test(entry.token_sha256 || "")) {
+    if (!entry || typeof entry !== "object" || !validDeviceId(entry.device_id) ||
+        !/^[a-f0-9]{64}$/i.test(entry.token_sha256 || "")) {
+      throw new Error("invalid device configuration");
+    }
+    let capabilities;
+    let allowedRoots;
+    try {
+      // Existing devices.json files predate capability negotiation. They must
+      // remain hostname-compatible but must not accidentally gain file/screen
+      // access after an upgrade.
+      capabilities = entry.capabilities === undefined
+        ? [...LEGACY_CAPABILITIES]
+        : validateCapabilityList(entry.capabilities);
+      allowedRoots = entry.allowed_roots === undefined
+        ? []
+        : validateRootList(entry.allowed_roots);
+    } catch {
       throw new Error("invalid device configuration");
     }
     this.definitions.set(entry.device_id, {
@@ -26,7 +44,24 @@ class DeviceRegistry {
       label: String(entry.label || entry.device_id).slice(0, 100),
       customerName: String(entry.customer_name || "").slice(0, 100),
       tokenHash: entry.token_sha256.toLowerCase(),
+      capabilities,
+      allowedRoots,
     });
+  }
+
+  definition(deviceId) {
+    return this.definitions.get(deviceId) || null;
+  }
+
+  negotiate(deviceId, declaredCapabilities, declaredRoots) {
+    const definition = this.definitions.get(deviceId);
+    if (!definition) return { capabilities: [], roots: [] };
+    const capabilities = new Set(declaredCapabilities || ["system.hostname"]);
+    const roots = new Set(declaredRoots || []);
+    return {
+      capabilities: definition.capabilities.filter((capability) => capabilities.has(capability)),
+      roots: definition.allowedRoots.filter((root) => roots.has(root)),
+    };
   }
 
   authenticate(deviceId, token) {
@@ -47,6 +82,7 @@ class DeviceRegistry {
     if (this.sessions.get(deviceId) !== session) return false;
     this.observations.set(deviceId, {
       hostname: session.hostname, agentVersion: session.agentVersion, lastSeen: session.lastSeen,
+      capabilities: [...(session.capabilities || [])], roots: [...(session.roots || [])],
     });
     this.sessions.delete(deviceId);
     return true;
@@ -71,6 +107,8 @@ class DeviceRegistry {
       hostname: observed?.hostname || null,
       agent_version: observed?.agentVersion || null,
       last_seen: observed?.lastSeen ? new Date(observed.lastSeen).toISOString() : null,
+      capabilities: session?.capabilities || observed?.capabilities || [],
+      allowed_roots: session?.roots || observed?.roots || [],
     };
   }
 

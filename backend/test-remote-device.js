@@ -11,10 +11,13 @@ const { DeviceGateway } = require("./remote-device/device-gateway");
 
 const TOKEN = "device-test-token-0123456789-abcdef";
 
-async function setup(t, clock = () => Date.now()) {
-  const registry = new DeviceRegistry({ devices: [{
+async function setup(t, clock = () => Date.now(), device = null) {
+  const configuredDevice = device || {
     device_id: "PC-001", label: "Customer A - Laptop", customer_name: "Customer A",
     token_sha256: crypto.createHash("sha256").update(TOKEN).digest("hex"),
+  };
+  const registry = new DeviceRegistry({ devices: [{
+    ...configuredDevice,
   }] });
   const server = http.createServer((req, res) => { res.writeHead(404); res.end(); });
   const gateway = new DeviceGateway({ registry, now: clock });
@@ -38,14 +41,17 @@ function nextMessage(ws) {
   });
 }
 
-async function connect(url, token = TOKEN, hostname = "DESKTOP-ABC") {
+async function connect(url, token = TOKEN, hostname = "DESKTOP-ABC", capabilities, roots) {
   const ws = new WebSocket(url, { headers: {
     Authorization: `Bearer ${token}`, "X-Witt-Device-Id": "PC-001",
   } });
   await once(ws, "open");
   const registered = nextMessage(ws);
-  ws.send(JSON.stringify({ v: 1, type: "register", device_id: "PC-001",
-    agent_version: "0.1.0", hostname }));
+  const registration = { v: 1, type: "register", device_id: "PC-001",
+    agent_version: "0.1.0", hostname };
+  if (capabilities !== undefined) registration.capabilities = capabilities;
+  if (roots !== undefined) registration.roots = roots;
+  ws.send(JSON.stringify(registration));
   assert.equal((await registered).type, "registered");
   return ws;
 }
@@ -67,6 +73,7 @@ test("register, heartbeat, command result and allowlist", async (t) => {
   const ws = await connect(url);
   assert.equal(registry.describe("PC-001").status, "online");
   assert.equal(registry.describe("PC-001").hostname, "DESKTOP-ABC");
+  assert.deepEqual(registry.describe("PC-001").capabilities, ["system.hostname"]);
   const ack = nextMessage(ws);
   ws.send(JSON.stringify({ v: 1, type: "heartbeat", id: "h-1" }));
   assert.equal((await ack).type, "heartbeat_ack");
@@ -80,8 +87,73 @@ test("register, heartbeat, command result and allowlist", async (t) => {
   const result = await pending;
   assert.equal(result.stdout, "DESKTOP-ABC\r\n");
   assert.equal(result.exit_code, 0);
+  assert.throws(() => gateway.dispatcher.dispatch("PC-001", "system", { command: "info" }),
+    { code: "CAPABILITY_NOT_ALLOWED" });
   assert.throws(() => gateway.dispatcher.dispatch("PC-001", "system",
     { command: "powershell" }), { code: "COMMAND_NOT_ALLOWED" });
+  ws.close();
+});
+
+test("capabilities and root aliases are negotiated as an intersection", async (t) => {
+  const device = {
+    device_id: "PC-001", label: "Customer A", customer_name: "Customer A",
+    token_sha256: crypto.createHash("sha256").update(TOKEN).digest("hex"),
+    capabilities: ["system.hostname", "system.info", "filesystem.list", "filesystem.read", "screen.capture"],
+    allowed_roots: ["desktop", "documents"],
+  };
+  const { gateway, registry, url } = await setup(t, () => Date.now(), device);
+  const ws = await connect(url, TOKEN, "DESKTOP-ABC",
+    ["system.hostname", "system.info", "filesystem.list", "filesystem.read", "screen.capture"], ["desktop", "unknown"]);
+  assert.deepEqual(registry.describe("PC-001").capabilities,
+    ["system.hostname", "system.info", "filesystem.list", "filesystem.read", "screen.capture"]);
+  assert.deepEqual(registry.describe("PC-001").allowed_roots, ["desktop"]);
+  const infoPacket = nextMessage(ws);
+  const info = gateway.dispatcher.dispatch("PC-001", "system", { command: "info" });
+  ws.send(JSON.stringify({ v: 1, type: "result", id: (await infoPacket).id, device_id: "PC-001",
+    exit_code: 0, stdout: JSON.stringify({ os: "windows", home_dir: "C:/Users/customer", token: "secret" }), stderr: "" }));
+  assert.deepEqual(JSON.parse((await info).stdout), { os: "windows" });
+  const listPacket = nextMessage(ws);
+  const listing = gateway.dispatcher.dispatch("PC-001", "filesystem",
+    { operation: "list", root: "desktop", path: "." });
+  ws.send(JSON.stringify({ v: 1, type: "result", id: (await listPacket).id, device_id: "PC-001",
+    exit_code: 0, stdout: "file.txt", stderr: "" }));
+  assert.equal((await listing).stdout, "file.txt");
+  assert.throws(() => gateway.dispatcher.dispatch("PC-001", "filesystem",
+    { operation: "read", root: "documents", path: "a.txt" }), { code: "ROOT_NOT_ALLOWED" });
+  assert.throws(() => gateway.dispatcher.dispatch("PC-001", "filesystem",
+    { operation: "list", root: "desktop", path: "../escape" }), { code: "INVALID_ARGUMENTS" });
+  ws.close();
+});
+
+test("screen attachments enforce JPEG and decoded byte limits", async (t) => {
+  const device = {
+    device_id: "PC-001", label: "Customer A", customer_name: "Customer A",
+    token_sha256: crypto.createHash("sha256").update(TOKEN).digest("hex"),
+    capabilities: ["screen.capture"], allowed_roots: [],
+  };
+  const { gateway, url } = await setup(t, () => Date.now(), device);
+  const ws = await connect(url, TOKEN, "DESKTOP-ABC", ["screen.capture"], []);
+  const packet = nextMessage(ws);
+  const pending = gateway.dispatcher.dispatch("PC-001", "screen", { operation: "capture" });
+  const command = await packet;
+  const image = Buffer.from("jpeg-test").toString("base64");
+  ws.send(JSON.stringify({ v: 1, type: "result", id: command.id, device_id: "PC-001",
+    exit_code: 0, mime: "image/jpeg", data: image }));
+  const result = await pending;
+  assert.equal(result.mime, "image/jpeg");
+  assert.equal(Buffer.from(result.data, "base64").toString(), "jpeg-test");
+  const invalidPacket = nextMessage(ws);
+  const invalid = gateway.dispatcher.dispatch("PC-001", "screen", { operation: "capture" });
+  const invalidCommand = await invalidPacket;
+  ws.send(JSON.stringify({ v: 1, type: "result", id: invalidCommand.id, device_id: "PC-001",
+    exit_code: 0, mime: "image/png", data: image }));
+  await assert.rejects(invalid, { code: "INVALID_ATTACHMENT" });
+  const oversizedPacket = nextMessage(ws);
+  const oversized = gateway.dispatcher.dispatch("PC-001", "screen", { operation: "capture" });
+  const oversizedCommand = await oversizedPacket;
+  ws.send(JSON.stringify({ v: 1, type: "result", id: oversizedCommand.id, device_id: "PC-001",
+    exit_code: 0, mime: "image/jpeg", data: Buffer.alloc(1.25 * 1024 * 1024 + 1).toString("base64") }));
+  await assert.rejects(oversized, { code: "ATTACHMENT_TOO_LARGE" });
   ws.close();
 });
 

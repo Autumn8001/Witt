@@ -1,8 +1,8 @@
 # Customer Device MVP validation
 
-Validated on 2026-10-03. This feature is intentionally narrow: Witt can list a
-configured customer computer and request the allowlisted `hostname` operation.
-It does not provide a general-purpose remote shell.
+Updated on 2026-10-04. This feature is intentionally narrow: Witt can inspect a
+configured customer computer through fixed read-only operations. It does not
+provide a general-purpose remote shell.
 
 ## Implemented
 
@@ -11,9 +11,10 @@ It does not provide a general-purpose remote shell.
 - A same-process Device Gateway with per-device token hashes, online/offline
   state, one in-flight command per device, no command replay, timeouts and a
   combined 256 KiB output limit.
-- Administrator-only device list/get/hostname HTTP routes and loopback-only MCP
-  routes. Forwarded requests cannot use the internal routes.
-- A mobile-responsive Devices panel and a gated Remote Device MCP bridge. MCP
+- Administrator-only routes for device status, system information, allowlisted
+  file listing/reading and JPEG screen capture, plus loopback-only MCP routes.
+  Forwarded requests cannot use the internal routes.
+- A dedicated mobile-responsive customer-computer workbench and a gated Remote Device MCP bridge. MCP
   calls remain disabled unless `WITT_REMOTE_DEVICE_MCP_ENABLED=1` is explicitly
   supplied to the Grok child.
 - Deployment installs the locked production `ws` dependency inside each
@@ -21,23 +22,24 @@ It does not provide a general-purpose remote shell.
 
 ## Automated evidence
 
-- Gateway unit/integration suite: 9/9 pass.
+- Gateway and MCP unit/integration suite: 14/14 pass.
 - Native Linux Go Agent through real TLS/WSS, browser UI, HTTP routes and all
   three MCP operations: pass, and the test exits without leaving a process.
 - Optional live Grok Adapter → MCP → Gateway → TLS/WSS → native Linux Agent:
   pass in the isolated fixture when existing CPA authentication is injected.
 - Go tests and vet: pass. Windows amd64 cross-build: pass.
-- The browser fixture checks 390×844 portrait and 844×390 landscape layouts
-  without horizontal overflow.
+- The browser fixture exercises every operation and checks 390×844 portrait,
+  844×390 landscape and desktop layouts in light/dark themes without horizontal
+  overflow.
 
 No token, private key or provider credential is stored in this repository.
 Production device definitions belong in `/root/.witt/devices.json`; each entry
 contains only metadata and a SHA-256 token hash.
 
-## Deliberate remaining field acceptance
+## Field acceptance
 
-Real Windows hardware has not been supplied, so Windows installation, public
-production WSS and production Grok → Windows hostname remain **NOT TESTED**.
-Before enabling the MCP gate, provision a private per-device token, install the
-agent on the target PC and follow `agent/windows/README.md`. Cross-compilation
-and the Linux native fixture do not replace that field check.
+The expanded 0.2.0 Agent still requires a production Windows field check after
+deployment: public WSS registration, system information, a nested file listing,
+text-file reading, JPEG capture, disconnect/reconnect and Grok MCP invocation.
+Follow `agent/windows/README.md`; cross-compilation and browser fixtures do not
+replace that check.

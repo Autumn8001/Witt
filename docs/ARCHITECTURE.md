@@ -12,6 +12,8 @@ Mobile browser / Android WebView
             -> GrokBuildAdapter -> Grok CLI -> CPA -> model
        -> Provider Registry: CPA/Sub2API config, health, model discovery
        -> Server Center: read-only host/service overview
+       -> Device Gateway -> authenticated Windows Agents
+            -> system metadata, allowlisted files, optional screen capture
   -> Open WebUI: external link to an independent service
 ```
 
@@ -27,6 +29,11 @@ The delivery route lives in `backend/routes/development.js`; its fixed-scope imp
 - Runtime Profiles are small in-memory presets. They do not create independent sessions or processes.
 - Server Center reads CPU, memory, disk, uptime and selected HTTP, Docker and systemd states. It has no server write operations.
 - Open WebUI, CPA and Sub2API are preexisting independent services. Witt does not modify their source.
-- Remote Device is not implemented. Existing account-device management and the Android local SSH terminal are different features.
+- Remote Device is a separate, administrator-only control path. Its Gateway
+  negotiates fixed capabilities with each authenticated Windows Agent and never
+  accepts an arbitrary shell command. The current MVP exposes system metadata,
+  allowlisted text-file browsing and optional screen capture through both the
+  mobile workbench and the gated Grok MCP bridge. Existing account-device
+  management and the Android local SSH terminal remain different features.
 
 The existing Codex path is intentionally preserved. The unused Runtime Manager and unavailable Antigravity Adapter are not loaded by the production selector. See [HARNESS.md](HARNESS.md), [DEPLOYMENT.md](DEPLOYMENT.md), and [KNOWN-ISSUES.md](KNOWN-ISSUES.md).

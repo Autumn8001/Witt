@@ -545,9 +545,36 @@ await page.route("**/vault/**", async (route) => {
   if (pathname.endsWith(".svg")) return route.fulfill({ contentType: "image/svg+xml", body: icon });
   return route.fulfill({ contentType: "text/html", body: html });
 });
+const customerDeviceFixture = {
+  devices: [
+    { device_id: "PC-ONLINE", label: "林工的开发电脑", status: "online", hostname: "DEV-WIN11", agent_version: "0.2.0", last_seen: "2026-10-04T10:20:00Z", capabilities: ["system.hostname", "system.info", "filesystem.list", "filesystem.read", "screen.capture"], allowed_roots: ["workspace"] },
+    { device_id: "PC-OFFLINE", label: "办公室电脑", status: "offline", hostname: "OFFICE-PC", agent_version: "0.2.0", last_seen: "2026-10-03T08:10:00Z", capabilities: ["system.hostname", "system.info", "filesystem.list", "filesystem.read", "screen.capture"], allowed_roots: ["workspace"] },
+    { device_id: "PC-OLD", label: "旧版 Agent 电脑", status: "online", hostname: "OLD-WIN", agent_version: "0.1.0", last_seen: "2026-10-04T09:00:00Z", capabilities: ["system.hostname"], allowed_roots: [] },
+  ],
+};
 await page.route("**/vault-api/customer-devices", (route) => route.fulfill({
-  contentType: "application/json", body: JSON.stringify({ devices: [] }),
+  contentType: "application/json", body: JSON.stringify(customerDeviceFixture),
 }));
+await page.route("**/vault-api/customer-devices/**", async (route) => {
+  const pathname = new URL(route.request().url()).pathname;
+  if (route.request().method() !== "POST") return route.fulfill({ status: 405, contentType: "application/json", body: '{"error":"method_not_allowed"}' });
+  if (pathname.endsWith("/system-info")) return route.fulfill({
+    contentType: "application/json", body: JSON.stringify({ result: { stdout: JSON.stringify({ os: "Windows 11", version: "23H2", uptime: "2 days" }) } }),
+  });
+  if (pathname.endsWith("/files/list")) return route.fulfill({
+    contentType: "application/json", body: JSON.stringify({ result: { stdout: JSON.stringify({ entries: [
+      { name: "projects", path: "projects", type: "directory" },
+      { name: "README.txt", path: "README.txt", type: "file", size: 128 },
+    ] }) } }),
+  });
+  if (pathname.endsWith("/files/read")) return route.fulfill({
+    contentType: "application/json", body: JSON.stringify({ result: { stdout: "客户电脑测试文件\n仅供只读验收。" } }),
+  });
+  if (pathname.endsWith("/screenshot")) return route.fulfill({
+    contentType: "application/json", body: JSON.stringify({ result: { mime: "image/jpeg", data: "/9j/4AAQSkZJRgABAQAAAQABAAD/2Q==" } }),
+  });
+  return route.fulfill({ status: 404, contentType: "application/json", body: '{"error":"not_found"}' });
+});
 let cpaQuotaScenario = "ready";
 let cpaQuotaRequests = 0;
 const cpaQuotaFixture = {
@@ -669,6 +696,52 @@ await page.locator("#artifactCodeTab").click();
 await page.waitForFunction(() => document.querySelector("#artifactCode code")?.textContent.includes("Artifact ready"));
 await page.locator("#artifactClose").click();
 await page.waitForFunction(() => !document.body.classList.contains("artifact-open"));
+
+// Customer computer workbench: the admin-only entry stays separate from the
+// device-authorisation sheet and exercises every read-only operation.
+await page.locator("#menuButton").click();
+await page.locator("#customerDevicesButton").waitFor({ state: "visible" });
+await page.locator("#customerDevicesButton").click();
+await page.locator("#customerDevicesSheet.open").waitFor();
+await page.waitForFunction(() => document.querySelector("#customerDevices [data-customer-status]")?.textContent.includes("3 台"));
+if ((await page.locator("#customerDevices .customer-device").count()) !== 3) throw new Error("Customer computer list did not render all device states");
+await page.locator("[data-select-customer-device='PC-ONLINE']").click();
+await page.locator("#customerDevices [data-device-action='system-info']").click();
+await page.waitForFunction(() => document.querySelector("#customerDevices [data-system-output]")?.textContent.includes("Windows 11"), null, { timeout: 5000 }).catch(async (error) => {
+  throw new Error(`${error.message} :: ${await page.locator("#customerDevices").innerText()}`);
+});
+await page.locator("#customerDevices [data-device-action='files']").click();
+await page.waitForFunction(() => document.querySelector("#customerDevices [data-device-file='README.txt']"));
+await page.locator("#customerDevices [data-device-file='README.txt']").click();
+await page.waitForFunction(() => document.querySelector("#customerDevices [data-file-content]")?.textContent.includes("只读验收"));
+await page.locator("#customerDevices [data-device-action='screenshot']").first().click();
+await page.waitForFunction(() => document.querySelector("#customerDevices [data-screenshot-output] img")?.src.startsWith("data:image/jpeg"));
+await page.screenshot({ path: "tests/ui-customer-devices-mobile.png", fullPage: false });
+await page.locator("[data-select-customer-device='PC-OFFLINE']").click();
+if (await page.locator("#customerDevices [data-device-action]").evaluateAll((buttons) => buttons.some((button) => !button.disabled))) {
+  throw new Error("Offline customer computer exposed an enabled operation");
+}
+await page.locator("[data-select-customer-device='PC-OLD']").click();
+if (await page.locator("#customerDevices [data-device-action]").evaluateAll((buttons) => buttons.some((button) => !button.disabled))) {
+  throw new Error("Old Agent exposed an enabled operation");
+}
+for (const theme of ["light", "dark"]) {
+  await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1024, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    const layout = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      panelWidth: document.querySelector("#customerDevicesSheet.open .customer-devices-panel")?.getBoundingClientRect().width || 0,
+      viewport: innerWidth,
+    }));
+    if (layout.overflow || layout.panelWidth > layout.viewport + 1) throw new Error(`Customer workbench overflowed: ${JSON.stringify({ theme, viewport, layout })}`);
+  }
+}
+await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+await page.setViewportSize({ width: 390, height: 844 });
+await page.keyboard.press("Escape");
+await page.waitForFunction(() => document.querySelector("#customerDevicesSheet")?.getAttribute("aria-hidden") === "true");
+
 await page.locator("#menuButton").click();
 await page.locator("#localSshButton").click();
 await page.locator("#localSshSheet.open").waitFor();
@@ -1827,7 +1900,7 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(80);
 const ordinaryUserAdminEntries = await page.evaluate(() =>
-  ["adminSettingsButton", "codexAccountsButton"].map((id) => {
+  ["adminSettingsButton", "customerDevicesButton", "codexAccountsButton"].map((id) => {
     const node = document.getElementById(id);
     return {
       id,
