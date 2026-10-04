@@ -17,7 +17,7 @@ capabilities, and configured named roots.
   metadata only, at most 200 entries.
 * `filesystem {operation: "read", root: "alias", path: "relative"}` —
   UTF-8 text only, at most 256 KiB.
-* `screen {operation: "capture"}` — Windows JPEG only, and only when the
+* `screen {operation: "capture"}` — Windows GDI JPEG only, and only when the
   explicit opt-in flag is present. The result carries `mime: "image/jpeg"`
   and base64 `data`.
 
@@ -52,11 +52,11 @@ To explicitly enable screen capture, add:
 
 TLS verification is mandatory; there is no insecure TLS switch. Windows
 hostname is executed from `SystemRoot/System32/hostname.exe`. Screen capture
-uses a fixed built-in Windows capture path and never receives a script from the
-wire. Ctrl+C exits; transient failures reconnect with bounded exponential
-backoff. A duplicate session closes the previous agent with code 4001; that
-agent exits to avoid connection contention. Disconnect cancels in-flight work
-and does not replay commands.
+uses fixed Windows GDI calls and never starts a command interpreter or accepts
+a script from the wire. Ctrl+C exits; transient failures reconnect with bounded
+exponential backoff. A duplicate session closes the previous agent with code
+4001; that agent exits to avoid connection contention. Disconnect cancels
+in-flight work and does not replay commands.
 
 Do not commit the executable, device token, or root configuration. The token
 file should be readable only by the agent user. The Gateway receives only the

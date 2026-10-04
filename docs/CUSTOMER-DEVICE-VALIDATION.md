@@ -38,8 +38,11 @@ contains only metadata and a SHA-256 token hash.
 
 ## Field acceptance
 
-The expanded 0.2.0 Agent still requires a production Windows field check after
-deployment: public WSS registration, system information, a nested file listing,
-text-file reading, JPEG capture, disconnect/reconnect and Grok MCP invocation.
-Follow `agent/windows/README.md`; cross-compilation and browser fixtures do not
-replace that check.
+The 0.2.0 Agent was accepted on the real `DESKTOP-O0RBGQQ` Windows desktop over
+the production public WSS endpoint on 2026-10-04. Registration negotiated all
+five configured capabilities. System information, a nested `agent/windows`
+listing, UTF-8 README reading, JPEG capture and the MCP image response all
+passed. The accepted screenshot was produced with native Windows GDI calls in
+92 ms, decoded to 222,839 bytes and had valid JPEG boundaries; the image itself
+was not retained in the repository or server logs. The Agent remained connected
+after replacement/restart and did not spawn PowerShell.

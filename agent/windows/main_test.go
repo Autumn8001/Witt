@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -223,6 +227,35 @@ func TestScreenCaptureRequiresOptIn(t *testing.T) {
 		if result.Error != "SCREEN_CAPTURE_UNSUPPORTED" {
 			t.Fatalf("non-Windows screen.capture returned %q", result.Error)
 		}
+	}
+}
+
+func TestScreenshotEncodingResizesAndBounds(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 2000, 1000))
+	for y := 0; y < source.Bounds().Dy(); y++ {
+		for x := 0; x < source.Bounds().Dx(); x++ {
+			source.SetRGBA(x, y, color.RGBA{R: uint8(x % 251), G: uint8(y % 251), B: uint8((x + y) % 251), A: 0xff})
+		}
+	}
+	encoded, err := encodeScreenshot(source)
+	if err != nil {
+		t.Fatalf("encodeScreenshot failed: %v", err)
+	}
+	if len(encoded) > maxScreenshotBytes {
+		t.Fatalf("screenshot exceeds attachment limit: %d", len(encoded))
+	}
+	config, err := jpeg.DecodeConfig(bytes.NewReader(encoded))
+	if err != nil {
+		t.Fatalf("encoded screenshot is not JPEG: %v", err)
+	}
+	if max(config.Width, config.Height) > maxScreenshotDimension {
+		t.Fatalf("screenshot dimensions exceed limit: %dx%d", config.Width, config.Height)
+	}
+}
+
+func TestScreenshotEncodingRejectsEmptyImage(t *testing.T) {
+	if _, err := encodeScreenshot(nil); err == nil || err.Error() != "SCREEN_CAPTURE_FAILED" {
+		t.Fatalf("empty screenshot returned unexpected error: %v", err)
 	}
 }
 
