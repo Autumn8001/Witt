@@ -24,7 +24,9 @@ const tools = [
   ["workspace_system_info", "Return non-sensitive system information for the connected customer device.", {}, []],
 ].map(([name, description, properties, required]) => ({ name, description, inputSchema: { type: "object", properties, required, additionalProperties: false } }));
 
-const operationFor = Object.fromEntries(tools.map((tool) => [tool.name, tool.name.replaceAll("_", ".")]));
+// Only the namespace separator changes; git_status/git_diff/system_info
+// remain single operation names in the backend and Agent protocol.
+const operationFor = Object.fromEntries(tools.map((tool) => [tool.name, tool.name.replace(/^workspace_/, "workspace.")]));
 
 function endpoint() {
   let parsed;

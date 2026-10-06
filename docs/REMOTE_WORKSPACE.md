@@ -74,3 +74,21 @@ the affected file and `workspace_git_diff` before deciding what happened.
   verify list/read, one patch, a test command, git diff, one rejected command,
   one confirmed command, and disconnect behaviour before any real customer
   project is bound.
+
+## MCP bridge regression verification
+
+Verified on 2026-10-06: the bridge replaces only the `workspace_` namespace
+prefix. Compound names remain `workspace.git_status`, `workspace.git_diff`
+and `workspace.system_info`, matching backend validation and Agent operations.
+
+`backend/test-remote-workspace-mcp.js` starts the actual stdio MCP process and
+calls all ten tools through the internal HTTP route, session authentication,
+policy and bound dispatcher. It also rejects unknown tools, path traversal and
+paused workspace credentials. The device transport is simulated; no production
+credentials or customer files are used. The related MCP, workspace, device and
+runtime parser suites passed 65/65 tests.
+
+This validates the bridge fix, not Windows 0.3.0 field acceptance. The full
+Remote Workspace Windows/Grok chain remains NOT TESTED in this validation;
+use the disposable-project acceptance procedure above. This change does not
+deploy or restart production services.
