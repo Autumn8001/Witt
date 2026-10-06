@@ -11,7 +11,19 @@ const MAX_ROOT_LENGTH = 64;
 const MAX_CAPABILITIES = 32;
 const DEVICE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const ROOT_ALIAS_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
-const CAPABILITY_RE = /^(?:system\.(?:hostname|info)|filesystem\.(?:list|read)|screen\.capture)$/;
+const WORKSPACE_CAPABILITIES = Object.freeze([
+  "workspace.list",
+  "workspace.stat",
+  "workspace.read",
+  "workspace.search",
+  "workspace.write",
+  "workspace.patch",
+  "workspace.exec",
+  "workspace.git_status",
+  "workspace.git_diff",
+  "workspace.system_info",
+]);
+const CAPABILITY_RE = /^(?:system\.(?:hostname|info)|filesystem\.(?:list|read)|screen\.capture|workspace\.(?:list|stat|read|search|write|patch|exec|git_status|git_diff|system_info))$/;
 
 const LEGACY_CAPABILITIES = Object.freeze(["system.hostname", "system.info"]);
 
@@ -126,6 +138,6 @@ module.exports = {
   decodeMessage, limitOutput, validDeviceId, isPlainObject,
   validateCapabilityList, validateRootList, validateRelativePath,
   validateDeviceRegistration, validRootAlias, decodeBase64,
-  LEGACY_CAPABILITIES, CAPABILITY_RE, MAX_OUTPUT_BYTES, MAX_MESSAGE_BYTES,
+  LEGACY_CAPABILITIES, WORKSPACE_CAPABILITIES, CAPABILITY_RE, MAX_OUTPUT_BYTES, MAX_MESSAGE_BYTES,
   MAX_ATTACHMENT_BYTES, MAX_PATH_LENGTH, MAX_ROOT_LENGTH,
 };

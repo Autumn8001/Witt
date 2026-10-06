@@ -2,7 +2,16 @@
 
 const { randomUUID } = require("node:crypto");
 const { checkCommand } = require("./policy");
-const { limitOutput, decodeBase64, MAX_ATTACHMENT_BYTES } = require("./protocol");
+const {
+  isPlainObject, validRootAlias, limitOutput, decodeBase64, MAX_ATTACHMENT_BYTES, MAX_MESSAGE_BYTES,
+  WORKSPACE_CAPABILITIES,
+} = require("./protocol");
+
+const MUTATING_WORKSPACE_CAPABILITIES = new Set([
+  "workspace.write", "workspace.patch", "workspace.exec",
+]);
+const MAX_WORKSPACE_ARGS_BYTES = Math.min(1024 * 1024, MAX_MESSAGE_BYTES - 16 * 1024);
+const MAX_WORKSPACE_CONTEXT_BYTES = 8 * 1024;
 
 class DeviceError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -32,6 +41,61 @@ function redactSystemInfo(stdout) {
   }
 }
 
+function invalidArguments() {
+  throw new DeviceError("INVALID_ARGUMENTS");
+}
+
+// The remote-workspace service owns operation-specific validation and root
+// binding. The transport only admits a bounded JSON envelope so it can carry
+// structured requests without becoming a second policy engine.
+function cloneStructuredArgs(args) {
+  if (!isPlainObject(args)) invalidArguments();
+  let encoded;
+  try { encoded = JSON.stringify(args); } catch { invalidArguments(); }
+  if (typeof encoded !== "string" || Buffer.byteLength(encoded, "utf8") > MAX_WORKSPACE_ARGS_BYTES) {
+    invalidArguments();
+  }
+  try { return JSON.parse(encoded); } catch { invalidArguments(); }
+}
+
+function cloneContext(value, maxBytes) {
+  if (!isPlainObject(value)) invalidArguments();
+  let encoded;
+  try { encoded = JSON.stringify(value); } catch { invalidArguments(); }
+  if (typeof encoded !== "string" || Buffer.byteLength(encoded, "utf8") > maxBytes) invalidArguments();
+  try { return JSON.parse(encoded); } catch { invalidArguments(); }
+}
+
+function checkWorkspaceCommand(args, context) {
+  const structuredArgs = cloneStructuredArgs(args);
+  const capability = structuredArgs.operation;
+  if (typeof capability !== "string" || !WORKSPACE_CAPABILITIES.includes(capability)) {
+    throw new DeviceError("COMMAND_NOT_ALLOWED");
+  }
+  // system_info is host scoped; every other workspace action names an alias.
+  // This verifies only shape, deliberately not whether the device grants that
+  // alias: workspace binding is checked by the service and again by the agent.
+  if (capability !== "workspace.system_info" && !validRootAlias(structuredArgs.root)) {
+    invalidArguments();
+  }
+  if (context === undefined) context = {};
+  if (!isPlainObject(context) || Object.keys(context).some((key) => key !== "workspaceSessionId" && key !== "approval")) {
+    invalidArguments();
+  }
+  const result = { tool: "workspace", capability, args: structuredArgs, context: {} };
+  if (context.workspaceSessionId !== undefined) {
+    if (typeof context.workspaceSessionId !== "string" || context.workspaceSessionId.length === 0 ||
+        context.workspaceSessionId.length > 100 || context.workspaceSessionId.includes("\0")) invalidArguments();
+    result.context.workspaceSessionId = context.workspaceSessionId;
+  }
+  if (context.approval !== undefined) result.context.approval = cloneContext(context.approval, MAX_WORKSPACE_CONTEXT_BYTES);
+  return result;
+}
+
+function allowedCommand(tool, args, context) {
+  return tool === "workspace" ? checkWorkspaceCommand(args, context) : checkCommand(tool, args);
+}
+
 class CommandDispatcher {
   constructor(registry, options = {}) {
     this.registry = registry;
@@ -39,8 +103,13 @@ class CommandDispatcher {
     this.now = options.now || Date.now;
   }
 
-  dispatch(deviceId, tool, args, timeoutMs = 10000) {
-    const allowed = checkCommand(tool, args);
+  // Workspace callers use:
+  // dispatch(deviceId, "workspace", structuredArgs, timeoutMs,
+  //   { workspaceSessionId, approval })
+  // The fifth argument is transport metadata; it never changes the business
+  // arguments or authorizes a root on its own.
+  dispatch(deviceId, tool, args, timeoutMs = 10000, context = undefined) {
+    const allowed = allowedCommand(tool, args, context);
     const session = this.registry.session(deviceId);
     if (!session?.registered || session.ws.readyState !== 1 ||
         this.registry.describe(deviceId, this.now())?.status !== "online") {
@@ -49,7 +118,9 @@ class CommandDispatcher {
     if (!session.capabilities?.includes(allowed.capability)) {
       throw new DeviceError("CAPABILITY_NOT_ALLOWED");
     }
-    if (allowed.tool === "filesystem" && !session.roots?.includes(allowed.args.root)) {
+    if ((allowed.tool === "filesystem" ||
+        (allowed.tool === "workspace" && allowed.capability !== "workspace.system_info")) &&
+        !session.roots?.includes(allowed.args.root)) {
       throw new DeviceError("ROOT_NOT_ALLOWED");
     }
     for (const pending of this.pending.values()) {
@@ -62,22 +133,33 @@ class CommandDispatcher {
     }
     const sentAt = this.now();
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new DeviceError("COMMAND_TIMEOUT"));
-      }, timeout);
+      const timer = setTimeout(() => this.fail(id, "COMMAND_TIMEOUT"), timeout);
       timer.unref?.();
       this.pending.set(id, {
         deviceId, session, resolve, reject, timer, sentAt,
         capability: allowed.capability, tool: allowed.tool,
+        sent: false,
+        executionMayBeUnknown: allowed.tool === "workspace" && MUTATING_WORKSPACE_CAPABILITIES.has(allowed.capability),
       });
       try {
-        session.ws.send(JSON.stringify({
+        const command = {
           v: 1, type: "command", id, tool: allowed.tool,
           args: allowed.args, timeout_ms: timeout,
-        }), (error) => {
+        };
+        if (allowed.tool === "workspace" && allowed.context.workspaceSessionId) {
+          command.workspace_session_id = allowed.context.workspaceSessionId;
+        }
+        if (allowed.tool === "workspace" && allowed.context.approval) {
+          command.approval = allowed.context.approval;
+        }
+        session.ws.send(JSON.stringify(command), (error) => {
           if (error) this.fail(id, "DEVICE_DISCONNECTED");
         });
+        // ws.send returning means the command was accepted by the socket
+        // implementation. A later timeout/disconnect cannot prove whether a
+        // mutating operation ran on the customer device.
+        const pending = this.pending.get(id);
+        if (pending) pending.sent = true;
       } catch {
         this.fail(id, "DEVICE_DISCONNECTED");
       }
@@ -140,7 +222,9 @@ class CommandDispatcher {
     if (!pending) return;
     this.pending.delete(id);
     clearTimeout(pending.timer);
-    pending.reject(new DeviceError(code));
+    const uncertain = pending.executionMayBeUnknown && pending.sent &&
+      (code === "DEVICE_DISCONNECTED" || code === "COMMAND_TIMEOUT");
+    pending.reject(new DeviceError(uncertain ? "EXECUTION_STATE_UNKNOWN" : code));
   }
 
   disconnect(session) {

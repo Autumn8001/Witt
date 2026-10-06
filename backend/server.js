@@ -20,6 +20,9 @@ const { harnessInventory } = require("./runtime/index");
 const { createDevelopmentRoutes } = require("./routes/development");
 const { DeviceGateway } = require("./remote-device/device-gateway");
 const { createDeviceRoutes } = require("./routes/devices");
+const { WorkspaceStore, WorkspaceAuditStore, ApprovalGate, WorkspaceDispatcher } = require("./remote-workspace");
+const { RemoteWorkspaceService } = require("./remote-workspace-service");
+const { createRemoteWorkspaceRoutes } = require("./routes/remote-workspaces");
 
 const host = "127.0.0.1";
 const port = Number(process.env.DROP_VAULT_PORT || 3003);
@@ -264,6 +267,29 @@ function seedProviders() {
 }
 seedProviders();
 
+// Device transport remains useful for diagnostics, while Remote Workspace is
+// the only path that grants a harness access to a customer project.
+const deviceGateway = new DeviceGateway();
+const remoteWorkspaceDir = process.env.WITT_REMOTE_WORKSPACE_DIR || path.join(authDir, "remote-workspaces");
+const remoteWorkspaceStore = new WorkspaceStore(remoteWorkspaceDir);
+const remoteWorkspaceAudit = new WorkspaceAuditStore(remoteWorkspaceDir);
+const remoteWorkspaceApprovals = new ApprovalGate();
+const remoteWorkspaceDispatcher = new WorkspaceDispatcher({
+  workspaceStore: remoteWorkspaceStore, transport: deviceGateway.dispatcher,
+  approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
+});
+const remoteWorkspaceService = new RemoteWorkspaceService({
+  workspaceStore: remoteWorkspaceStore, dispatcher: remoteWorkspaceDispatcher,
+  approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
+  runtimeDir: path.join(remoteWorkspaceDir, "runtime"), apiBase: `http://127.0.0.1:${port}`,
+  notifyApproval: (binding, approval) => {
+    const services = [chatService, ...userChatServices.values()];
+    const chat = services.find((service) => service?.readConversation(binding.conversation_id));
+    if (!chat) throw new Error("REMOTE_WORKSPACE_TURN_NOT_ACTIVE");
+    chat.requestRemoteWorkspaceApproval(binding, approval);
+  },
+});
+
 const chatService = new ChatService({
   chatDir,
   imageDir,
@@ -279,6 +305,7 @@ const chatService = new ChatService({
     remoteDeviceTokenFile: process.env.DROP_VAULT_TOKEN_FILE || "",
     browserMcpEnabled: process.env.WITT_BROWSER_MCP_ENABLED === "1",
   } },
+  remoteWorkspaceService,
   // The owner-facing service is not model-restricted, so harness-served models
   // such as grok-4.7-high stay selectable and can bind to their own harness.
   allowedModels: null,
@@ -353,6 +380,7 @@ function chatFor(principal) {
       remoteDeviceTokenFile: principal.admin ? (process.env.DROP_VAULT_TOKEN_FILE || "") : "",
       browserMcpEnabled: principal.admin && process.env.WITT_BROWSER_MCP_ENABLED === "1",
     } },
+    remoteWorkspaceService,
     allowedCodexProfiles: principal.admin
       ? Object.keys(codexProfiles)
       : (principal.codexProfiles || ["default"]),
@@ -363,8 +391,10 @@ function chatFor(principal) {
 
 const { handleDevelopmentWorkflow, handleDevelopmentWorkflowAction, developmentWorkflow } =
   createDevelopmentRoutes({ chatFor, sendJson, readJsonBody });
-const deviceGateway = new DeviceGateway();
 const deviceRoutes = createDeviceRoutes({ gateway: deviceGateway, sendJson, authorized });
+const remoteWorkspaceRoutes = createRemoteWorkspaceRoutes({
+  gateway: deviceGateway, service: remoteWorkspaceService, chatFor, sendJson, readJsonBody,
+});
 
 function filesFor(principal) {
   return principal.legacy ? dataDir : path.join(userDirectory(principal.userId), "files");
@@ -800,6 +830,7 @@ const httpServer = http.createServer((req, res) => {
     sendJson(res, 404, { error: "交互预览不存在或已失效" });
     return;
   }
+  if (remoteWorkspaceRoutes.handleInternal(req, res, url)) return;
   if (deviceRoutes.handleInternal(req, res, url)) return;
   const legacyAuthorized = authorized(req);
   const imageRequest = /^\/chat-images\/[a-f0-9-]{36}$/.test(url.pathname);
@@ -816,6 +847,7 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
   if (cpaQuotaRoutes(req, res, url, principal)) return;
+  if (remoteWorkspaceRoutes.handlePublic(req, res, url, principal)) return;
   if (deviceRoutes.handlePublic(req, res, url, principal)) return;
   if (url.pathname === "/failover/claim") {
     if (req.method !== "POST") {

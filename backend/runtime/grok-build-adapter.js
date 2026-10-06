@@ -58,6 +58,7 @@ class GrokBuildAdapter {
     this.envValue = options.envValue || "";
     this.remoteDeviceMcpEnabled = options.remoteDeviceMcpEnabled === true;
     this.remoteDeviceTokenFile = options.remoteDeviceTokenFile || "";
+    this.remoteWorkspace = options.remoteWorkspace || null;
     this.browserMcpEnabled = options.browserMcpEnabled === true;
     this.permissionMode = options.permissionMode || "default";
     this.reasoningEffort = options.reasoningEffort || null;
@@ -79,6 +80,11 @@ class GrokBuildAdapter {
     env.WITT_BROWSER_MCP_ENABLED = this.browserMcpEnabled ? "1" : "0";
     if (this.remoteDeviceMcpEnabled && this.remoteDeviceTokenFile) {
       env.DROP_VAULT_TOKEN_FILE = this.remoteDeviceTokenFile;
+    }
+    if (this.remoteWorkspace) {
+      env.WITT_REMOTE_WORKSPACE_MCP_ENABLED = "1";
+      env.WITT_REMOTE_WORKSPACE_MCP_API = this.remoteWorkspace.apiBase;
+      env.WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE = this.remoteWorkspace.credentialFile;
     }
     return env;
   }

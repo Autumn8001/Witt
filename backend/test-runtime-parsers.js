@@ -128,6 +128,24 @@ test("remote device MCP authorization is explicit in every Grok child", () => {
   assert.equal(enabled.childEnv().DROP_VAULT_TOKEN_FILE, "/run/witt/api-token");
 });
 
+test("remote workspace MCP receives only its scoped credential", () => {
+  const adapter = new GrokBuildAdapter({
+    bin: "grok",
+    remoteDeviceMcpEnabled: false,
+    remoteDeviceTokenFile: "/run/witt/general-token",
+    remoteWorkspace: {
+      apiBase: "http://127.0.0.1:38123",
+      credentialFile: "/run/witt/workspace-scoped-token",
+    },
+  });
+  const env = adapter.childEnv();
+  assert.equal(env.WITT_REMOTE_WORKSPACE_MCP_ENABLED, "1");
+  assert.equal(env.WITT_REMOTE_WORKSPACE_MCP_API, "http://127.0.0.1:38123");
+  assert.equal(env.WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE, "/run/witt/workspace-scoped-token");
+  assert.equal(env.WITT_REMOTE_DEVICE_MCP_ENABLED, "0");
+  assert.equal(env.DROP_VAULT_TOKEN_FILE, undefined);
+});
+
 test("browser MCP authorization is explicit in every Grok child", () => {
   const disabled = new GrokBuildAdapter({ bin: "grok" });
   const enabled = new GrokBuildAdapter({ bin: "grok", browserMcpEnabled: true });

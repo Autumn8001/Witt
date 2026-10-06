@@ -34,7 +34,7 @@ const maxOutput = 256 * 1024
 const maxFileRead = 256 * 1024
 const maxListEntries = 200
 const maxScreenshotBytes = 1280 * 1024
-const version = "0.2.0"
+const version = "0.3.0"
 
 var deviceIDPattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 var drivePathPattern = regexp.MustCompile(`^[A-Za-z]:`)
@@ -97,9 +97,14 @@ func configFromRoots(roots rootFlags, allowScreenCapture bool) agentConfig {
 }
 
 func advertisedCapabilities(config agentConfig) []string {
-	capabilities := []string{"system.hostname", "system.info"}
+	capabilities := []string{"system.hostname", "system.info", "workspace.system_info"}
 	if len(config.roots) > 0 {
-		capabilities = append(capabilities, "filesystem.list", "filesystem.read")
+		// filesystem.* is retained for already-deployed servers during the
+		// protocol rollout. New Remote Workspace sessions use workspace.*.
+		capabilities = append(capabilities, "filesystem.list", "filesystem.read",
+			"workspace.list", "workspace.stat", "workspace.read", "workspace.search",
+			"workspace.write", "workspace.patch", "workspace.exec",
+			"workspace.git_status", "workspace.git_diff")
 	}
 	if runtime.GOOS == "windows" && config.allowScreenCapture {
 		capabilities = append(capabilities, "screen.capture")
@@ -122,25 +127,41 @@ func registrationPacket(deviceID, hostname string, config agentConfig) packet {
 }
 
 type packet struct {
-	V            int               `json:"v"`
-	Type         string            `json:"type"`
-	ID           string            `json:"id,omitempty"`
-	DeviceID     string            `json:"device_id,omitempty"`
-	Hostname     string            `json:"hostname,omitempty"`
-	AgentVersion string            `json:"agent_version,omitempty"`
-	Capabilities []string          `json:"capabilities,omitempty"`
-	Roots        []string          `json:"roots,omitempty"`
-	Tool         string            `json:"tool,omitempty"`
-	Args         map[string]string `json:"args,omitempty"`
-	TimeoutMS    int               `json:"timeout_ms,omitempty"`
-	ExitCode     int               `json:"exit_code"`
-	Stdout       string            `json:"stdout,omitempty"`
-	Stderr       string            `json:"stderr,omitempty"`
-	DurationMS   int64             `json:"duration_ms,omitempty"`
-	Error        string            `json:"error,omitempty"`
-	Truncated    bool              `json:"truncated,omitempty"`
-	Mime         string            `json:"mime,omitempty"`
-	Data         string            `json:"data,omitempty"`
+	V            int      `json:"v"`
+	Type         string   `json:"type"`
+	ID           string   `json:"id,omitempty"`
+	DeviceID     string   `json:"device_id,omitempty"`
+	Hostname     string   `json:"hostname,omitempty"`
+	AgentVersion string   `json:"agent_version,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+	Roots        []string `json:"roots,omitempty"`
+	Tool         string   `json:"tool,omitempty"`
+	// Args deliberately stays as JSON until the selected tool validates its own
+	// schema. Workspace commands need arrays and approval objects; decoding into
+	// map[string]string used to silently discard that structure.
+	Args       json.RawMessage `json:"args,omitempty"`
+	TimeoutMS  int             `json:"timeout_ms,omitempty"`
+	ExitCode   int             `json:"exit_code"`
+	Stdout     string          `json:"stdout,omitempty"`
+	Stderr     string          `json:"stderr,omitempty"`
+	DurationMS int64           `json:"duration_ms,omitempty"`
+	Error      string          `json:"error,omitempty"`
+	Truncated  bool            `json:"truncated,omitempty"`
+	Mime       string          `json:"mime,omitempty"`
+	Data       string          `json:"data,omitempty"`
+	Approval   json.RawMessage `json:"approval,omitempty"`
+	// ExecutionState distinguishes an operation that definitely did not begin
+	// from one whose outcome cannot be known after a timeout/disconnect. The
+	// gateway must never replay an unknown write or process invocation.
+	ExecutionState string `json:"execution_state,omitempty"`
+}
+
+func decodeStringArgs(raw json.RawMessage) (map[string]string, error) {
+	var args map[string]string
+	if len(raw) == 0 || json.Unmarshal(raw, &args) != nil || args == nil {
+		return nil, errors.New("invalid arguments")
+	}
+	return args, nil
 }
 
 type boundedWriter struct {
@@ -170,7 +191,7 @@ func execute(ctx context.Context, p packet, deviceID string) packet {
 }
 
 func executeWithConfig(ctx context.Context, p packet, deviceID string, config agentConfig) packet {
-	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1}
+	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1, ExecutionState: "not_started"}
 	if p.Type != "command" || p.ID == "" || p.TimeoutMS < 1000 || p.TimeoutMS > 30000 {
 		result.Error = "COMMAND_NOT_ALLOWED"
 		return result
@@ -181,11 +202,12 @@ func executeWithConfig(ctx context.Context, p packet, deviceID string, config ag
 
 	switch p.Tool {
 	case "system":
-		if len(p.Args) != 1 {
+		args, err := decodeStringArgs(p.Args)
+		if err != nil || len(args) != 1 {
 			result.Error = "COMMAND_NOT_ALLOWED"
 			return result
 		}
-		switch p.Args["command"] {
+		switch args["command"] {
 		case "hostname":
 			result = executeHostname(commandCtx, p, deviceID)
 		case "info":
@@ -194,28 +216,36 @@ func executeWithConfig(ctx context.Context, p packet, deviceID string, config ag
 			result.Error = "COMMAND_NOT_ALLOWED"
 		}
 	case "filesystem":
-		if len(p.Args) != 3 || (p.Args["operation"] != "list" && p.Args["operation"] != "read") {
+		args, err := decodeStringArgs(p.Args)
+		if err != nil || len(args) != 3 || (args["operation"] != "list" && args["operation"] != "read") {
 			result.Error = "COMMAND_NOT_ALLOWED"
 			return result
 		}
-		root, err := resolvePath(config, p.Args["root"], p.Args["path"])
+		root, err := resolvePath(config, args["root"], args["path"])
 		if err != nil {
 			result.Error = err.Error()
 			return result
 		}
-		if p.Args["operation"] == "list" {
-			result = executeFileList(commandCtx, p, deviceID, config.roots[p.Args["root"]], root)
+		if args["operation"] == "list" {
+			result = executeFileList(commandCtx, p, deviceID, config.roots[args["root"]], root)
 		} else {
 			result = executeFileRead(commandCtx, p, deviceID, root)
 		}
 	case "screen":
-		if len(p.Args) != 1 || p.Args["operation"] != "capture" || !config.allowScreenCapture {
+		args, err := decodeStringArgs(p.Args)
+		if err != nil || len(args) != 1 || args["operation"] != "capture" || !config.allowScreenCapture {
 			result.Error = "COMMAND_NOT_ALLOWED"
 			return result
 		}
 		result = executeScreenCapture(commandCtx, p, deviceID)
+	case "workspace", "workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.write", "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info":
+		result = executeWorkspace(commandCtx, p, deviceID, config)
 	default:
 		result.Error = "COMMAND_NOT_ALLOWED"
+	}
+	if result.ExecutionState == "" {
+		// Read-only legacy commands are fully observed before their response.
+		result.ExecutionState = "completed"
 	}
 	if result.DurationMS == 0 {
 		result.DurationMS = time.Since(start).Milliseconds()
@@ -293,24 +323,7 @@ func executeSystemInfo(ctx context.Context, p packet, deviceID string) packet {
 }
 
 func normalizeRelativePath(raw string) (string, error) {
-	if raw == "" {
-		return ".", nil
-	}
-	if strings.ContainsRune(raw, '\x00') || strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "\\") || drivePathPattern.MatchString(raw) {
-		return "", errors.New("PATH_NOT_ALLOWED")
-	}
-	// The wire format accepts slash-separated paths. Treat backslashes as
-	// separators on every host so a Windows traversal cannot be hidden in a
-	// Linux test or in a future cross-platform build.
-	normalized := strings.ReplaceAll(raw, "\\", string(filepath.Separator))
-	if filepath.IsAbs(normalized) {
-		return "", errors.New("PATH_NOT_ALLOWED")
-	}
-	clean := filepath.Clean(normalized)
-	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return "", errors.New("PATH_OUTSIDE_ROOT")
-	}
-	return clean, nil
+	return normalizeWorkspacePath(raw)
 }
 
 func withinPath(root, target string) bool {

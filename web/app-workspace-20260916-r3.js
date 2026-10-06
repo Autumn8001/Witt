@@ -985,6 +985,8 @@
   };
 
   function projectName(workDir) {
+    const remote = state.active?.remoteWorkspace;
+    if (remote) return `远程 · ${remote.displayPath || remote.rootAlias || "工作区"}`;
     return projects[String(workDir || "")] || "自定义项目";
   }
 
@@ -1094,6 +1096,11 @@
     $("#accessLabel").textContent = accessNames[state.accessMode] || "完全访问";
     $("#projectLabel").textContent = projectName(state.workDir);
     $("#moreProjectLabel").textContent = projectName(state.workDir);
+    const remoteLocked = Boolean(state.active?.remoteWorkspace);
+    ["#modelButton", "#projectButton", "#moreProjectButton"].forEach((selector) => {
+      const button = $(selector);
+      if (button) button.disabled = remoteLocked;
+    });
     document.querySelectorAll("[data-model]").forEach((button) =>
       button.classList.toggle("selected", button.dataset.model === (state.draftModel || state.model)));
     document.querySelectorAll("[data-access]").forEach((button) =>
@@ -3398,6 +3405,10 @@
   }
 
   window.DropVault = {
+    openConversation: (id) => {
+      bridge()?.requestConversations?.();
+      selectConversation(id);
+    },
     nativeReady(info = {}) {
       if (state.nativeInitialized) return;
       state.nativeInitialized = true;

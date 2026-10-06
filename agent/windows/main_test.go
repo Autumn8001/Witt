@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -21,7 +22,15 @@ import (
 )
 
 func hostnamePacket() packet {
-	return packet{V: 1, Type: "command", ID: "test-command", Tool: "system", Args: map[string]string{"command": "hostname"}, TimeoutMS: 1000}
+	return packet{V: 1, Type: "command", ID: "test-command", Tool: "system", Args: argsJSON(map[string]string{"command": "hostname"}), TimeoutMS: 1000}
+}
+
+func argsJSON(value any) json.RawMessage {
+	data, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
 
 func TestHostnameAllowlist(t *testing.T) {
@@ -31,8 +40,8 @@ func TestHostnameAllowlist(t *testing.T) {
 		t.Fatalf("hostname failed: %s", result.Error)
 	}
 	for _, mutate := range []func(*packet){
-		func(p *packet) { p.Args["extra"] = "x" },
-		func(p *packet) { p.Args["command"] = "powershell" },
+		func(p *packet) { p.Args = argsJSON(map[string]string{"command": "hostname", "extra": "x"}) },
+		func(p *packet) { p.Args = argsJSON(map[string]string{"command": "powershell"}) },
 		func(p *packet) { p.TimeoutMS = 31000 },
 		func(p *packet) { p.ID = "" },
 	} {
@@ -45,7 +54,7 @@ func TestHostnameAllowlist(t *testing.T) {
 }
 
 func commandPacket(tool string, args map[string]string) packet {
-	return packet{V: 1, Type: "command", ID: "test-command", Tool: tool, Args: args, TimeoutMS: 1000}
+	return packet{V: 1, Type: "command", ID: "test-command", Tool: tool, Args: argsJSON(args), TimeoutMS: 1000}
 }
 
 func TestSystemInfo(t *testing.T) {
@@ -171,15 +180,15 @@ func TestFilesystemRejectsBinaryAndOversize(t *testing.T) {
 
 func TestCapabilitiesAndRegistration(t *testing.T) {
 	withoutRoots := agentConfig{}
-	if got := advertisedCapabilities(withoutRoots); strings.Join(got, ",") != "system.hostname,system.info" {
+	if got := advertisedCapabilities(withoutRoots); strings.Join(got, ",") != "system.hostname,system.info,workspace.system_info" {
 		t.Fatalf("unexpected default capabilities: %v", got)
 	}
 	config := agentConfig{roots: map[string]string{"work": t.TempDir()}, allowScreenCapture: true}
 	registration := registrationPacket("PC-001", "DESKTOP-TEST", config)
-	if registration.AgentVersion != "0.2.0" || registration.V != 1 {
+	if registration.AgentVersion != "0.3.0" || registration.V != 1 {
 		t.Fatalf("unexpected registration identity: %#v", registration)
 	}
-	for _, capability := range []string{"system.hostname", "system.info", "filesystem.list", "filesystem.read", "screen.capture"} {
+	for _, capability := range []string{"system.hostname", "system.info", "filesystem.list", "filesystem.read", "workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.write", "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info", "screen.capture"} {
 		if !containsString(registration.Capabilities, capability) {
 			t.Errorf("registration omitted capability %q", capability)
 		}
@@ -192,6 +201,156 @@ func TestCapabilitiesAndRegistration(t *testing.T) {
 	}
 	if runtime.GOOS != "windows" && containsString(advertisedCapabilities(agentConfig{allowScreenCapture: true}), "screen.capture") {
 		t.Fatal("screen.capture advertised on unsupported host")
+	}
+}
+
+func workspacePacket(operation string, args map[string]any) packet {
+	args["operation"] = operation
+	return packet{V: 1, Type: "command", ID: "workspace-test", Tool: "workspace", Args: argsJSON(args), TimeoutMS: 5000}
+}
+
+func TestWorkspaceRejectsTraversalADSAndDeviceNames(t *testing.T) {
+	root := t.TempDir()
+	config := agentConfig{roots: map[string]string{"work": root}}
+	for _, path := range []string{"../x", `..\\x`, `C:\\x`, `\\\\host\\share`, "file.txt:secret", "con", "NUL.txt", "dir.", "dir "} {
+		result := executeWithConfig(context.Background(), workspacePacket("read", map[string]any{"root": "work", "path": path}), "PC-001", config)
+		if result.Error != "PATH_NOT_ALLOWED" && result.Error != "PATH_OUTSIDE_ROOT" {
+			t.Errorf("path %q returned %q", path, result.Error)
+		}
+	}
+}
+
+func TestWorkspaceWriteHashAndPatchPreconditions(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "code.txt")
+	if err := os.WriteFile(path, []byte("one\ntwo\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config := agentConfig{roots: map[string]string{"work": root}}
+	badWrite := executeWithConfig(context.Background(), workspacePacket("write", map[string]any{
+		"root": "work", "path": "code.txt", "content": "changed", "expected_sha256": strings.Repeat("0", 64),
+	}), "PC-001", config)
+	if badWrite.Error != "HASH_MISMATCH" || badWrite.ExecutionState != "not_started" {
+		t.Fatalf("write mismatch: %#v", badWrite)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "one\ntwo\n" {
+		t.Fatal("mismatched write changed file")
+	}
+	hash := hashBytes([]byte("one\ntwo\n"))
+	badPatch := executeWithConfig(context.Background(), workspacePacket("patch", map[string]any{
+		"root": "work", "path": "code.txt", "expected_sha256": hash, "before": "absent", "after": "new",
+	}), "PC-001", config)
+	if badPatch.Error != "PATCH_MISMATCH" || badPatch.ExecutionState != "not_started" {
+		t.Fatalf("patch mismatch: %#v", badPatch)
+	}
+	duplicatePatch := executeWithConfig(context.Background(), workspacePacket("patch", map[string]any{
+		"root": "work", "path": "code.txt", "expected_sha256": hash, "before": "o", "after": "x",
+	}), "PC-001", config)
+	if duplicatePatch.Error != "PATCH_MISMATCH" {
+		t.Fatalf("ambiguous patch: %#v", duplicatePatch)
+	}
+	goodPatch := executeWithConfig(context.Background(), workspacePacket("patch", map[string]any{
+		"root": "work", "path": "code.txt", "expected_sha256": hash, "before": "two", "after": "three",
+	}), "PC-001", config)
+	if goodPatch.ExitCode != 0 || goodPatch.ExecutionState != "completed" {
+		t.Fatalf("good patch: %#v", goodPatch)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "one\nthree\n" {
+		t.Fatalf("patch did not update content: %q", data)
+	}
+}
+
+func TestWorkspaceReadStatSearchAndCreate(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	config := agentConfig{roots: map[string]string{"work": root}}
+	created := executeWithConfig(context.Background(), workspacePacket("write", map[string]any{
+		"root": "work", "path": "src/sample.txt", "content": "one needle\ntwo\n", "expected_sha256": "",
+	}), "PC-001", config)
+	if created.ExitCode != 0 {
+		t.Fatalf("create failed: %#v", created)
+	}
+	read := executeWithConfig(context.Background(), workspacePacket("read", map[string]any{"root": "work", "path": "src/sample.txt"}), "PC-001", config)
+	var file map[string]string
+	if read.ExitCode != 0 || json.Unmarshal([]byte(read.Stdout), &file) != nil || file["content"] != "one needle\ntwo\n" || len(file["sha256"]) != 64 {
+		t.Fatalf("read result: %#v", read)
+	}
+	stat := executeWithConfig(context.Background(), workspacePacket("stat", map[string]any{"root": "work", "path": "src/sample.txt"}), "PC-001", config)
+	if stat.ExitCode != 0 || !strings.Contains(stat.Stdout, `"type":"file"`) {
+		t.Fatalf("stat result: %#v", stat)
+	}
+	search := executeWithConfig(context.Background(), workspacePacket("search", map[string]any{"root": "work", "path": ".", "query": "needle"}), "PC-001", config)
+	if search.ExitCode != 0 || !strings.Contains(search.Stdout, `"path":"src/sample.txt"`) {
+		t.Fatalf("search result: %#v", search)
+	}
+}
+
+func TestWorkspaceExecPolicyAndGit(t *testing.T) {
+	root := t.TempDir()
+	config := agentConfig{roots: map[string]string{"work": root}}
+	deny := executeWithConfig(context.Background(), workspacePacket("exec", map[string]any{
+		"root": "work", "cwd": ".", "program": "powershell", "argv": []string{"-Command", "Get-ChildItem"},
+	}), "PC-001", config)
+	if deny.Error != "COMMAND_DENIED" || deny.ExecutionState != "not_started" {
+		t.Fatalf("shell was not denied: %#v", deny)
+	}
+	destructive := executeWithConfig(context.Background(), workspacePacket("exec", map[string]any{
+		"root": "work", "cwd": ".", "program": "git", "argv": []string{"reset", "--hard"},
+	}), "PC-001", config)
+	if destructive.Error != "COMMAND_DENIED" {
+		t.Fatalf("destructive git operation was not denied: %#v", destructive)
+	}
+	unknown := executeWithConfig(context.Background(), workspacePacket("exec", map[string]any{
+		"root": "work", "cwd": ".", "program": "made-up-tool", "argv": []string{},
+	}), "PC-001", config)
+	if unknown.Error != "COMMAND_DENIED" {
+		t.Fatalf("unknown program was not denied: %#v", unknown)
+	}
+	inlineCode := executeWithConfig(context.Background(), workspacePacket("exec", map[string]any{
+		"root": "work", "cwd": ".", "program": "node", "argv": []string{"-e", "process.exit(0)"},
+	}), "PC-001", config)
+	if inlineCode.Error != "COMMAND_DENIED" {
+		t.Fatalf("inline code execution was not denied: %#v", inlineCode)
+	}
+	needsApproval := executeWithConfig(context.Background(), workspacePacket("exec", map[string]any{
+		"root": "work", "cwd": ".", "program": "git", "argv": []string{"commit", "-m", "x"},
+	}), "PC-001", config)
+	if needsApproval.Error != "APPROVAL_REQUIRED" {
+		t.Fatalf("confirm command did not require approval: %#v", needsApproval)
+	}
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not installed in test environment")
+	}
+	for _, argv := range [][]string{{"init"}, {"config", "user.email", "agent@example.invalid"}, {"config", "user.name", "Agent Test"}} {
+		cmd := exec.Command(git, argv...)
+		cmd.Dir = root
+		if output, runErr := cmd.CombinedOutput(); runErr != nil {
+			t.Fatalf("git %v: %v: %s", argv, runErr, output)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, argv := range [][]string{{"add", "main.go"}, {"commit", "-m", "initial"}} {
+		cmd := exec.Command(git, argv...)
+		cmd.Dir = root
+		if output, runErr := cmd.CombinedOutput(); runErr != nil {
+			t.Fatalf("git %v: %v: %s", argv, runErr, output)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package changed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status := executeWithConfig(context.Background(), workspacePacket("git_status", map[string]any{"root": "work", "cwd": "."}), "PC-001", config)
+	if status.ExitCode != 0 || !strings.Contains(status.Stdout, " M main.go") {
+		t.Fatalf("git status: %#v", status)
+	}
+	diff := executeWithConfig(context.Background(), workspacePacket("git_diff", map[string]any{"root": "work", "cwd": "."}), "PC-001", config)
+	if diff.ExitCode != 0 || !strings.Contains(diff.Stdout, "package changed") {
+		t.Fatalf("git diff: %#v", diff)
 	}
 }
 

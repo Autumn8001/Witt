@@ -195,6 +195,10 @@ class ChatService {
     // Non-Codex harness wiring. Secrets arrive here from the server, never from
     // the repository, and are handed to the adapter as a child-process env value.
     this.harnessOptions = options.harnessOptions || {};
+    // Present only for Remote Vibecoding Workspace conversations. The service
+    // owns immutable device/root bindings and per-turn MCP credentials; this
+    // ChatService never receives a customer filesystem path.
+    this.remoteWorkspaceService = options.remoteWorkspaceService || null;
     this.runtimeLogger = options.runtimeLogger
       || new RuntimeLogger({ enabled: Boolean(process.env.WITT_RUNTIME_LOG) });
     // Keep app-server notifications scoped to this user's ChatService. Multiple users may use
@@ -593,6 +597,7 @@ class ChatService {
 
   publicConversation(conversation, includeMessages = true) {
     const profile = this.profileFor(conversation);
+    const remoteWorkspace = this.remoteWorkspaceBinding(conversation);
     const messages = conversation.messages || [];
     const active = this.active?.conversationId === conversation.id ? this.active : null;
     const busy = conversation.busy ?? messages.some((message) =>
@@ -637,7 +642,15 @@ class ChatService {
       accessMode: ALLOWED_ACCESS.has(conversation.accessMode)
         ? conversation.accessMode : "danger-full-access",
       workDir: Object.hasOwn(conversation, "workDir")
-        ? (conversation.workDir || "") : this.codexWorkDir,
+        ? (remoteWorkspace ? "" : (conversation.workDir || "")) : this.codexWorkDir,
+      remoteWorkspace: remoteWorkspace ? {
+        workspaceId: remoteWorkspace.workspace_id,
+        customerId: remoteWorkspace.customer_id,
+        deviceLabel: remoteWorkspace.device_id,
+        rootAlias: remoteWorkspace.root_alias,
+        displayPath: remoteWorkspace.display_path,
+        state: remoteWorkspace.state,
+      } : null,
       contextUsage: this.quotaExhausted ? {
         usedTokens: 1,
         contextWindow: 1,
@@ -912,8 +925,16 @@ class ChatService {
   }
 
   effectiveWorkDir(conversation) {
+    const binding = this.remoteWorkspaceBinding(conversation);
+    if (binding) return this.remoteWorkspaceService.runtimeFor(binding).cwd;
     if (!Object.hasOwn(conversation, "workDir")) return this.codexWorkDir;
     return conversation.workDir || "/home/ubuntu";
+  }
+
+  remoteWorkspaceBinding(conversation) {
+    if (!this.remoteWorkspaceService || !conversation?.id) return null;
+    try { return this.remoteWorkspaceService.bindingForConversation(conversation.id); }
+    catch { return null; }
   }
 
   profileFor(conversation) {
@@ -967,6 +988,23 @@ class ChatService {
       workDir: this.normalizeWorkDir(requestedWorkDir),
       messages: [],
     };
+    this.writeConversation(conversation);
+    return conversation;
+  }
+
+  createRemoteWorkspaceConversation({ title, model, reasoning, harnessSessionId }) {
+    if (!this.remoteWorkspaceService || !/^grok-/.test(String(model || ""))) {
+      throw new Error("远程工作区目前仅支持 Grok Build");
+    }
+    if (typeof harnessSessionId !== "string" || !harnessSessionId) throw new Error("远程会话标识无效");
+    const conversation = this.createConversation(title || "远程开发工作区", model, reasoning || "high",
+      "workspace-write", "", null);
+    conversation.harnessId = "grok-build";
+    conversation.providerId = providerForModel(conversation.model) || "cpa";
+    conversation.harnessSessionId = harnessSessionId;
+    conversation.remoteWorkspaceStarted = false;
+    // A Remote Workspace never maps a client-side Windows path to `workDir`.
+    conversation.workDir = "";
     this.writeConversation(conversation);
     return conversation;
   }
@@ -1575,6 +1613,13 @@ class ChatService {
         conversation.updatedAt = new Date().toISOString();
         this.writeConversation(conversation);
         this.sendJson(res, 200, { conversation: this.publicConversation(conversation) });
+        return;
+      }
+      if (this.remoteWorkspaceBinding(conversation)) {
+        this.sendJson(res, 409, {
+          error: "远程工作区已固定绑定设备、项目根目录、Harness 与模型；请创建新工作区。",
+          remoteWorkspaceLocked: true,
+        });
         return;
       }
       const requestedModel = body?.model == null
@@ -2444,6 +2489,36 @@ class ChatService {
     this.writeConversation(conversation);
   }
 
+  requestRemoteWorkspaceApproval(binding, approval) {
+    const current = this.active;
+    if (!current || current.conversationId !== binding.conversation_id || current.finished) {
+      throw new Error("REMOTE_WORKSPACE_TURN_NOT_ACTIVE");
+    }
+    const conversation = this.readConversation(binding.conversation_id);
+    const assistant = conversation?.messages.find((message) => message.id === current.messageId);
+    if (!conversation || !assistant) throw new Error("REMOTE_WORKSPACE_TURN_NOT_ACTIVE");
+    current.pendingApprovals.set(approval.id, {
+      kind: "remote-workspace", workspaceId: binding.workspace_id, approvalId: approval.id,
+      choices: new Map([
+        ["accept", { id: "accept", label: "确认执行", outcome: "accepted" }],
+        ["decline", { id: "decline", label: "拒绝", outcome: "declined" }],
+      ]),
+    });
+    this.upsertStream(assistant, `approval-${approval.id}`, {
+      kind: "approval", approvalId: approval.id, status: "pending",
+      approvalOptions: [
+        { id: "accept", label: "确认执行", description: "在客户工作区执行已展示的操作", tone: "accepted" },
+        { id: "decline", label: "拒绝", description: "取消本次远程操作", tone: "declined" },
+      ],
+      title: "等待确认远程工作区操作",
+      summary: `${approval.intent.operation} 需要确认后才会在客户电脑执行。`,
+      details: { operation: approval.intent.operation, path: approval.intent.args?.path || approval.intent.args?.cwd || null },
+    });
+    this.addActivity(assistant, "approval", "等待你确认远程工作区操作", "running");
+    conversation.updatedAt = new Date().toISOString();
+    this.writeConversation(conversation);
+  }
+
   resolveApproval(req, res, conversationId, approvalId, deviceId = "legacy") {
     this.readJsonBody(req, 8 * 1024, (error, body) => {
       if (error) {
@@ -2463,6 +2538,36 @@ class ChatService {
         return;
       }
       const requestedChoice = String(body?.choiceId || body?.decision || "");
+      if (pending.kind === "remote-workspace") {
+        const accepted = requestedChoice === "accept" || requestedChoice === "allow-turn";
+        const declined = requestedChoice === "decline" || requestedChoice === "deny";
+        if (!accepted && !declined) {
+          this.sendJson(res, 400, { error: "请选择确认或拒绝" });
+          return;
+        }
+        const conversation = this.readConversation(conversationId);
+        const assistant = conversation?.messages.find((message) => message.id === current.messageId);
+        const entry = assistant?.stream?.find((item) => item.kind === "approval" && item.approvalId === approvalId);
+        if (!conversation || !assistant || !entry || !this.remoteWorkspaceService) {
+          this.sendJson(res, 409, { error: "这项权限请求已失效" });
+          return;
+        }
+        try {
+          this.remoteWorkspaceService.resolveApproval(pending.workspaceId, approvalId, accepted);
+        } catch (resolveError) {
+          this.sendJson(res, 409, { error: resolveError.code || "这项权限请求已失效" });
+          return;
+        }
+        current.pendingApprovals.delete(approvalId);
+        entry.status = accepted ? "accepted" : "declined";
+        entry.resolutionLabel = accepted ? "已确认执行" : "已拒绝本次操作";
+        entry.resolvedAt = new Date().toISOString();
+        this.addActivity(assistant, "approval", entry.resolutionLabel, "completed");
+        conversation.updatedAt = new Date().toISOString();
+        this.writeConversation(conversation);
+        this.sendJson(res, 200, { ok: true, conversation: this.publicConversation(conversation) });
+        return;
+      }
       let choice = pending.choices?.get(requestedChoice);
       if (!choice && (requestedChoice === "accept" || requestedChoice === "decline")) {
         choice = [...(pending.choices?.values() || [])].find((candidate) =>
@@ -2547,6 +2652,19 @@ class ChatService {
   }
 
   buildDeveloperInstructions(conversation) {
+    const remote = this.remoteWorkspaceBinding(conversation);
+    if (remote) {
+      return [
+        "你正在操作一个 Remote Vibecoding Workspace。客户电脑上的项目只能通过 witt_remote_workspace MCP 工具访问。",
+        "本会话已固定绑定到一个客户、一个设备和一个项目根目录；不要索取、猜测或尝试切换 device_id、磁盘路径、网络共享或其他目录。",
+        "不要使用本机文件工具、shell、浏览器或 SSH 来替代 workspace MCP；它们不代表客户项目。",
+        "先用 workspace_list/read/search/stat 理解代码。修改前读取 SHA-256，写入必须附带刚读取的 SHA-256；patch 必须使用唯一的 before/after 文本。",
+        "执行操作只使用 program 加 argv，绝不拼接 shell 命令。遇到需要确认的安装、服务、外部 Git 操作或其他命令时，等待 Witt 的确认界面，不要尝试绕过。",
+        "写入或命令若返回 EXECUTION_STATE_UNKNOWN，立即停止重试，先读取文件和 git diff 重新确认状态。",
+        "完成修改后用 workspace_git_status 和 workspace_git_diff 报告实际变化；不要提交、推送或触碰凭据。",
+        "回答使用简洁自然的中文，禁止展示、记录或回传任何凭据原文。",
+      ].join("\n");
+    }
     const workDir = this.effectiveWorkDir(conversation);
     return [
       "你通过 Witt 应用运行在用户私人服务器上，负责协助用户完成开发任务。",
@@ -2675,12 +2793,15 @@ class ChatService {
     const accessMode = ALLOWED_ACCESS.has(conversation.accessMode)
       ? conversation.accessMode : "danger-full-access";
     const workDir = this.effectiveWorkDir(conversation);
+    const remoteWorkspace = this.remoteWorkspaceBinding(conversation);
     let gitBaseline = null;
     let gitBaselineError = "git_baseline_unavailable";
-    try {
-      gitBaseline = await createGitChangeBaseline(workDir);
-      gitBaselineError = null;
-    } catch {}
+    if (!remoteWorkspace) {
+      try {
+        gitBaseline = await createGitChangeBaseline(workDir);
+        gitBaselineError = null;
+      } catch {}
+    }
     const profile = this.profileFor(conversation);
     const harnessId = conversation.harnessId || resolveHarness(model, "auto");
     if (harnessId !== resolveHarness(model, "auto")) {
@@ -2827,14 +2948,17 @@ class ChatService {
 
   grokAdapter(model, conversation) {
     const options = this.harnessOptions.grok || {};
+    const binding = this.remoteWorkspaceBinding(conversation);
+    const remoteWorkspace = binding ? this.remoteWorkspaceService.runtimeFor(binding) : null;
     return new GrokBuildAdapter({
       bin: options.bin,
       model,
       cwd: this.effectiveWorkDir(conversation),
       envKey: options.envKey || "WITT_CPA_KEY",
       envValue: options.envValue || "",
-      remoteDeviceMcpEnabled: options.remoteDeviceMcpEnabled === true,
+      remoteDeviceMcpEnabled: !remoteWorkspace && options.remoteDeviceMcpEnabled === true,
       remoteDeviceTokenFile: options.remoteDeviceTokenFile || "",
+      remoteWorkspace,
       browserMcpEnabled: options.browserMcpEnabled === true,
       permissionMode: options.permissionMode || grokPermissionMode(conversation.accessMode),
       reasoningEffort: options.reasoningEffort || null,
@@ -2850,7 +2974,11 @@ class ChatService {
       gitBaseline = null, gitBaselineError = "git_baseline_unavailable") {
     const workDir = this.effectiveWorkDir(conversation);
     const adapter = this.grokAdapter(model, conversation);
-    const existingSession = conversation.harnessSessionId || null;
+    const remoteWorkspace = this.remoteWorkspaceBinding(conversation);
+    // Remote Workspace reserves its session id at binding time, but Grok must
+    // receive --session-id (not --resume) until that first turn actually runs.
+    const existingSession = remoteWorkspace && !conversation.remoteWorkspaceStarted
+      ? null : (conversation.harnessSessionId || null);
     const promptConversation = { ...conversation, codexThreadId: existingSession };
     const prompt = this.buildPrompt(promptConversation, user, attachments);
 
@@ -2893,7 +3021,9 @@ class ChatService {
       model,
       cwd: workDir,
       reasoningEffort: HARNESS_REASONING[reasoning] || "medium",
-      ...(existingSession ? { resumeSessionId: existingSession } : { sessionId: crypto.randomUUID() }),
+      ...(existingSession ? { resumeSessionId: existingSession } : {
+        sessionId: remoteWorkspace ? conversation.harnessSessionId : crypto.randomUUID(),
+      }),
     });
     this.active.harnessHandle = handle;
     this.active.turnStarted = true;
@@ -2911,6 +3041,7 @@ class ChatService {
         live.harnessSessionId = String(discoveredSessionId);
         live.harnessId = "grok-build";
         live.providerId = providerForModel(model) || live.providerId || null;
+        if (remoteWorkspace) live.remoteWorkspaceStarted = true;
       }
       if (event.type === "text_delta") {
         const entry = this.upsertStream(liveAssistant, "harness-message",
@@ -2971,9 +3102,10 @@ class ChatService {
       // Derived from the model family actually used, not from whichever gateway
       // happens to be configured, so a stored binding is never mislabelled.
       finalConversation.providerId = providerForModel(model) || finalConversation.providerId || null;
+      if (remoteWorkspace) finalConversation.remoteWorkspaceStarted = true;
     }
     if (result.sessionId) this.writeConversation(finalConversation);
-    await this.appendGitChanges(this.active);
+    if (!remoteWorkspace) await this.appendGitChanges(this.active);
 
     if (result.timedOut) {
       finalConversation.updatedAt = new Date().toISOString();

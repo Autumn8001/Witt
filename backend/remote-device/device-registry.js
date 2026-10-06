@@ -26,6 +26,7 @@ class DeviceRegistry {
     }
     let capabilities;
     let allowedRoots;
+    let workspaceRoots = {};
     try {
       // Existing devices.json files predate capability negotiation. They must
       // remain hostname-compatible but must not accidentally gain file/screen
@@ -36,6 +37,17 @@ class DeviceRegistry {
       allowedRoots = entry.allowed_roots === undefined
         ? []
         : validateRootList(entry.allowed_roots);
+      if (entry.workspace_roots !== undefined) {
+        if (!entry.workspace_roots || typeof entry.workspace_roots !== "object" || Array.isArray(entry.workspace_roots)) {
+          throw new Error("invalid workspace roots");
+        }
+        for (const [alias, displayPath] of Object.entries(entry.workspace_roots)) {
+          if (!allowedRoots.includes(alias) || typeof displayPath !== "string" || !displayPath.trim() || displayPath.length > 1024 || displayPath.includes("\0")) {
+            throw new Error("invalid workspace roots");
+          }
+          workspaceRoots[alias] = displayPath.trim();
+        }
+      }
     } catch {
       throw new Error("invalid device configuration");
     }
@@ -43,9 +55,11 @@ class DeviceRegistry {
       deviceId: entry.device_id,
       label: String(entry.label || entry.device_id).slice(0, 100),
       customerName: String(entry.customer_name || "").slice(0, 100),
+      customerId: String(entry.customer_id || entry.customer_name || entry.device_id).slice(0, 100),
       tokenHash: entry.token_sha256.toLowerCase(),
       capabilities,
       allowedRoots,
+      workspaceRoots,
     });
   }
 

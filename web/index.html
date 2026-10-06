@@ -63,7 +63,7 @@
   <link rel="stylesheet" href="/vault/claude-app.css?v=1.0.0">
   <link rel="stylesheet" href="/vault/vendor/xterm/xterm.css?v=6.0.0">
   <link rel="stylesheet" href="/vault/local-terminal.css?v=2.2.16-terminal-workspace4">
-  <link rel="stylesheet" href="/vault/customer-devices.css?v=2">
+  <link rel="stylesheet" href="/vault/customer-devices.css?v=3">
   <link rel="stylesheet" href="/vault/night-contrast.css?v=2.2.13-nightfix1">
   <link rel="stylesheet" href="/vault/approval-dock.css?v=3.2.1-approval-pointerfix1">
   <link rel="stylesheet" href="/vault/witt-white.css?v=3.0.18-modelrestore1">
@@ -522,13 +522,13 @@
     <div class="sheet-panel customer-devices-panel">
       <div class="sheet-handle"></div>
       <div class="sheet-head customer-devices-head">
-        <div><span class="eyebrow">CUSTOMER COMPUTERS</span><h2>客户电脑</h2></div>
+        <div><span class="eyebrow">REMOTE WORKSPACE</span><h2>远程开发工作区</h2></div>
         <button class="icon-button" id="closeCustomerDevices" type="button" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
-      <p class="customer-devices-intro">选择一台已授权电脑，查看系统信息、文件和屏幕。仅可执行这里列出的只读操作。</p>
+      <p class="customer-devices-intro">选择客户电脑与已授权项目根目录，创建一个固定范围的远程开发对话。</p>
       <section id="customerDevices" aria-label="客户电脑工作台">
         <header class="customer-devices-toolbar">
-          <div><h3>已授权电脑</h3><p>在线设备可以立即响应；离线设备会保留最近连接信息。</p></div>
+          <div><h3>可用开发设备</h3><p>在线且能力齐全的 Agent 可以立即创建远程工作区。</p></div>
           <button type="button" class="customer-refresh-button" data-refresh-devices><span aria-hidden="true">↻</span>刷新</button>
         </header>
         <p class="customer-status" data-customer-status role="status" aria-live="polite">打开时读取</p>
@@ -711,7 +711,7 @@
   </aside>
   <script src="/vault/profile-overview.js?v=3"></script>
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
-  <script src="/vault/customer-devices.js?v=2"></script>
-  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.6-customer-workbench"></script>
+  <script src="/vault/customer-devices.js?v=3"></script>
+  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.7-remote-workspace"></script>
 </body>
 </html>

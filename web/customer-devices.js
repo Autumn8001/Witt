@@ -74,8 +74,8 @@
     const source = device?.allowed_roots ?? device?.roots ?? deviceRootMap ?? state.roots;
     if (Array.isArray(source)) return source.map((entry) => {
       if (typeof entry === "string") return { id: entry, label: entry };
-      const id = entry?.id || entry?.root || entry?.path || entry?.name || "";
-      return { id: String(id), label: String(entry?.label || entry?.name || id) };
+      const id = entry?.id || entry?.root_alias || entry?.root || entry?.path || entry?.name || "";
+      return { id: String(id), label: String(entry?.display_path || entry?.label || entry?.name || id) };
     }).filter((entry) => entry.id);
     if (source && typeof source === "object") return Object.entries(source).map(([id, value]) => ({ id, label: typeof value === "string" ? value : value?.label || value?.name || id }));
     return [];
@@ -157,9 +157,10 @@
     }
     list.innerHTML = state.devices.map((device) => {
       const id = deviceId(device); const online = isOnline(device); const selected = id === state.selectedId;
-      const hostname = device.hostname || "主机名未知"; const agent = device.agent_version || device.agentVersion || "Agent 版本未知";
+      const hostname = device.hostname || "等待 Agent 报到"; const agent = device.agent_version || device.agentVersion || "Agent 版本未知";
+      const ready = device.ready !== false;
       const oldHostnameAction = legacyMode ? `<button type="button" class="customer-legacy-action" data-hostname="${escape(id)}" ${online ? "" : "disabled"}>读取 hostname</button><output aria-live="polite"></output>` : "";
-      return `<article class="customer-device ${online ? "is-online" : "is-offline"} ${selected ? "is-selected" : ""}" data-device-id="${escape(id)}"><button type="button" class="customer-device-select" data-select-customer-device="${escape(id)}" aria-pressed="${selected}"><span class="customer-device-state"><i aria-hidden="true"></i>${online ? "在线" : "离线"}</span><strong>${escape(device.label || device.customer_name || id || "未命名电脑")}</strong><small><span>主机：${escape(hostname)}</span><span>Agent：${escape(agent)}</span><span>最近连接：${escape(localDate(device.last_seen || device.lastSeen))}</span></small><em>${selected ? "已选择" : "查看操作"}<b aria-hidden="true">›</b></em></button>${oldHostnameAction}</article>`;
+      return `<article class="customer-device ${online ? "is-online" : "is-offline"} ${selected ? "is-selected" : ""}" data-device-id="${escape(id)}"><button type="button" class="customer-device-select" data-select-customer-device="${escape(id)}" aria-pressed="${selected}"><span class="customer-device-state"><i aria-hidden="true"></i>${online ? (ready ? "可开发" : "需更新") : "离线"}</span><strong>${escape(device.device_label || device.label || device.customer_name || id || "未命名电脑")}</strong><small><span>主机：${escape(hostname)}</span><span>Agent：${escape(agent)}</span><span>最近连接：${escape(localDate(device.last_seen || device.lastSeen))}</span></small><em>${selected ? "已选择" : "选择项目"}<b aria-hidden="true">›</b></em></button>${oldHostnameAction}</article>`;
     }).join("");
   }
   function renderSystemOutput() {
@@ -194,20 +195,30 @@
     if (!device) { detail.hidden = true; detail.innerHTML = ""; return; }
     detail.hidden = false; const id = deviceId(device); const online = isOnline(device); const roots = rootsFor(device);
     if (!state.currentRoot && roots[0]) state.currentRoot = roots[0].id;
-    detail.innerHTML = `<div class="customer-detail-head"><div><span class="customer-detail-kicker">已选择电脑</span><h3>${escape(device.label || device.customer_name || id)}</h3><p>${escape(device.hostname || "主机名未知")} · ${escape(device.agent_version || device.agentVersion || "Agent 版本未知")}</p></div><span class="customer-detail-status ${online ? "online" : "offline"}"><i aria-hidden="true"></i>${online ? "在线" : "离线"}</span></div><p class="customer-capability-hint" id="customerCapabilityHint">${online ? "只显示这台 Agent 已获授权的只读能力。" : "设备离线时无法发起操作；上线后会自动恢复可用。"}</p><div class="customer-operation-grid" aria-label="客户电脑操作">${operationButton(device, "system", "system-info", "系统信息", "查看操作系统、版本和运行状态")}${operationButton(device, "filesList", "files", "浏览文件", "读取授权根目录中的文件列表")}${operationButton(device, "screenshot", "screenshot", "查看屏幕", "获取一张当前屏幕截图")}</div><section class="customer-result-block" data-system-block><header><div><h4>系统信息</h4><small>只读检查 · 不执行命令</small></div><span data-system-state>${state.busy === "system-info" ? "读取中…" : ""}</span></header><div data-system-output hidden></div></section><section class="customer-result-block customer-file-block" data-file-browser><header><div><h4>文件浏览</h4><small>只读 · 文本文件可查看内容</small></div><span data-file-state>${state.busy === "files" ? "读取中…" : ""}</span></header><div class="customer-file-controls"><label><span>根目录</span><select data-file-root ${roots.length ? "" : "disabled"}>${roots.length ? roots.map((entry) => `<option value="${escape(entry.id)}" ${entry.id === state.currentRoot ? "selected" : ""}>${escape(entry.label)}</option>`).join("") : "<option>Agent 未提供根目录</option>"}</select></label><form data-file-path-form><label><span>相对路径</span><input data-file-path-input value="${escape(state.currentPath)}" placeholder="留空表示根目录" autocomplete="off" spellcheck="false"><button type="submit" ${roots.length && online && hasCapability(device, "filesList") ? "" : "disabled"}>读取目录</button></label></form></div><div class="customer-file-entries" data-file-entries></div><div class="customer-file-content" data-file-content hidden></div></section><section class="customer-result-block customer-screenshot-block"><header><div><h4>屏幕截图</h4><small>不会保存到服务器</small></div><button type="button" class="customer-inline-button" data-device-action="screenshot" ${capabilityReason(device, "screenshot") ? "disabled" : ""}>刷新截图</button></header><div data-screenshot-output hidden></div></section>`;
-    renderSystemOutput(); renderFileOutput(); renderScreenshot();
+    const ready = device.ready !== false;
+    detail.innerHTML = `<div class="customer-detail-head"><div><h3>${escape(device.device_label || device.label || device.customer_name || id)}</h3><p>${escape(device.customer_id || device.customer_name || "客户项目")} · ${escape(device.hostname || "等待 Agent 报到")}</p></div><span class="customer-detail-status ${online && ready ? "online" : "offline"}"><i aria-hidden="true"></i>${online && ready ? "可以开始" : online ? "需要更新 Agent" : "设备离线"}</span></div><p class="customer-capability-hint">远程开发会固定绑定这台电脑与一个项目根目录。Grok 只能经受控工具读写该项目，确认操作会回到本页的 Witt 审批界面。</p><section class="customer-result-block customer-workspace-start"><header><div><h4>创建远程开发工作区</h4><small>不会把 Grok、密钥或服务器 AI 安装到客户电脑</small></div></header><label class="customer-workspace-field"><span>项目根目录</span><select data-workspace-root ${roots.length ? "" : "disabled"}>${roots.length ? roots.map((entry) => `<option value="${escape(entry.id)}" ${entry.id === state.currentRoot ? "selected" : ""}>${escape(entry.label)}</option>`).join("") : "<option>暂无已授权项目根目录</option>"}</select></label><label class="customer-workspace-field"><span>会话名称</span><input data-workspace-title maxlength="60" value="${escape(`${device.device_label || device.label || id} 远程开发`)}" autocomplete="off"></label><button type="button" class="customer-start-workspace" data-start-remote-workspace ${online && ready && roots.length ? "" : "disabled"}>${state.busy === "start-workspace" ? "正在创建…" : "开始远程开发"}</button><p class="customer-workspace-note">开始后将进入一个独立对话。项目范围、设备和 Harness 不可在对话中切换。</p></section>`;
   }
   function selectDevice(id) {
     state.selectedId = id; state.selected = state.devices.find((device) => deviceId(device) === id) || null; state.currentRoot = rootsFor(state.selected)[0]?.id || ""; state.currentPath = ""; state.systemInfo = null; state.fileEntries = null; state.fileContent = null; state.screenshot = null; state.error = ""; renderList(); renderDetail(); detail?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
   function setBusy(action) {
     state.busy = action; root.classList.toggle("is-busy", Boolean(action));
-    root.querySelectorAll("button[data-device-action], [data-file-path-form] button, [data-refresh-devices]").forEach((button) => { if (action) button.dataset.wasDisabled = button.disabled ? "1" : "0"; button.disabled = Boolean(action) || button.dataset.wasDisabled === "1"; });
+    root.querySelectorAll("button[data-device-action], [data-file-path-form] button, [data-refresh-devices], [data-start-remote-workspace]").forEach((button) => { if (action) button.dataset.wasDisabled = button.disabled ? "1" : "0"; button.disabled = Boolean(action) || button.dataset.wasDisabled === "1"; });
   }
   async function refresh() {
     setStatus("正在读取客户电脑…", "loading"); root.setAttribute("aria-busy", "true");
     try {
-      const payload = await call("customer-devices"); state.devices = Array.isArray(payload.devices) ? payload.devices : []; state.capabilities = payload.capabilities || {}; state.roots = payload.roots || [];
+      let payload;
+      try {
+        payload = await call("remote-workspaces/options");
+      } catch (remoteError) {
+        // Keep the existing diagnostic-only drawer usable against an older
+        // backend during a rolling upgrade. It never creates a workspace on
+        // that fallback path.
+        if (remoteError.status !== 404) throw remoteError;
+        payload = await call("customer-devices");
+      }
+      state.devices = Array.isArray(payload.devices) ? payload.devices : []; state.capabilities = payload.capabilities || {}; state.roots = payload.roots || [];
       if (!state.devices.some((device) => deviceId(device) === state.selectedId)) { state.selectedId = ""; state.selected = null; } else state.selected = state.devices.find((device) => deviceId(device) === state.selectedId) || null;
       renderList(); renderDetail(); setStatus(`共 ${state.devices.length} 台 · ${state.devices.filter(isOnline).length} 台在线`, "ready");
     } catch (error) { state.error = error.message; setStatus(error.message, "error"); if (!state.devices.length) renderList(); }
@@ -246,6 +257,24 @@
     catch (error) { state.screenshot = { error: error.message }; }
     finally { setBusy(""); renderScreenshot(); }
   }
+  async function startWorkspace() {
+    const device = state.selected;
+    const rootSelect = query("[data-workspace-root]", detail);
+    const title = query("[data-workspace-title]", detail)?.value || "远程开发工作区";
+    const rootAlias = rootSelect?.value || state.currentRoot;
+    if (!device || !rootAlias || !isOnline(device) || device.ready === false) return;
+    setBusy("start-workspace"); renderDetail();
+    try {
+      const payload = await call("remote-workspaces", { method: "POST", body: JSON.stringify({ device_id: deviceId(device), root_alias: rootAlias, title }) });
+      const conversationId = payload?.conversation?.id;
+      if (!conversationId) throw new Error("工作区已创建，但未返回对话");
+      closeSheet();
+      if (typeof window.DropVault?.openConversation === "function") window.DropVault.openConversation(conversationId);
+      else window.location.reload();
+    } catch (error) {
+      setStatus(error.message, "error");
+    } finally { setBusy(""); renderDetail(); }
+  }
   function openSheet() {
     if (!sheet) return; state.lastFocus = document.activeElement; document.getElementById("drawer")?.classList.remove("open"); document.getElementById("drawer")?.setAttribute("aria-hidden", "true"); sheet.classList.add("open"); sheet.setAttribute("aria-hidden", "false"); refresh(); requestAnimationFrame(() => document.getElementById("closeCustomerDevices")?.focus());
   }
@@ -259,7 +288,7 @@
 
   root.querySelector("[data-refresh-devices]")?.addEventListener("click", refresh);
   list?.addEventListener("click", (event) => { const legacy = event.target.closest("[data-hostname]"); if (legacy) { handleLegacyHostname(legacy); return; } const selected = event.target.closest("[data-select-customer-device]"); if (selected) selectDevice(selected.dataset.selectCustomerDevice); });
-  detail.addEventListener("click", (event) => { const action = event.target.closest("[data-device-action]")?.dataset.deviceAction; if (action === "system-info") { runSystemInfo(); return; } if (action === "files") { listFiles(); return; } if (action === "screenshot") { takeScreenshot(); return; } const directory = event.target.closest("[data-device-dir]")?.dataset.deviceDir; if (directory) { state.currentPath = safeRelativePath(directory); listFiles(); return; } const file = event.target.closest("[data-device-file]")?.dataset.deviceFile; if (file) { readFile(file); return; } if (event.target.closest("[data-close-file]")) { state.fileContent = null; renderFileOutput(); } });
+  detail.addEventListener("click", (event) => { if (event.target.closest("[data-start-remote-workspace]")) { startWorkspace(); return; } const action = event.target.closest("[data-device-action]")?.dataset.deviceAction; if (action === "system-info") { runSystemInfo(); return; } if (action === "files") { listFiles(); return; } if (action === "screenshot") { takeScreenshot(); return; } const directory = event.target.closest("[data-device-dir]")?.dataset.deviceDir; if (directory) { state.currentPath = safeRelativePath(directory); listFiles(); return; } const file = event.target.closest("[data-device-file]")?.dataset.deviceFile; if (file) { readFile(file); return; } if (event.target.closest("[data-close-file]")) { state.fileContent = null; renderFileOutput(); } });
   detail.addEventListener("change", (event) => { if (!event.target.matches("[data-file-root]")) return; state.currentRoot = event.target.value; state.currentPath = ""; state.fileEntries = null; state.fileContent = null; renderFileOutput(); });
   detail.addEventListener("submit", (event) => { if (!event.target.matches("[data-file-path-form]")) return; event.preventDefault(); state.currentPath = safeRelativePath(event.target.querySelector("[data-file-path-input]")?.value); listFiles(); });
   document.getElementById("customerDevicesButton")?.addEventListener("click", openSheet);

@@ -1,13 +1,13 @@
 # Customer Device Agent
 
 This is a transport agent, not an AI runtime. It holds one device token and
-accepts only the fixed, structured operations below. It never accepts an
-arbitrary shell command, PowerShell command, or script.
+accepts only fixed, structured operations. It never accepts an arbitrary shell
+command, PowerShell command, or script.
 
 ## Operations
 
 The agent keeps protocol version `v=1` and returns operation results in
-`stdout`. The registration packet declares `agent_version: 0.2.0`, its fixed
+`stdout`. The registration packet declares `agent_version: 0.3.0`, its fixed
 capabilities, and configured named roots.
 
 * `system {command: "hostname"}` — the existing hostname check.
@@ -20,6 +20,39 @@ capabilities, and configured named roots.
 * `screen {operation: "capture"}` — Windows GDI JPEG only, and only when the
   explicit opt-in flag is present. The result carries `mime: "image/jpeg"`
   and base64 `data`.
+
+## Remote Workspace wire contract
+
+New development sessions send `tool: "workspace"` and a JSON object in
+`args`. Every project operation includes a configured root alias; the server
+binds that alias to the Workspace Session, while the agent enforces it again
+locally. The supported operations are:
+
+* `{operation:"list"|"stat"|"read", root, path}`
+* `{operation:"search", root, path, query}`
+* `{operation:"write", root, path, content, expected_sha256}`
+* `{operation:"patch", root, path, expected_sha256, before, after}`
+* `{operation:"exec", root, cwd, program, argv, approval?}`
+* `{operation:"git_status"|"git_diff", root, cwd}`
+* `{operation:"system_info"}`
+
+`path` and `cwd` are slash or backslash separated relative paths. They cannot
+be absolute, UNC, drive-qualified, contain `..`, an ADS colon, a Windows device
+name (`CON`, `NUL`, `COM1`, and so on), or trailing dots/spaces. The agent
+canonicalises existing paths and parent directories before use, rejecting
+symlink/junction escapes.
+
+Writes require a SHA-256 precondition (`""` only means “create if absent”) and
+are written to a same-directory temporary file then renamed. A patch requires
+the expected hash and exactly one occurrence of `before`. Results include
+`execution_state`: `not_started`, `completed`, or `unknown`. A cancellation
+after a write/process starts is `unknown` and must never be replayed.
+
+`exec` is a program plus argv, never a command line. The local allowlist is for
+common development tools only; shell interpreters, destructive tools, and
+destructive Git subcommands are denied. Package installation and Git commit,
+push, rebase, or config require `approval:{id,confirmed:true}`. Server-side UI
+approval is still required; this is a second local guard.
 
 Filesystem operations are unavailable unless at least one root is configured.
 Paths are canonicalized and checked after symlink/junction resolution; absolute
@@ -64,12 +97,12 @@ token hash in its device configuration.
 
 ## Acceptance
 
-Acceptance must show PC-001 online in Witt, invoke `system.info`, list and
-read a file below a configured root, reject a path escape and a binary file,
-and, when explicitly enabled, capture a JPEG. Compare hostname and system info
-with the actual Windows PC, exercise disconnect/reconnect, and verify no
-command replay. Only after this should Remote Device MCP and Grok be enabled
-and checked.
+Acceptance must show PC-001 online in Witt and use a Remote Workspace Session
+to list/read/search a test project, patch a known bug, run a test through a
+program+argv invocation, and return `git diff`. It must reject path escape,
+ADS/device-name paths, wrong hashes, ambiguous patches, shell commands, and
+unapproved confirmation commands. Exercise disconnect/reconnect and verify no
+unknown write or process is replayed.
 
 The local test suite covers the protocol, allowlists, root boundaries, text
 and size limits, registration capabilities, and disabled screen capture.
