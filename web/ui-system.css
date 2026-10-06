@@ -1,0 +1,183 @@
+/* Shared product typography. Loaded last to reconcile legacy page overrides.
+   !important is limited to properties already locked by earlier theme files.
+   Terminal metrics, math rendering and embedded Artifact content stay independent. */
+:root {
+  --ui-type-meta: .75rem;
+  --ui-type-help: .8125rem;
+  --ui-type-control: .875rem;
+  --ui-type-body: .9375rem;
+  --ui-type-card: 1rem;
+  --ui-type-section: 1.125rem;
+  --ui-type-page: 1.5rem;
+  --ui-readable-muted: #59635e;
+}
+:root[data-theme="dark"] { --ui-readable-muted: #b7c1bb; }
+:root[data-theme="colorful"] { --ui-readable-muted: #59635e; }
+/* Sheets and forms share a hierarchy, not a single flattened text size. */
+.sheet-panel .sheet-head h2, .workspace-panel > header h2 {
+  font-size: var(--ui-type-page) !important; line-height: 1.3 !important; letter-spacing: -.025em;
+}
+.sheet-panel .eyebrow, .workspace-panel > header small {
+  font-size: var(--ui-type-meta) !important; line-height: 1.5; letter-spacing: .06em;
+  color: var(--ui-readable-muted) !important;
+}
+.sheet-panel .sheet-head > div { min-width: 0; overflow-wrap: anywhere; }
+.sheet-panel .icon-button, .workspace-panel > header button { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+.sheet-panel :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  font-size: 1rem !important; min-width: 0; max-width: 100%;
+}
+.sheet-panel :is(button, input:not([type="checkbox"]):not([type="radio"]), select) { min-height: 44px; }
+/* Conversation: prose and code remain distinct and equally readable. */
+:root .assistant-text, :root .stream-message, :root .user-message-rich {
+  font-size: var(--ui-type-body) !important; line-height: 1.75 !important;
+}
+:root .assistant-text :is(p, li), :root .stream-message :is(p, li) { font-size: inherit !important; }
+:root .assistant-text h2, :root .stream-message h2 { font-size: 1.375rem !important; line-height: 1.4; }
+:root .assistant-text h3, :root .stream-message h3 { font-size: var(--ui-type-section) !important; line-height: 1.45; }
+:root .chat-code-block { background: var(--surface-solid) !important; border-color: var(--line) !important; box-shadow: none; }
+:root .chat-code-block header {
+  min-height: 48px; font-size: var(--ui-type-meta) !important; letter-spacing: .02em;
+  color: var(--ui-readable-muted) !important; background: var(--ui-hover-surface) !important; border-color: var(--line);
+}
+:root .chat-code-block header button {
+  min-width: 52px; min-height: 44px; font-size: var(--ui-type-meta) !important;
+  color: var(--ink) !important; background: transparent !important;
+}
+:root .chat-code-block pre { padding: 14px 16px; color: var(--ink) !important; background: var(--surface-solid) !important; }
+:root .chat-code-block pre code {
+  font-size: var(--ui-type-help) !important; line-height: 1.7 !important;
+  color: inherit !important; background: transparent !important; padding: 0 !important;
+}
+:root :is(.tool-card, .completed-turn) :is(small, .tool-status, .tool-tag) { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
+:root .chat-table :is(th, td) { font-size: var(--ui-type-control) !important; line-height: 1.6; }
+/* Navigation: readable labels without sacrificing the scrollable history rail. */
+:root .drawer-history-head, :root .drawer-history-head b, :root .history-controls small { font-size: var(--ui-type-meta) !important; letter-spacing: .02em; }
+:root .conversation-open strong { font-size: var(--ui-type-control) !important; }
+:root .conversation-open small { font-size: var(--ui-type-meta) !important; }
+:root .history-controls :is(input[type="search"], select) { font-size: var(--ui-type-control) !important; }
+:root .history-controls label { font-size: var(--ui-type-meta) !important; }
+:root .drawer-tools .workspace-entry { min-height: 44px; padding: 10px 12px; font-size: var(--ui-type-control) !important; line-height: 1.4; }
+:root .drawer-tools .drawer-profile { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 8px 6px; min-height: 72px; text-align: center; }
+:root .drawer-tools .drawer-profile .profile-monogram { display: none; }
+:root .drawer-tools .drawer-profile strong { font-size: var(--ui-type-control) !important; line-height: 1.4; }
+:root .drawer-tools .drawer-profile small { font-size: var(--ui-type-meta) !important; line-height: 1.4; white-space: normal; color: var(--ui-readable-muted) !important; }
+:root .drawer-theme b, :root .theme-options button, :root .drawer-footer { font-size: var(--ui-type-meta) !important; }
+:root .theme-options button, :root .drawer-footer button { min-height: 44px; font-size: var(--ui-type-meta) !important; }
+/* Profile: quota figures retain prominence; explanations use shared body sizes. */
+.profile-sheet :is(.model-quota-head h3, .profile-extension-head h3, .profile-usage-heading) { font-size: var(--ui-type-section); }
+.profile-sheet :is(.profile-hero strong, .profile-extension-list strong, .model-quota-card h4) { font-size: var(--ui-type-card); }
+.profile-sheet :is([data-refresh-quota], [data-extension-settings]) { font-size: var(--ui-type-control); }
+.profile-sheet .profile-extension-list p { font-size: var(--ui-type-help); line-height: 1.65; }
+.profile-sheet .model-quota-value strong { font-size: 1.875rem; }
+/* Settings: section titles, model choices and permission explanations. */
+:root .settings-panel section > h3, :root .settings-section-head h3 { font-size: var(--ui-type-section) !important; line-height: 1.4; }
+:root .settings-section-head { align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
+:root .settings-section-head small { font-size: var(--ui-type-meta) !important; color: var(--ui-readable-muted) !important; }
+:root .model-options > button strong { font-size: var(--ui-type-control) !important; line-height: 1.35; }
+:root .model-options > button small { font-size: var(--ui-type-meta) !important; line-height: 1.45; color: var(--ui-readable-muted) !important; white-space: normal; }
+:root .access-options > button { padding: 12px; min-width: 0; }
+:root .access-options > button > span { font-size: var(--ui-type-control) !important; line-height: 1.4; }
+:root .access-options > button small { font-size: var(--ui-type-meta) !important; line-height: 1.5; white-space: normal; color: var(--ui-readable-muted) !important; }
+:root .reasoning-readout strong { font-size: var(--ui-type-control) !important; }
+:root .reasoning-readout code, :root .reasoning-stops button { font-size: var(--ui-type-meta) !important; }
+:root .settings-panel :is(.reasoning-description, .reasoning-note) { font-size: var(--ui-type-help) !important; line-height: 1.65; color: var(--ui-readable-muted) !important; overflow-wrap: anywhere; }
+:root .save-settings span { font-size: var(--ui-type-body) !important; }
+:root .save-settings i { font-size: var(--ui-type-meta) !important; }
+/* Server Center metrics use the sheet palette; the runtime panel stays dark. */
+:root #serverCenterStatus .app-server-metrics { gap: 8px; }
+:root #serverCenterStatus .app-server-metrics > div { padding: 12px 8px; background: var(--ui-hover-surface); border: 1px solid var(--line); border-radius: 10px; }
+:root #serverCenterStatus .app-server-metrics strong { color: var(--ink) !important; font-size: var(--ui-type-section) !important; line-height: 1.3; }
+:root #serverCenterStatus .app-server-metrics small { color: var(--ui-readable-muted) !important; font-size: var(--ui-type-meta) !important; white-space: normal; line-height: 1.5; }
+:root .app-server-capabilities .app-server-metrics strong { color: #f8fafc !important; font-size: 1.5rem !important; line-height: 1.3; }
+:root .app-server-capabilities :is(.app-server-metrics small, .app-server-sync, .app-server-sync small, .app-server-heading > div > span, .app-server-live) { font-size: var(--ui-type-meta) !important; color: #c7d0d6 !important; white-space: normal; line-height: 1.5; }
+:root .app-server-actions strong { font-size: var(--ui-type-control) !important; color: #f8fafc !important; line-height: 1.4; }
+:root .app-server-actions small { font-size: var(--ui-type-meta) !important; color: #c7d0d6 !important; line-height: 1.5; white-space: normal; }
+:root .app-server-actions button { min-height: 72px; }
+:root .open-webui-entry strong { font-size: var(--ui-type-control) !important; }
+:root .open-webui-entry small { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
+/* Customer computer list and workspace binding form. */
+:root .customer-devices-panel :is(.customer-devices-intro, .customer-capability-hint, .customer-detail-head p, .customer-workspace-note, .customer-empty p) { font-size: var(--ui-type-help); line-height: 1.65; color: var(--ui-readable-muted); }
+:root .customer-devices-panel :is(.customer-status, .customer-device-select > small, .customer-devices-toolbar p, .customer-result-block small, .customer-device-state, .customer-detail-status, .customer-device-select > em) { font-size: var(--ui-type-meta); line-height: 1.5; }
+:root .customer-devices-panel :is(.customer-device-select > small, .customer-devices-toolbar p, .customer-result-block small) { color: var(--ui-readable-muted); }
+:root .customer-device-select > strong { font-size: var(--ui-type-card); }
+:root .customer-devices-toolbar h3, :root .customer-detail-head h3 { font-size: var(--ui-type-section); }
+:root .customer-result-block h4 { font-size: var(--ui-type-card); }
+:root .customer-workspace-field > span { font-size: var(--ui-type-control); line-height: 1.5; }
+:root .customer-start-workspace, :root .customer-refresh-button { font-size: var(--ui-type-control); line-height: 1.4; }
+:root .is-online .customer-device-state, :root .customer-detail-status.online { color: var(--ui-focus); }
+:root .customer-device-list { gap: 12px; }
+:root .customer-device-select { row-gap: 8px; }
+:root .customer-detail-status { max-width: 110px; white-space: normal; }
+/* Project, delivery, execution details and approvals. */
+:root :is(.project-panel, .delivery-panel, .action-detail-panel, .approval-card, .admin-panel, .codex-accounts-panel) { overflow-wrap: anywhere; }
+:root :is(.project-panel, .delivery-panel, .action-detail-panel, .approval-card, .admin-panel, .codex-accounts-panel) p { font-size: var(--ui-type-control) !important; line-height: 1.65; }
+:root :is(.project-panel, .delivery-panel, .action-detail-panel, .approval-card, .admin-panel, .codex-accounts-panel) small { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
+:root :is(.project-panel, .delivery-panel, .action-detail-panel, .approval-card, .admin-panel, .codex-accounts-panel) button:not(.icon-button) { font-size: var(--ui-type-control) !important; }
+:root .action-detail-content pre { font-size: var(--ui-type-help) !important; line-height: 1.65; }
+:root .delivery-intro, :root #deliverySummary { font-size: var(--ui-type-help) !important; line-height: 1.6; }
+:root .workspace-panel h3 { font-size: var(--ui-type-section) !important; }
+:root .workspace-panel p { font-size: var(--ui-type-control) !important; line-height: 1.65; }
+:root .workspace-panel :is(small, .ws-muted) { font-size: var(--ui-type-meta) !important; color: var(--ui-readable-muted); line-height: 1.5; overflow-wrap: anywhere; }
+:root .workspace-refresh { min-height: 44px; font-size: var(--ui-type-control); }
+/* Local server forms only; xterm canvas and native terminal sizing are untouched. */
+:root .local-ssh-panel :is(p, label) { font-size: var(--ui-type-control) !important; line-height: 1.6; }
+:root .local-ssh-panel small { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
+:root .local-ssh-panel input { font-size: 1rem !important; }
+@media (max-width: 600px) {
+  :root .settings-scroll > section { margin-bottom: 24px; }
+  :root .access-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  :root .app-server-capabilities .app-server-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  :root .app-server-capabilities .app-server-metrics > div { padding: 8px; border-right: 0; }
+  :root .customer-device-select { grid-template-areas: "state state" "name name" "meta meta" "affordance affordance"; }
+  :root .customer-device-select > em { justify-self: end; }
+}
+@media (max-height: 600px) {
+  :root .drawer-tools { max-height: 48dvh; overflow-y: auto; overscroll-behavior: contain; }
+}
+/* Supporting surfaces use the same scale, including their actual panel names. */
+:root :is(.admin-settings-panel, .codex-account-panel) :is(p, label) { font-size: var(--ui-type-control) !important; line-height: 1.65; }
+:root :is(.admin-settings-panel, .codex-account-panel) small { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
+:root :is(.admin-settings-panel, .codex-account-panel) button:not(.icon-button) { min-height: 44px; font-size: var(--ui-type-control) !important; }
+:root :is(.project-options, .delivery-list, .device-list, .codex-account-list) strong { font-size: var(--ui-type-card) !important; line-height: 1.4; }
+:root .project-options button { padding: 14px; gap: 12px; }
+:root .chat-code-block pre, :root .chat-code-block pre code { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+:root .completed-process-copy strong, :root .stream-action-title { font-size: var(--ui-type-control) !important; line-height: 1.5; }
+:root .completed-process-copy small, :root .completed-process-state, :root .stream-action-meta { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
+:root .approval-card :is(label, .approval-choice-grid b) { font-size: var(--ui-type-control) !important; line-height: 1.5; }
+:root .approval-card :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 1rem !important; min-width: 0; max-width: 100%; }
+:root .approval-card button { min-height: 44px; }
+:root .artifact-handoff-copy strong, :root .artifact-identity strong { font-size: var(--ui-type-control); }
+:root .artifact-handoff-copy { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+:root :is(.artifact-handoff-copy small, .artifact-handoff-copy em, .artifact-handoff-open, .artifact-identity small, .artifact-version span, .artifact-loading, .artifact-switcher small) { font-size: var(--ui-type-meta); letter-spacing: .02em; }
+:root .artifact-handoff-copy strong { white-space: normal; overflow-wrap: anywhere; }
+:root .artifact-workspace-head { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+:root :is(.artifact-back, .artifact-switch, .artifact-tool, .artifact-version button) { width: 44px; height: 44px; flex-shrink: 0; }
+:root .artifact-view-tabs button { min-height: 44px; font-size: var(--ui-type-meta); }
+:root .artifact-code { font-size: var(--ui-type-help); line-height: 1.7; }
+:root .artifact-runtime-error strong, :root .artifact-switcher strong { font-size: var(--ui-type-control); }
+:root .artifact-runtime-error p { font-size: var(--ui-type-meta); white-space: normal; overflow-wrap: anywhere; }
+:root .artifact-runtime-error button { min-height: 44px; font-size: var(--ui-type-control); }
+:root .app-server-actions button:disabled { opacity: .7; }
+:root .profile-sheet :is(.usage-card header small, .usage-stat small, .usage-stat > span, .usage-card footer, .usage-insight, .usage-error small) { font-size: var(--ui-type-meta) !important; line-height: 1.5; color: var(--ui-readable-muted) !important; }
+:root .profile-sheet .usage-card header strong { font-size: var(--ui-type-card) !important; }
+:root .profile-sheet .usage-stat strong { font-size: 1.5rem !important; line-height: 1.3; }
+:root :is(.inline-image b, .inline-image small, .image-viewer-panel footer strong) { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
+:root .inline-image > span { flex-wrap: wrap; gap: 4px 8px; padding: 8px; }
+:root .workspace-section strong { font-size: var(--ui-type-card) !important; }
+:root .workspace-section :is(code, article > span), :root .workspace-checked { font-size: var(--ui-type-meta) !important; line-height: 1.6; overflow-wrap: anywhere; }
+:root[data-theme="dark"] .artifact-workspace :is(.artifact-view-tabs button, .artifact-version span, .artifact-tool, .artifact-version button, .artifact-back, .artifact-switch) { color: #c7d0d6 !important; }
+:root[data-theme="dark"] .artifact-workspace .artifact-view-tabs button.active { color: #f8fafc !important; }
+:root .model-options em { font-size: var(--ui-type-meta) !important; line-height: 1.4; color: var(--ui-readable-muted) !important; }
+:root .reasoning-stops strong, :root .reasoning-stops small { font-size: var(--ui-type-meta) !important; line-height: 1.4; color: var(--ui-readable-muted); }
+:root .reasoning-stops .selected strong { color: var(--ink); font-weight: 650; }
+:root .reasoning-stops button { min-height: 44px; }
+:root .detail-block h3, :root .detail-summary { font-size: var(--ui-type-control) !important; line-height: 1.5; }
+:root .approval-evidence :is(span, code) { font-size: var(--ui-type-meta) !important; line-height: 1.6; }
+@media (max-width: 600px) { :root .reasoning-stops small { display: none; } }
+:root .project-options button { height: auto !important; min-height: 96px; }
+:root .project-options small { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; color: var(--ui-readable-muted) !important; }
+:root .delivery-intro { color: var(--ui-readable-muted) !important; background: var(--ui-hover-surface) !important; }
+:root .model-options em { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+:root .drawer-head .eyebrow { font-size: var(--ui-type-meta) !important; line-height: 1.5; letter-spacing: .06em; }
+:root .drawer-head h2 { font-size: var(--ui-type-page) !important; line-height: 1.3; }
+:root .history-controls input[type="search"] { font-size: 1rem !important; }

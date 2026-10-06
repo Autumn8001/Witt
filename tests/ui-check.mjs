@@ -305,7 +305,10 @@ const installBridge = ({ conversation, now }) => {
     downloadLocalSftp(path, name) { window.__localSftpDownload = { path, name }; },
     requestConversation(id) {
       window.__requestedConversationId = id;
-      setTimeout(() => window.DropVault?.onConversation(JSON.stringify({ conversation })), 30);
+      setTimeout(() => {
+        window.DropVault?.onConversation(JSON.stringify({ conversation: window.__fixtureConversationOverride || conversation }));
+        window.__fixtureConversationReady = true;
+      }, 30);
     },
     requestConversationDelta() {
       window.__deltaRequestCount = (window.__deltaRequestCount || 0) + 1;
@@ -508,8 +511,44 @@ const installBridge = ({ conversation, now }) => {
   };
 };
 
+// Capture each active surface at the primary phone and desktop sizes, both themes.
+// The checks protect readability and containment while existing tests verify behavior.
+async function captureUiSurface(name, selector, textSelector) {
+  const originalViewport = page.viewportSize();
+  const originalTheme = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, mode: document.documentElement.dataset.themeMode }));
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((theme) => { document.documentElement.dataset.theme = theme; document.documentElement.dataset.themeMode = theme; }, theme);
+    for (const [label, viewport] of [["mobile", { width: 390, height: 844 }], ["desktop", { width: 1260, height: 900 }]]) {
+      await page.setViewportSize(viewport);
+      await page.waitForTimeout(450);
+      const bounds = await page.locator(selector).evaluate((node) => ({ width: node.clientWidth, scrollWidth: node.scrollWidth }));
+      if (bounds.scrollWidth > bounds.width + 2) throw new Error(`${name} overflows at ${label}/${theme}: ${JSON.stringify(bounds)}`);
+      if (textSelector) {
+        const sizes = await page.locator(textSelector).evaluateAll((nodes) => nodes.filter((node) => node.getClientRects().length && node.textContent.trim()).map((node) => parseFloat(getComputedStyle(node).fontSize)));
+        if (!sizes.length || sizes.some((size) => size < 12)) throw new Error(`${name} text is too small at ${label}/${theme}: ${sizes}`);
+      }
+      if (name === "settings") {
+        const clipped = await page.locator(".model-options em").evaluateAll((nodes) => nodes.some((node) => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1));
+        if (clipped) throw new Error(`Model reasoning counts are clipped at ${label}/${theme}`);
+      }
+      if (name === "projects") {
+        const clipped = await page.locator(".project-options small").evaluateAll((nodes) => nodes.some((node) => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1));
+        if (clipped) throw new Error(`Project descriptions are clipped at ${label}/${theme}`);
+      }
+      if (name === "delivery") {
+        const palette = await page.locator(".delivery-intro").evaluate((node) => ({ background: getComputedStyle(node).backgroundColor, expected: getComputedStyle(node).getPropertyValue("--ui-hover-surface").trim() }));
+        if (theme === "dark" && palette.background === "rgb(242, 240, 236)") throw new Error("Dark delivery intro retained its pale surface");
+      }
+      await page.screenshot({ path: `tests/ui-system-${name}-${label}-${theme}.png`, fullPage: false });
+    }
+  }
+  await page.setViewportSize(originalViewport);
+  await page.evaluate(({ theme, mode }) => { document.documentElement.dataset.theme = theme; document.documentElement.dataset.themeMode = mode; }, originalTheme);
+  await page.waitForTimeout(100);
+}
+
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-const cssNames = ["profile-overview.css", "component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css", "customer-devices.css"];
+const cssNames = ["ui-system.css", "profile-overview.css", "component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css", "customer-devices.css"];
 const cssFiles = new Map(cssNames.map((name) => [
   name, readFileSync(new URL(`../web/${name}`, import.meta.url), "utf8"),
 ]));
@@ -552,6 +591,14 @@ const customerDeviceFixture = {
     { device_id: "PC-OLD", label: "旧版 Agent 电脑", status: "online", hostname: "OLD-WIN", agent_version: "0.1.0", last_seen: "2026-10-04T09:00:00Z", capabilities: ["system.hostname"], allowed_roots: [] },
   ],
 };
+await page.route("**/vault-api/remote-workspaces/options", (route) => route.fulfill({
+  contentType: "application/json", body: JSON.stringify({ devices: customerDeviceFixture.devices.map((device) => ({ device_id: device.device_id, device_label: device.label, customer_id: "fixture-customer", status: device.status, roots: device.allowed_roots.map((root) => ({ root_alias: root, display_path: "网站项目" })), ready: device.device_id === "PC-ONLINE" })) }),
+}));
+let workspaceCreation = null;
+await page.route("**/vault-api/remote-workspaces", (route) => {
+  workspaceCreation = route.request().postDataJSON();
+  return route.fulfill({ contentType: "application/json", status: 201, body: JSON.stringify({ conversation: { id: conversation.id } }) });
+});
 await page.route("**/vault-api/customer-devices", (route) => route.fulfill({
   contentType: "application/json", body: JSON.stringify(customerDeviceFixture),
 }));
@@ -658,7 +705,7 @@ await page.route("**/vault-api/chat/conversations/*/approvals/*", async (route) 
 await page.addInitScript(installBridge, { conversation, now });
 await page.goto("https://wit.test/vault/", { waitUntil: "networkidle" });
 
-await page.waitForTimeout(250);
+await page.waitForFunction(() => typeof window.DropVault?.nativeReady === "function", null, { timeout: 10000 }).catch(() => { throw new Error("UI startup failed: " + errors.join(" | ")); });
 await page.evaluate(() => window.DropVault.nativeReady({
   version: "2.2.16", cacheScope: "0123456789abcdef01234567",
 }));
@@ -694,11 +741,12 @@ if (!(await page.locator("#artifactFrame").getAttribute("src"))?.includes("artif
 }
 await page.locator("#artifactCodeTab").click();
 await page.waitForFunction(() => document.querySelector("#artifactCode code")?.textContent.includes("Artifact ready"));
+await captureUiSurface("artifact", ".artifact-workspace", ".artifact-view-tabs button, .artifact-identity small");
 await page.locator("#artifactClose").click();
 await page.waitForFunction(() => !document.body.classList.contains("artifact-open"));
 
 // Customer computer workbench: the admin-only entry stays separate from the
-// device-authorisation sheet and exercises every read-only operation.
+// device-authorisation sheet and exercises current workspace availability.
 await page.locator("#menuButton").click();
 await page.locator("#customerDevicesButton").waitFor({ state: "visible" });
 await page.locator("#customerDevicesButton").click();
@@ -706,25 +754,18 @@ await page.locator("#customerDevicesSheet.open").waitFor();
 await page.waitForFunction(() => document.querySelector("#customerDevices [data-customer-status]")?.textContent.includes("3 台"));
 if ((await page.locator("#customerDevices .customer-device").count()) !== 3) throw new Error("Customer computer list did not render all device states");
 await page.locator("[data-select-customer-device='PC-ONLINE']").click();
-await page.locator("#customerDevices [data-device-action='system-info']").click();
-await page.waitForFunction(() => document.querySelector("#customerDevices [data-system-output]")?.textContent.includes("Windows 11"), null, { timeout: 5000 }).catch(async (error) => {
-  throw new Error(`${error.message} :: ${await page.locator("#customerDevices").innerText()}`);
-});
-await page.locator("#customerDevices [data-device-action='files']").click();
-await page.waitForFunction(() => document.querySelector("#customerDevices [data-device-file='README.txt']"));
-await page.locator("#customerDevices [data-device-file='README.txt']").click();
-await page.waitForFunction(() => document.querySelector("#customerDevices [data-file-content]")?.textContent.includes("只读验收"));
-await page.locator("#customerDevices [data-device-action='screenshot']").first().click();
-await page.waitForFunction(() => document.querySelector("#customerDevices [data-screenshot-output] img")?.src.startsWith("data:image/jpeg"));
+if (await page.locator("[data-start-remote-workspace]").isDisabled()) throw new Error("Ready device cannot create a workspace");
+if ((await page.locator("[data-workspace-root]").inputValue()) !== "workspace") throw new Error("Workspace root alias lost");
+if ((await page.locator("[data-customer-list]").textContent()).includes("等待 Agent 报到")) throw new Error("Workspace options were presented as an unregistered Agent");
+await captureUiSurface("customer-workspace", ".customer-devices-panel", ".customer-workspace-field > span, .customer-workspace-note");
+await page.locator(".customer-devices-panel").evaluate((node) => { node.scrollTop = 0; });
+await page.screenshot({ path: "tests/ui-system-customer-list-mobile.png", fullPage: false });
+await page.locator("[data-customer-detail]").scrollIntoViewIfNeeded();
 await page.screenshot({ path: "tests/ui-customer-devices-mobile.png", fullPage: false });
 await page.locator("[data-select-customer-device='PC-OFFLINE']").click();
-if (await page.locator("#customerDevices [data-device-action]").evaluateAll((buttons) => buttons.some((button) => !button.disabled))) {
-  throw new Error("Offline customer computer exposed an enabled operation");
-}
+if (!(await page.locator("[data-start-remote-workspace]").isDisabled())) throw new Error("Offline device exposed workspace creation");
 await page.locator("[data-select-customer-device='PC-OLD']").click();
-if (await page.locator("#customerDevices [data-device-action]").evaluateAll((buttons) => buttons.some((button) => !button.disabled))) {
-  throw new Error("Old Agent exposed an enabled operation");
-}
+if (!(await page.locator("[data-start-remote-workspace]").isDisabled())) throw new Error("Unready Agent exposed workspace creation");
 for (const theme of ["light", "dark"]) {
   await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1024, height: 900 }]) {
@@ -739,8 +780,11 @@ for (const theme of ["light", "dark"]) {
 }
 await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
 await page.setViewportSize({ width: 390, height: 844 });
-await page.keyboard.press("Escape");
+await page.locator("[data-select-customer-device='PC-ONLINE']").click();
+await page.locator("[data-workspace-title]").fill("UI 验收工作区");
+await page.locator("[data-start-remote-workspace]").click();
 await page.waitForFunction(() => document.querySelector("#customerDevicesSheet")?.getAttribute("aria-hidden") === "true");
+if (workspaceCreation?.device_id !== "PC-ONLINE" || workspaceCreation.root_alias !== "workspace" || workspaceCreation.title !== "UI 验收工作区") throw new Error("Workspace UI submitted the wrong binding");
 
 await page.locator("#menuButton").click();
 await page.locator("#localSshButton").click();
@@ -1149,6 +1193,7 @@ await page.evaluate(({ conversation }) => {
   window.DropVault.onConversation(JSON.stringify({ conversation }));
 }, { conversation });
 await page.locator(".approval-card.pending").waitFor();
+await captureUiSurface("approval", ".approval-card.pending", ".approval-card.pending small");
 if ((await page.locator(".stream-message").count()) !== 2) throw new Error("Process messages did not render");
 if (await page.locator(".stream-message").first().evaluate(
   (node) => Number.parseFloat(getComputedStyle(node).fontSize)) < 14) {
@@ -1284,6 +1329,7 @@ if (!commandDetails.includes("systemctl is-active") ||
     !commandDetails.includes("测试命令返回失败")) {
   throw new Error("Command detail omitted its exit code or failure reason: " + commandDetails.slice(0, 300));
 }
+await captureUiSurface("execution", ".action-detail-panel", ".action-detail-panel .eyebrow");
 await page.locator("#closeActionDetail").evaluate((button) => button.click());
 await page.evaluate(({ conversation }) => {
   conversation.workDir = "/opt/witt";
@@ -1439,7 +1485,7 @@ const settingsVisual = await page.evaluate(() => {
   const footer = document.querySelector(".settings-apply-bar").getBoundingClientRect();
   const panel = getComputedStyle(document.querySelector(".settings-panel"));
   const runtime = getComputedStyle(document.querySelector(".app-server-capabilities"));
-  const metric = getComputedStyle(document.querySelector(".app-server-metrics strong"));
+  const metric = getComputedStyle(document.querySelector(".app-server-capabilities .app-server-metrics strong"));
   const action = getComputedStyle(document.querySelector(".app-server-actions strong"));
   return {
     footerTop: footer.top,
@@ -1460,6 +1506,9 @@ if (settingsVisual.panelOverflow !== "hidden" || !settingsVisual.runtimeBackgrou
 if (!settingsVisual.metricColor.includes("248") || !settingsVisual.actionColor.includes("248")) {
   throw new Error(`Runtime text lost contrast: ${JSON.stringify(settingsVisual)}`);
 }
+await captureUiSurface("settings", ".settings-panel", ".settings-section-head small, .model-options small, .model-options em, .access-options small, .reasoning-stops strong");
+const serverMetricColor = await page.locator("#serverCenterStatus .app-server-metrics strong").first().evaluate((node) => getComputedStyle(node).color);
+if (serverMetricColor === "rgb(248, 250, 252)" || serverMetricColor === "rgb(255, 255, 255)") throw new Error("Server Center inherited dark runtime text");
 await page.screenshot({ path: "tests/ui-settings-mobile.png", fullPage: true });
 await page.evaluate(() => {
   document.documentElement.dataset.theme = "light";
@@ -1467,7 +1516,7 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(520);
 const lightSettingsVisual = await page.evaluate(() => ({
-  metricColor: getComputedStyle(document.querySelector(".app-server-metrics strong")).color,
+  metricColor: getComputedStyle(document.querySelector(".app-server-capabilities .app-server-metrics strong")).color,
   actionColor: getComputedStyle(document.querySelector(".app-server-actions strong")).color,
   selectedModelColor: getComputedStyle(document.querySelector(".model-options > button.selected strong")).color,
 }));
@@ -1522,9 +1571,11 @@ await page.locator('[data-artifact="00000000-0000-4000-8000-000000000099"]').cli
 if (!(await page.evaluate(() => window.__downloadedArtifact?.name === "年报交付.xlsx"))) {
   throw new Error("Artifact download bridge was not called");
 }
+await captureUiSurface("delivery", ".delivery-panel", "#deliverySummary");
 await page.locator("#closeDelivery").click();
 await page.locator("#attachButton").click();
 await page.locator("#projectButton").click();
+await captureUiSurface("projects", ".project-panel", ".project-options small");
 await page.locator('[data-project-path="/data/xuanyu-build-console/repo"]').click();
 await page.waitForFunction(() => window.__updatedProject === "/data/xuanyu-build-console/repo");
 await page.waitForFunction(() => document.querySelector("#projectLabel")?.textContent === "玄遇");
@@ -1879,6 +1930,7 @@ if (!accountActionsLayout.length || accountActionsLayout.some((action) => action
   button.width < 100 || button.height < 40 || button.writingMode !== "horizontal-tb"))) {
   throw new Error(`Codex account actions collapsed: ${JSON.stringify(accountActionsLayout)}`);
 }
+await captureUiSurface("accounts", ".codex-account-panel", ".codex-account-panel small");
 await page.screenshot({ path: "tests/ui-codex-accounts-mobile.png", fullPage: true });
 await page.locator("[data-new-codex-chat='xuanyu']").click();
 await page.waitForFunction(() => window.__createdConversationArgs?.codexProfile === "xuanyu");
@@ -1931,12 +1983,13 @@ for (const [status, stage, sha, button] of [
   await page.evaluate((id) => localStorage.setItem("wit_active_conversation", id), persisted.id);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.DropVault?.nativeReady === "function");
+  await page.evaluate((snapshot) => { window.__fixtureConversationOverride = snapshot; }, persisted);
   await page.evaluate(() => window.DropVault.nativeReady({
     version: "2.2.16", cacheScope: "0123456789abcdef01234567",
   }));
-  // The fake bridge sends its startup snapshot asynchronously. Let it finish,
-  // then simulate the backend response carrying the persisted job stage.
-  await page.waitForTimeout(180);
+  // Every fake backend request returns the persisted snapshot, including late
+  // startup refreshes. Wait for that response instead of guessing a boot delay.
+  await page.waitForFunction(() => window.__fixtureConversationReady === true);
   await page.evaluate((snapshot) => {
     window.DropVault.onConversation(JSON.stringify({ conversation: snapshot }));
   }, persisted);
@@ -2121,6 +2174,19 @@ if (await page.locator("#newChatButton").evaluate((node) => getComputedStyle(nod
 }
 await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
 await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+
+// Additional read-only sheets: synthetic data, no invite or device mutations.
+await page.locator("#menuButton").click();
+await page.locator("#adminSettingsButton").click();
+await captureUiSurface("access-devices", ".admin-settings-panel", ".admin-settings-panel .eyebrow");
+await page.locator("#closeAdminSettings").click();
+await page.evaluate(() => {
+  window.DropVault.onWorkspaceOverview(JSON.stringify({ projects: [{ name: "网站项目", workDir: "/projects/a-very-long-customer-project-directory/website", status: "available", description: "当前工作目录与连接状态" }], servers: [{ name: "生产服务器", status: "active", role: "Witt 服务与 Device Gateway" }], services: [{ name: "CPA", status: "connected", description: "模型服务" }], connections: [], checkedAt: "2026-10-06T12:00:00Z" }));
+  const root = document.querySelector("#workspaceOverview");
+  root.classList.add("open"); root.setAttribute("aria-hidden", "false");
+});
+await captureUiSurface("workspace", ".workspace-panel", ".workspace-section small, .workspace-section code");
+await page.locator("#closeWorkspace").click();
 
 if (errors.length) throw new Error(`Browser errors: ${errors.join(" | ")}`);
 await browser.close();
