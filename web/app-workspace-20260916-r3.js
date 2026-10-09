@@ -767,6 +767,21 @@
     return offered.length ? offered : ["low", "medium", "high", "xhigh"];
   }
 
+  function activeRemoteWorkspace(conv = state.active) {
+    if (!conv) return null;
+    if (conv.remoteWorkspace) return conv.remoteWorkspace;
+    if (conv.workspace_device_id) {
+      return {
+        deviceId: conv.workspace_device_id,
+        deviceLabel: conv.workspace_device_label || conv.workspace_device_id,
+        rootAlias: conv.workspace_root_alias || "workspace",
+        displayPath: conv.workspace_root_display_path || "受控项目根目录",
+        status: conv.workspace_binding_status || "ready",
+      };
+    }
+    return null;
+  }
+
   function renderQuickModelPicker() {
     const menu = $("#quickModelMenu");
     if (!menu) return;
@@ -775,16 +790,79 @@
       : [{ id: MVP_DEFAULT_MODEL, displayName: modelNames[MVP_DEFAULT_MODEL] }];
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
-    $("#quickModelCurrent").textContent = modelDisplayName(selectedModel);
+    const remote = activeRemoteWorkspace(state.active);
+    const remoteLocked = Boolean(remote);
+
+    // 远程工作区环境锁定横幅
+    let lockedBanner = menu.querySelector(".quick-locked-banner");
+    if (remoteLocked) {
+      if (!lockedBanner) {
+        lockedBanner = document.createElement("div");
+        lockedBanner.className = "quick-locked-banner";
+        menu.prepend(lockedBanner);
+      }
+      lockedBanner.hidden = false;
+      const devLabel = remote.deviceLabel || remote.deviceId || "远程电脑";
+      const pathLabel = remote.displayPath || remote.rootAlias || "工作区目录";
+      lockedBanner.innerHTML = `
+        <div class="quick-locked-head">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <strong>远程工作区 · 环境已锁定</strong>
+        </div>
+        <p class="quick-locked-desc">当前会话已绑定受控环境，设备、项目范围、Harness 与模型不可在对话中更换。</p>
+        <div class="quick-locked-tags">
+          <span>设备：<b>${escapeHtml(devLabel)}</b></span>
+          <span>范围：<b>${escapeHtml(pathLabel)}</b></span>
+          <span>Harness：<b>Grok Build</b></span>
+        </div>
+      `;
+    } else if (lockedBanner) {
+      lockedBanner.hidden = true;
+    }
+
+    const expandBtn = $("#quickModelExpand");
+    if (expandBtn) {
+      expandBtn.disabled = remoteLocked;
+      expandBtn.classList.toggle("locked", remoteLocked);
+      expandBtn.title = remoteLocked ? "远程工作区已固定模型" : "展开选择模型";
+    }
+
+    $("#quickModelCurrent").textContent = remoteLocked
+      ? `${modelDisplayName(selectedModel)}（已锁定）`
+      : modelDisplayName(selectedModel);
+
     $("#quickModelOptions").innerHTML = models.map((model) => {
       const selected = model.id === selectedModel;
-      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span><i>✓</i></button>`;
+      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="quick-model-option-btn ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}" ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
+        <span class="quick-option-dot" aria-hidden="true"></span>
+        <span class="quick-option-label">${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span>
+        <i class="quick-option-check">${selected ? "✓" : ""}</i>
+      </button>`;
     }).join("");
+
     const efforts = availableReasoningEfforts().slice().reverse();
     $("#quickReasoningOptions").innerHTML = efforts.map((effort) => {
       const selected = effort === selectedReasoning;
-      return `<button type="button" data-quick-reasoning="${escapeHtml(effort)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(quickReasoningNames[effort] || reasoningMeta[effort]?.label || effort)}</span><i>✓</i></button>`;
-      }).join("");
+      const meta = reasoningMeta[effort] || { label: effort, code: effort.toUpperCase(), description: "" };
+      const shortLabel = quickReasoningNames[effort] || meta.label || effort;
+      return `
+        <button type="button"
+          class="quick-reasoning-card ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}"
+          data-quick-reasoning="${escapeHtml(effort)}"
+          role="radio"
+          aria-checked="${selected}"
+          ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
+          <span class="reasoning-radio-dot" aria-hidden="true"></span>
+          <div class="reasoning-card-content">
+            <div class="reasoning-card-title-row">
+              <strong class="reasoning-card-name">${escapeHtml(shortLabel)} · ${escapeHtml(meta.label)}推理</strong>
+              <code class="reasoning-card-code">${escapeHtml(meta.code)}</code>
+            </div>
+            <small class="reasoning-card-desc">${escapeHtml(meta.description)}</small>
+          </div>
+        </button>
+      `;
+    }).join("");
   }
 
   function renderRuntimeControls() {
@@ -798,9 +876,25 @@
       state.harness = "auto";
     }
     const profileHost = $("#runtimeProfileOptions");
+    const remote = activeRemoteWorkspace(state.active);
+    const remoteLocked = Boolean(remote);
     if (profileHost) {
       if (state.runtimeProfilesError) {
-        profileHost.innerHTML = `<span class="runtime-empty" role="status">${escapeHtml(state.runtimeProfilesError)}</span>`;
+        profileHost.innerHTML = `
+          <div class="runtime-status-card error" role="status">
+            <span class="runtime-status-text">${escapeHtml(state.runtimeProfilesError)}</span>
+            <button type="button" class="runtime-retry-btn" id="retryRuntimeProfiles">重试读取</button>
+          </div>
+        `;
+        const retryBtn = $("#retryRuntimeProfiles");
+        if (retryBtn) {
+          retryBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            retryBtn.disabled = true;
+            retryBtn.textContent = "正在读取…";
+            void loadRuntimeExtras();
+          });
+        }
       } else if (!state.runtimeProfiles.length) {
         profileHost.innerHTML = '<span class="runtime-empty" role="status">暂无可用 Runtime Profile</span>';
       } else {
@@ -815,25 +909,31 @@
           const modelUnavailable = capabilitiesKnown
             ? !availableModels.includes(profile.model)
             : profile.model !== MVP_DEFAULT_MODEL;
-          const unavailable = runtimeUnavailable || modelUnavailable;
-          const label = unavailable ? `${profile.name || profile.id}（暂不可用）` : (profile.name || profile.id);
-          return `<button type="button" data-runtime-profile="${escapeHtml(profile.id)}" role="radio" aria-checked="${selected}" aria-disabled="${unavailable}" class="${selected ? "selected" : ""}${unavailable ? " unavailable" : ""}"${unavailable ? " disabled" : ""}><span>${escapeHtml(label)}</span><small>${escapeHtml(modelDisplayName(profile.model))}</small></button>`;
+          const unavailable = remoteLocked || runtimeUnavailable || modelUnavailable;
+          const label = remoteLocked
+            ? `${profile.name || profile.id}（已锁定）`
+            : (unavailable ? `${profile.name || profile.id}（暂不可用）` : (profile.name || profile.id));
+          return `<button type="button" data-runtime-profile="${escapeHtml(profile.id)}" role="radio" aria-checked="${selected}" aria-disabled="${unavailable}" class="${selected ? "selected" : ""}${unavailable ? " unavailable" : ""}${remoteLocked ? " locked" : ""}"${unavailable ? " disabled" : ""}><span>${escapeHtml(label)}</span><small>${escapeHtml(modelDisplayName(profile.model))}</small></button>`;
         }).join("");
       }
     }
     document.querySelectorAll("[data-harness]").forEach((button) => {
       const id = button.dataset.harness || "auto";
       const status = id === "auto" ? null : runtime[id];
-      const unavailable = Boolean(status && status.available === false);
+      const runtimeUnavailable = Boolean(status && status.available === false);
+      const unavailable = remoteLocked || runtimeUnavailable;
       button.disabled = unavailable;
       button.setAttribute("aria-disabled", String(unavailable));
       button.classList.toggle("unavailable", unavailable);
+      button.classList.toggle("locked", remoteLocked);
       const note = button.querySelector("small");
       if (note) {
         note.dataset.defaultText ||= note.textContent;
-        note.textContent = unavailable
-          ? id === "google-antigravity" ? "Gemini 暂未启用" : "当前不可用"
-          : note.dataset.defaultText;
+        note.textContent = remoteLocked
+          ? "远程会话已固定"
+          : (unavailable
+            ? (id === "google-antigravity" ? "Gemini 暂未启用" : "当前不可用")
+            : note.dataset.defaultText);
       }
       button.classList.toggle("selected", id === (state.harness || "auto"));
     });
@@ -887,6 +987,22 @@
       ? "版本未知" : backendSha === frontendSha ? "前后端一致" : "前后端不一致";
   }
 
+  function friendlyRuntimeError(error, defaultMsg = "Runtime Profile 暂时不可用（聊天功能不受影响）") {
+    const raw = String(error?.message || error || "").trim();
+    if (!raw || /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test(raw)) {
+      return defaultMsg;
+    }
+    if (/404/.test(raw)) {
+      return defaultMsg.includes("服务器概览")
+        ? "未检测到服务器概览接口（404）"
+        : "未检测到配置的 Runtime Profile（404）";
+    }
+    if (/500|502|503|504/.test(raw)) return "服务暂时无响应，请稍后重试";
+    if (/timeout|timed out/i.test(raw)) return "网络请求超时，请稍后重试";
+    if (/unauthorized|forbidden|401|403/i.test(raw)) return "访问未授权或权限不足";
+    return defaultMsg;
+  }
+
   async function loadRuntimeExtras() {
     void loadVersionInfo();
     state.runtimeProfilesError = "";
@@ -899,7 +1015,7 @@
       state.runtimeProfiles = Array.isArray(body.profiles) ? body.profiles : [];
     } catch (error) {
       state.runtimeProfiles = [];
-      state.runtimeProfilesError = error?.message || "Runtime Profile 暂时不可用，聊天功能不受影响。";
+      state.runtimeProfilesError = friendlyRuntimeError(error, "Runtime Profile 暂时不可用（聊天功能不受影响）");
     }
     renderRuntimeControls();
     try {
@@ -907,7 +1023,7 @@
       if (!overview.ok) throw new Error(`服务器概览暂时不可用（${overview.status}）`);
       renderServerOverview(await overview.json());
     } catch (error) {
-      state.serverOverviewError = error?.message || "服务器概览暂时不可用，聊天功能不受影响。";
+      state.serverOverviewError = friendlyRuntimeError(error, "服务器概览暂时不可用，聊天功能不受影响。");
       renderServerOverview(null);
     }
   }
@@ -985,7 +1101,7 @@
   };
 
   function projectName(workDir) {
-    const remote = state.active?.remoteWorkspace;
+    const remote = activeRemoteWorkspace(state.active);
     if (remote) return `远程 · ${remote.displayPath || remote.rootAlias || "工作区"}`;
     return projects[String(workDir || "")] || "自定义项目";
   }
@@ -1091,16 +1207,90 @@
   }
 
   function updateModelControls() {
+    const remote = activeRemoteWorkspace(state.active);
+    const envPill = $("#composerEnvPill");
+    if (envPill) {
+      if (remote) {
+        envPill.textContent = `远程 · ${remote.deviceLabel || remote.rootAlias || "工作区"}`;
+        envPill.classList.add("is-remote");
+        envPill.title = `已绑定远程设备：${remote.deviceLabel || ""}，项目：${remote.displayPath || remote.rootAlias || ""}`;
+      } else {
+        envPill.textContent = state.workDir ? `本地 · ${projectName(state.workDir)}` : "服务器";
+        envPill.classList.remove("is-remote");
+        envPill.title = "服务器运行环境";
+      }
+    }
     $("#modelLabel").textContent = modelDisplayName(state.model) || "Grok";
     $("#reasoningLabel").textContent = reasoningNames[state.reasoning] || "均衡";
     $("#accessLabel").textContent = accessNames[state.accessMode] || "完全访问";
     $("#projectLabel").textContent = projectName(state.workDir);
     $("#moreProjectLabel").textContent = projectName(state.workDir);
-    const remoteLocked = Boolean(state.active?.remoteWorkspace);
-    ["#modelButton", "#projectButton", "#moreProjectButton"].forEach((selector) => {
+    const remoteLocked = Boolean(remote);
+    ["#projectButton", "#moreProjectButton"].forEach((selector) => {
       const button = $(selector);
       if (button) button.disabled = remoteLocked;
     });
+    const modelBtn = $("#modelButton");
+    if (modelBtn) {
+      modelBtn.disabled = false;
+      modelBtn.classList.toggle("is-remote-locked", remoteLocked);
+      modelBtn.title = remoteLocked ? "远程开发工作区（环境与模型已锁定，点击查看）" : "选择模型与智能程度";
+    }
+
+    // 同步抽屉设置面板锁定状态
+    let sheetBanner = $("#settingsLockedBanner");
+    const settingsScroll = $(".settings-panel .settings-scroll");
+    if (remoteLocked && remote) {
+      if (!sheetBanner && settingsScroll) {
+        sheetBanner = document.createElement("div");
+        sheetBanner.id = "settingsLockedBanner";
+        sheetBanner.className = "settings-locked-banner";
+        settingsScroll.prepend(sheetBanner);
+      }
+      if (sheetBanner) {
+        sheetBanner.hidden = false;
+        sheetBanner.innerHTML = `
+          <div class="settings-locked-head">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <strong>远程开发工作区 · 配置已锁定</strong>
+          </div>
+          <p class="settings-locked-desc">当前对话已固定绑定受控环境，设备、项目范围、Harness 与模型不可在对话中更换。</p>
+          <div class="settings-locked-tags">
+            <span>设备：<b>${escapeHtml(remote.deviceLabel || remote.deviceId || "受控电脑")}</b></span>
+            <span>范围：<b>${escapeHtml(remote.displayPath || remote.rootAlias || "项目根目录")}</b></span>
+            <span>Harness：<b>Grok Build</b></span>
+            <span>模型：<b>${escapeHtml(modelDisplayName(state.model))}</b></span>
+          </div>
+        `;
+      }
+      document.querySelectorAll(".model-options > button, #harnessOptions > button, .access-options > button").forEach((btn) => {
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+        btn.classList.add("locked");
+      });
+      const reasoningConsole = $("#reasoningControl");
+      if (reasoningConsole) reasoningConsole.classList.add("locked");
+      const saveBtn = $("#saveSettings");
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = "<span>当前配置已锁定</span><i>远程工作区配置在会话创建时固定</i>";
+      }
+    } else {
+      if (sheetBanner) sheetBanner.hidden = true;
+      document.querySelectorAll(".model-options > button.locked, #harnessOptions > button.locked, .access-options > button.locked").forEach((btn) => {
+        btn.disabled = false;
+        btn.removeAttribute("aria-disabled");
+        btn.classList.remove("locked");
+      });
+      const reasoningConsole = $("#reasoningControl");
+      if (reasoningConsole) reasoningConsole.classList.remove("locked");
+      const saveBtn = $("#saveSettings");
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = "<span>应用到当前对话</span><i>当前设置将立即生效</i>";
+      }
+    }
+
     document.querySelectorAll("[data-model]").forEach((button) =>
       button.classList.toggle("selected", button.dataset.model === (state.draftModel || state.model)));
     document.querySelectorAll("[data-access]").forEach((button) =>
@@ -1852,6 +2042,10 @@
   }
 
   function applySettings({ closeSheet = true, announce = true } = {}) {
+    if (Boolean(activeRemoteWorkspace(state.active))) {
+      if (closeSheet) closeSettings();
+      return;
+    }
     state.model = state.draftModel || state.model;
     state.reasoning = state.draftReasoning || state.reasoning;
     state.accessMode = state.draftAccessMode || state.accessMode;
@@ -4848,7 +5042,14 @@
     if (archiveId) openArchiveDialog(archiveId);
   });
   $(".suggestions").addEventListener("click", (event) => {
-    const prompt = event.target.closest("[data-prompt]")?.dataset.prompt;
+    const btn = event.target.closest("button");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === "remote-workspace" && window.WittCustomerDevices?.open) {
+      window.WittCustomerDevices.open();
+      return;
+    }
+    const prompt = btn.dataset.prompt;
     if (prompt) {
       $("#messageInput").value = prompt;
       $("#messageInput").dispatchEvent(new Event("input"));
@@ -4893,12 +5094,14 @@
     setQuickModelMenu(!$("#quickModelMenu").classList.contains("open"));
   });
   $("#quickModelExpand").addEventListener("click", () => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const menu = $("#quickModelMenu");
     const open = !menu.classList.contains("models-open");
     menu.classList.toggle("models-open", open);
     $("#quickModelExpand").setAttribute("aria-expanded", String(open));
   });
   $("#quickModelOptions").addEventListener("click", (event) => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const model = event.target.closest("[data-quick-model]")?.dataset.quickModel;
     if (!model) return;
     state.draftModel = model;
@@ -4909,6 +5112,7 @@
     setQuickModelMenu(false);
   });
   $("#quickReasoningOptions").addEventListener("click", (event) => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const reasoning = event.target.closest("[data-quick-reasoning]")?.dataset.quickReasoning;
     if (!reasoning) return;
     state.draftReasoning = reasoning;
@@ -4932,6 +5136,7 @@
   $("#closeSettings").addEventListener("click", closeSettings);
   $("#sheetBackdrop").addEventListener("click", closeSettings);
   $(".model-options").addEventListener("click", (event) => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const model = event.target.closest("[data-model]")?.dataset.model;
     if (!model) return;
     state.draftModel = model;
@@ -4939,6 +5144,7 @@
     updateModelControls();
   });
   const selectReasoning = (event) => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const reasoning = event.target.closest("[data-reasoning]")?.dataset.reasoning;
     if (!reasoning) return;
     state.draftReasoning = reasoning;
@@ -4947,20 +5153,24 @@
   $("#reasoningStops").addEventListener("click", selectReasoning);
   $("#reasoningSegments").addEventListener("click", selectReasoning);
   $(".access-options").addEventListener("click", (event) => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const accessMode = event.target.closest("[data-access]")?.dataset.access;
     if (!accessMode) return;
     state.draftAccessMode = accessMode;
     updateModelControls();
   });
-  $("#saveSettings").addEventListener("click", () => applySettings());
+  $("#saveSettings").addEventListener("click", () => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
+    applySettings();
+  });
   document.addEventListener("click", (event) => {
     const harness = event.target.closest?.("[data-harness]");
-    if (harness && !harness.disabled) {
+    if (harness && !harness.disabled && !Boolean(activeRemoteWorkspace(state.active))) {
       state.harness = harness.dataset.harness;
       renderRuntimeControls();
     }
     const profile = event.target.closest?.("[data-runtime-profile]");
-    if (profile && !profile.disabled) {
+    if (profile && !profile.disabled && !Boolean(activeRemoteWorkspace(state.active))) {
       const selected = (state.runtimeProfiles || []).find((item) => item.id === profile.dataset.runtimeProfile);
       if (!selected) return;
       state.draftModel = selected.model;

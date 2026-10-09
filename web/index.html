@@ -210,13 +210,13 @@
     <main class="chat-stage" id="chatStage">
       <section class="welcome" id="welcome">
         <div class="welcome-mark animate-blur-fade-up" style="animation-delay:100ms" aria-hidden="true"><span>W</span><i></i><b>SERVER NATIVE</b></div>
-        <span class="lumora-badge liquid-glass animate-blur-fade-up" style="animation-delay:160ms"><i></i>你的私人 AI 工作台已就绪</span>
-        <h1 class="animate-blur-fade-up" style="animation-delay:220ms">有什么可以帮忙的？</h1>
-        <p class="animate-blur-fade-up" style="animation-delay:280ms">在你的服务器上持续工作、调用工具、整理结果。上下文、文件和执行过程始终归你所有。</p>
+        <span class="lumora-badge liquid-glass animate-blur-fade-up" style="animation-delay:160ms"><i></i>个人 AI 开发工作台已就绪</span>
+        <h1 class="animate-blur-fade-up" style="animation-delay:220ms">Witt 开发工作台</h1>
+        <p class="animate-blur-fade-up" style="animation-delay:280ms">由你服务器上的 AI Harness 驱动，支持安全操作授权的 Windows 电脑环境。上下文、文件与执行过程始终归你所有。</p>
         <div class="suggestions">
-          <button data-prompt="我有一个新任务，先帮我梳理目标和下一步。"><span>01</span><b>开始新任务</b><small>从目标到交付，完整推进</small><i>↗</i></button>
-          <button data-prompt="查看我接下来发送的文件，先分析内容，不要修改任何数据。"><span>02</span><b>分析文件</b><small>表格、图片与文档</small><i>↗</i></button>
-          <button data-prompt="检查服务器当前状态，先告诉我是否有异常。"><span>03</span><b>检查服务器</b><small>服务、资源与异常</small><i>↗</i></button>
+          <button data-action="new-task" data-prompt="请帮我推进一个开发任务，先梳理目标和执行方案。"><span>01</span><b>开发推进</b><small>代码编写、重构与测试交付</small><i>↗</i></button>
+          <button data-action="remote-workspace" data-prompt="检查当前远程开发工作区状态与授权设备。"><span>02</span><b>远程开发工作区</b><small>连接 Windows 电脑与受控环境</small><i>↗</i></button>
+          <button data-action="server-check" data-prompt="检查服务器运行状态与 CPA 模型额度。"><span>03</span><b>服务器与额度</b><small>服务健康、资源及可用配额</small><i>↗</i></button>
         </div>
       </section>
       <section class="task-status-strip" id="taskStatusStrip" aria-live="polite" hidden></section>
@@ -237,8 +237,8 @@
           <button class="attach-button" id="attachButton" aria-label="添加内容" aria-expanded="false">
             <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
           </button>
-          <button class="composer-model" id="modelButton" aria-label="模型与智能程度">
-            <span class="model-spark">✦</span><b id="modelLabel">Grok 4.7 High</b><i></i><span id="reasoningLabel">均衡</span>
+          <button class="composer-model" id="modelButton" aria-label="模型与执行环境">
+            <span class="model-spark">✦</span><span class="composer-env-pill" id="composerEnvPill">服务器</span><b id="modelLabel">Grok 4.7 High</b><i></i><span id="reasoningLabel">均衡</span>
             <span id="accessLabel" class="visually-hidden">完全访问</span>
           </button>
           <button class="voice-button" id="voiceButton" aria-label="语音模式暂未接入" title="语音模式暂未接入" disabled>
@@ -334,34 +334,38 @@
         <div class="conversation-list" id="conversationList"></div>
       </section>
       <div class="drawer-tools">
-        <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>↗</span></button>
-        <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet">模型、Harness 与服务器设置</button>
-        <div class="drawer-utilities">
-          <button class="drawer-profile" id="profileButton">
-            <span class="profile-monogram">W</span>
-            <span><strong>我的</strong><small>用量记录</small></span>
-            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
-          </button>
-          <button class="drawer-profile" id="localSshButton">
-            <span class="profile-monogram terminal-monogram"><svg viewBox="0 0 24 24"><path d="m6 8 4 4-4 4M12 17h6"/></svg></span>
-            <span><strong>服务器</strong><small id="localSshDrawerStatus">本地终端</small></span>
-            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
-          </button>
-          <button class="drawer-profile drawer-admin-entry" id="adminSettingsButton" hidden>
-            <span class="profile-monogram">⌁</span>
-            <span><strong>设备</strong><small>访问控制</small></span>
-            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
-          </button>
-          <button class="drawer-profile drawer-admin-entry" id="customerDevicesButton" hidden aria-controls="customerDevicesSheet">
+        <div class="drawer-section-group">
+          <button class="drawer-entry-card drawer-admin-entry" id="customerDevicesButton" hidden aria-controls="customerDevicesSheet">
             <span class="profile-monogram customer-device-monogram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11" rx="2"/><path d="M8 19.5h8M12 15.5v4M7 8h10M7 11h5"/></svg></span>
-            <span><strong>客户电脑</strong><small>远程操作工作台</small></span>
-            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+            <span class="drawer-entry-text"><strong>远程开发工作区</strong><small>授权 Windows 电脑与项目</small></span>
+            <i class="drawer-entry-arrow" aria-hidden="true">›</i>
           </button>
-          <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
-            <span class="profile-monogram">◎</span>
-            <span><strong>账号</strong><small>Codex</small></span>
-            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
-          </button>
+          <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>↗</span></button>
+          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet">模型、Harness 与服务器设置</button>
+        </div>
+        <div class="drawer-section-group">
+          <div class="drawer-utilities">
+            <button class="drawer-profile" id="profileButton">
+              <span class="profile-monogram">W</span>
+              <span><strong>我的</strong><small>用量与额度</small></span>
+              <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+            <button class="drawer-profile" id="localSshButton">
+              <span class="profile-monogram terminal-monogram"><svg viewBox="0 0 24 24"><path d="m6 8 4 4-4 4M12 17h6"/></svg></span>
+              <span><strong>服务器</strong><small id="localSshDrawerStatus">本地终端</small></span>
+              <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+            <button class="drawer-profile drawer-admin-entry" id="adminSettingsButton" hidden>
+              <span class="profile-monogram">⌁</span>
+              <span><strong>设备管理</strong><small>访问控制</small></span>
+              <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+            <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
+              <span class="profile-monogram">◎</span>
+              <span><strong>账号</strong><small>Codex</small></span>
+              <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+          </div>
         </div>
         <section class="drawer-theme" aria-labelledby="themeTitle">
           <span>
