@@ -23,6 +23,7 @@ const { createDeviceRoutes } = require("./routes/devices");
 const { WorkspaceStore, WorkspaceAuditStore, ApprovalGate, WorkspaceDispatcher } = require("./remote-workspace");
 const { RemoteWorkspaceService } = require("./remote-workspace-service");
 const { createRemoteWorkspaceRoutes } = require("./routes/remote-workspaces");
+const { WorkerClient } = require("./worker-client");
 
 const host = "127.0.0.1";
 const port = Number(process.env.DROP_VAULT_PORT || 3003);
@@ -290,6 +291,8 @@ const remoteWorkspaceService = new RemoteWorkspaceService({
   },
 });
 
+const workerClient = new WorkerClient();
+
 const chatService = new ChatService({
   chatDir,
   imageDir,
@@ -309,6 +312,7 @@ const chatService = new ChatService({
   // The owner-facing service is not model-restricted, so harness-served models
   // such as grok-4.7-high stay selectable and can bind to their own harness.
   allowedModels: null,
+  workerClient,
 });
 const authService = new AuthService({ dir: authDir, sendJson, readJsonBody });
 const codexAccountService = new CodexAccountService({
@@ -383,6 +387,8 @@ function chatFor(principal) {
       browserMcpEnabled: principal.admin && process.env.WITT_BROWSER_MCP_ENABLED === "1",
     } },
     remoteWorkspaceService,
+    workerClient,
+    ownerUserId: principal.userId,
     allowedCodexProfiles: principal.admin
       ? Object.keys(codexProfiles)
       : (principal.codexProfiles || ["default"]),

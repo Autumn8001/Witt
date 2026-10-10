@@ -96,12 +96,13 @@ class ConversationStore {
     this.cacheIdleMs = options.cacheIdleMs ?? 10 * 60 * 1_000;
   }
 
-  load(id) {
-    if (this.cache.has(id)) {
+  load(id, { forceFresh = false } = {}) {
+    if (!forceFresh && this.cache.has(id)) {
       this.cacheAccess.set(id, Date.now());
       this.pruneCache(id);
       return this.cache.get(id);
     }
+    this.evict(id);
     const row = this.selectConversation.get(id);
     if (!row) return null;
     try {
@@ -120,13 +121,13 @@ class ConversationStore {
     }
   }
 
-  persist(conversation) {
+  persist(conversation, { transaction = true } = {}) {
     const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
     const metadata = { ...conversation };
     delete metadata.messages;
     metadata._storageSummary = this.summarize(conversation);
     let bytes = 0;
-    this.db.exec("BEGIN IMMEDIATE");
+    if (transaction) this.db.exec("BEGIN IMMEDIATE");
     try {
       const metadataJson = JSON.stringify(metadata);
       bytes += Buffer.byteLength(metadataJson);
@@ -140,11 +141,11 @@ class ConversationStore {
         bytes += Buffer.byteLength(payload);
         this.upsertMessage.run(conversation.id, message.id, position, payload);
       });
-      this.db.exec("COMMIT");
+      if (transaction) this.db.exec("COMMIT");
       this.cacheSizes.set(conversation.id, bytes);
       this.legacySummaries.delete(conversation.id);
     } catch (error) {
-      this.db.exec("ROLLBACK");
+      if (transaction) this.db.exec("ROLLBACK");
       throw error;
     }
   }
@@ -178,6 +179,50 @@ class ConversationStore {
     entry.timer.unref();
     this.pendingSaves.set(conversation.id, entry);
     this.pruneCache(conversation.id);
+  }
+
+  evict(id) {
+    if (!id) return;
+    if (this.pendingSaves.has(id)) {
+      const pending = this.pendingSaves.get(id);
+      clearTimeout(pending.timer);
+      this.pendingSaves.delete(id);
+    }
+    this.cache.delete(id);
+    this.cacheAccess.delete(id);
+    this.cacheSizes.delete(id);
+    this.legacySummaries.delete(id);
+  }
+
+  patchMessages(id, messages, metadata = {}) {
+    return this.mutate(id, (conversation) => {
+      const updates = new Map(messages.map((message) => [message.id, message]));
+      conversation.messages = conversation.messages.map((message) => updates.get(message.id) || message);
+      for (const key of ["harnessSessionId", "harnessId", "providerId", "remoteWorkspaceStarted"]) {
+        if (Object.hasOwn(metadata, key)) conversation[key] = metadata[key];
+      }
+      return conversation;
+    });
+  }
+
+  // Read and patch under the same SQLite write lock. The Worker owns its current
+  // turn; the web process may concurrently append other messages to this thread.
+  mutate(id, update) {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const conversation = this.load(id, { forceFresh: true });
+      if (!conversation) { this.db.exec("COMMIT"); return null; }
+      const result = update(conversation);
+      result.updatedAt = new Date().toISOString();
+      this.persist(result, { transaction: false });
+      this.db.exec("COMMIT");
+      this.evict(id);
+      return result;
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      this.evict(id);
+      throw error;
+    }
   }
 
   summarize(conversation) {

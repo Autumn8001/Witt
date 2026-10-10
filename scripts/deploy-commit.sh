@@ -88,6 +88,16 @@ for attempt in {1..20}; do
     rm -f "$old_dropin" "$old_nginx"
     trap - ERR
     echo "deployed $sha"
+    if systemctl cat witt-worker.service >/dev/null 2>&1; then
+      worker_exec="$(systemctl show --property=ExecStart --value witt-worker.service 2>/dev/null || true)"
+      if [[ "$worker_exec" == *"$release/backend/worker-service.js"* ]]; then
+        echo "Worker already uses snapshot $sha; it was left running."
+      else
+        echo "Worker remains on its current snapshot; it was left running. After its active tasks finish, run: $repo/scripts/upgrade-worker.sh $sha"
+      fi
+    else
+      echo "Worker service is not installed; this web deployment did not install or start it."
+    fi
     exit 0
   fi
   sleep 1

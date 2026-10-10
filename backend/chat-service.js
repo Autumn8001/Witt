@@ -230,7 +230,11 @@ class ChatService {
     this.jsonCheckpoints = new Map();
     this.eventSubscribers = new Map();
     this.eventBroadcasts = new Map();
-    this.recover();
+    this.workerClient = options.workerClient || null;
+    this.ownerUserId = options.ownerUserId || "legacy";
+    this.recovery = this.recover().catch((error) => {
+      console.error("Chat recovery failed:", error.message);
+    });
   }
 
   clientFor(profile, model = this.defaultModel) {
@@ -329,9 +333,13 @@ class ChatService {
     return path.join(this.chatDir, `${id}.json`);
   }
 
-  readConversation(id) {
+  readConversation(id, { forceFresh = false } = {}) {
     if (!ID_PATTERN.test(String(id || ""))) return null;
-    const stored = this.store.load(id);
+    if (this.workerClient || forceFresh || (this.active?.conversationId === id && this.active?.isWorker)) {
+      this.store.evict?.(id);
+      return this.store.load(id, { forceFresh: true });
+    }
+    const stored = this.store.load(id, { forceFresh });
     if (stored) return stored;
     try {
       return JSON.parse(fs.readFileSync(this.conversationPath(id), "utf8"));
@@ -341,7 +349,23 @@ class ChatService {
   }
 
   writeConversation(conversation) {
-    this.store.save(conversation);
+    if (this.workerClient && this.store.selectConversation.get(conversation.id)) {
+      conversation = this.store.mutate(conversation.id, (latest) => {
+        const incoming = new Map(conversation.messages.map((message) => [message.id, message]));
+        for (const message of latest.messages) {
+          const workerOwns = this.active?.isWorker && this.active.messageId === message.id &&
+            message.status === "running" && message.role === "assistant" &&
+            ["google-antigravity", "grok-build"].includes(latest.harnessId) &&
+            !this.remoteWorkspaceBinding(latest) &&
+            !(this.active?.messageId === message.id && this.active.finished);
+          if (workerOwns || !incoming.has(message.id)) incoming.set(message.id, message);
+        }
+        return { ...conversation, messages: [...incoming.values()],
+          ...(latest.harnessSessionId ? { harnessSessionId: latest.harnessSessionId } : {}) };
+      });
+    } else {
+      this.store.save(conversation, { immediate: Boolean(this.workerClient) });
+    }
     this.scheduleConversationEvent(conversation.id);
     const existing = this.jsonCheckpoints.get(conversation.id);
     if (existing) {
@@ -351,7 +375,8 @@ class ChatService {
     const checkpoint = { conversation };
     checkpoint.timer = setTimeout(() => {
       this.jsonCheckpoints.delete(conversation.id);
-      this.writeJsonCheckpoint(checkpoint.conversation);
+      this.writeJsonCheckpoint(this.workerClient
+        ? (this.readConversation(conversation.id) || checkpoint.conversation) : checkpoint.conversation);
     }, 2_000);
     checkpoint.timer.unref();
     this.jsonCheckpoints.set(conversation.id, checkpoint);
@@ -1747,11 +1772,12 @@ class ChatService {
   }
 
   createMessage(req, res, conversationId, deviceId = "legacy") {
-    this.readJsonBody(req, 64 * 1024, (error, body) => {
+    this.readJsonBody(req, 64 * 1024, async (error, body) => {
       if (error) {
         this.sendJson(res, 400, { error: error.message });
         return;
       }
+      if (this.workerClient) await this.recovery;
       const conversation = this.readConversation(conversationId);
       if (!conversation || conversation.archived) {
         this.sendJson(res, 404, { error: "对话不存在" });
@@ -1809,12 +1835,12 @@ class ChatService {
         createdAt: now,
         status: "queued",
       };
-      const activeAssistant = this.active?.harnessId !== "grok-build" &&
+      const activeAssistant = !["grok-build", "google-antigravity"].includes(this.active?.harnessId) &&
           this.active?.conversationId === conversation.id && this.active?.ownerDeviceId === deviceId
         ? conversation.messages.find((message) =>
           message.id === this.active.messageId && message.role === "assistant")
         : null;
-      const queuedAfterGrok = this.active?.harnessId === "grok-build" &&
+      const queuedAfterGrok = ["grok-build", "google-antigravity"].includes(this.active?.harnessId) &&
         this.active?.conversationId === conversation.id;
       if (activeAssistant) {
         userMessage.status = "running";
@@ -2012,13 +2038,13 @@ class ChatService {
     }
   }
 
-  interruptConversation(res, conversationId, deviceId = "legacy") {
+  async interruptConversation(res, conversationId, deviceId = "legacy") {
     const conversation = this.readConversation(conversationId);
     if (!conversation || conversation.archived) {
       this.sendJson(res, 404, { error: "对话不存在" });
       return;
     }
-    const current = this.active;
+    const current = this.ensureActiveFor(conversationId);
     if (!current || current.conversationId !== conversationId || current.finished) {
       this.sendJson(res, 409, { error: "当前对话没有正在执行的任务" });
       return;
@@ -2028,6 +2054,22 @@ class ChatService {
       return;
     }
     current.interruptRequested = true;
+    if (current.isWorker && this.workerClient) {
+      const result = await this.workerClient.interruptTurn(conversationId, current.messageId);
+      if (!result.ok) {
+        current.interruptRequested = false;
+        this.sendJson(res, 503, { error: "执行服务未确认取消，请稍后重试" });
+        return;
+      }
+      if (result.data?.status === "interrupted") this.completeWorkerTurn(current.messageId, result.data);
+      this.store.evict?.(conversationId);
+      const freshConv = this.readConversation(conversationId, { forceFresh: true }) || conversation;
+      this.sendJson(res, 202, {
+        ok: true,
+        conversation: this.publicConversation(freshConv),
+      });
+      return;
+    }
     const assistant = conversation.messages.find((message) => message.id === current.messageId);
     if (assistant) {
       this.addActivity(assistant, "pause", "正在暂停当前执行", "running");
@@ -2133,23 +2175,59 @@ class ChatService {
     }
   }
 
-  recover() {
+  async recover() {
     for (const metadata of this.store.listMetadata()) {
       const conversation = this.readConversation(metadata.id);
       if (!conversation) continue;
+      if (this.workerClient && ["google-antigravity", "grok-build"].includes(conversation.harnessId) &&
+          !this.remoteWorkspaceBinding(conversation)) {
+        const running = conversation.messages.findLast((message) => message.role === "assistant" && message.status === "running");
+        if (running) {
+          const status = await this.workerClient.getTurnStatus(conversation.id, running.id);
+          if (status?.unavailable) {
+            this.resumeWorkerTurn(conversation, running);
+            continue;
+          }
+          if (status?.ok) {
+            if (status.status === "running") this.resumeWorkerTurn(conversation, running);
+            continue;
+          }
+          // A durable Worker registers the task key before executing anything.
+          // If restart happened before registration, the same key can be sent
+          // again without replaying an already accepted task.
+          if (!status && running.workerDispatchPending) {
+            running.status = "queued";
+            const user = conversation.messages.find((message) => message.id === running.replyTo);
+            if (user) user.status = "queued";
+            this.writeConversation(conversation);
+            continue;
+          }
+        }
+      }
       let changed = false;
       for (let index = 0; index < conversation.messages.length; index += 1) {
         const message = conversation.messages[index];
-        for (const entry of message.stream || []) {
-          if (entry.kind === "approval" && entry.status === "pending") {
-            entry.status = "expired";
-            entry.resolvedAt = new Date().toISOString();
-            changed = true;
-          }
-        }
         if (message.role === "assistant" && message.status === "running") {
-          // A process that was running when the service stopped may already have
-          // performed side effects. Never replay it automatically after restart.
+          let workerStatus = null;
+          if (this.workerClient && ["google-antigravity", "grok-build"].includes(conversation.harnessId) &&
+              !this.remoteWorkspaceBinding(conversation)) {
+            try {
+              workerStatus = await this.workerClient.getTurnStatus(conversation.id, message.id);
+            } catch {}
+          }
+          if (workerStatus && workerStatus.ok && workerStatus.status === "running") {
+            // Worker is still running this task! Keep running and resume subscription!
+            this.resumeWorkerTurn(conversation, message);
+            changed = false;
+            break;
+          }
+          if (workerStatus && workerStatus.ok && (workerStatus.status === "completed" || workerStatus.status === "interrupted")) {
+            this.store.evict?.(conversation.id);
+            changed = false;
+            break;
+          }
+
+          // Process truly interrupted
           message.status = "failed";
           message.completedAt = new Date().toISOString();
           message.text = "服务重启时本轮中断，执行结果无法确认。请先检查工作区，再决定是否重新提交任务。";
@@ -2162,6 +2240,17 @@ class ChatService {
           }
           changed = true;
           continue;
+        }
+        for (const entry of message.stream || []) {
+          if (entry.kind === "approval" && entry.status === "pending") {
+            const parentAssistant = conversation.messages.find((m) => m.id === message.id);
+            if (parentAssistant && parentAssistant.status === "running") {
+              continue; // Keep approval pending!
+            }
+            entry.status = "expired";
+            entry.resolvedAt = new Date().toISOString();
+            changed = true;
+          }
         }
         if (message.role === "user" && message.status === "running") {
           message.status = "failed";
@@ -2526,15 +2615,32 @@ class ChatService {
   }
 
   resolveApproval(req, res, conversationId, approvalId, deviceId = "legacy") {
-    this.readJsonBody(req, 8 * 1024, (error, body) => {
+    this.readJsonBody(req, 8 * 1024, async (error, body) => {
       if (error) {
         this.sendJson(res, 400, { error: error.message });
         return;
       }
-      const current = this.active;
+      const current = this.ensureActiveFor(conversationId);
       if (current?.conversationId === conversationId && current.ownerDeviceId &&
           current.ownerDeviceId !== deviceId) {
         this.sendJson(res, 409, { error: "这一轮由另一台设备发起，请在原设备上确认" });
+        return;
+      }
+      if (current?.isWorker && this.workerClient) {
+        const conversation = this.readConversation(conversationId);
+        const assistant = conversation?.messages?.find((m) => m.id === current.messageId);
+        const entry = assistant?.stream?.find((item) => item.kind === "approval" && item.approvalId === approvalId);
+        if (!entry || entry.status !== "pending") {
+          this.sendJson(res, 409, { error: "审批请求已处理或已失效" });
+          return;
+        }
+        const decision = String(body?.choiceId || body?.decision || "");
+        const result = await this.workerClient.resolveApproval(conversationId, current.messageId, approvalId, decision);
+        if (!result.ok) {
+          this.sendJson(res, result.status || 503, { error: result.error || "执行服务未确认审批" });
+          return;
+        }
+        this.sendJson(res, 200, { ok: true, conversation: this.publicConversation(this.readConversation(conversationId)) });
         return;
       }
       const pending = current?.conversationId === conversationId
@@ -2680,8 +2786,8 @@ class ChatService {
       "只处理用户明确要求的任务，保留现有数据和未提交修改。",
       "禁止展示、记录或回传凭据原文。用户明确授权时，允许认证程序使用指定的本地凭据文件完成认证，不将凭据或生成的 Token 输出到聊天及日志",
       "访问范围由本对话的权限设置决定。删除数据、对外发送消息等不可逆或对外动作仍需先向用户说明。",
-      "Witt 已经获得本机通用 Root 权限；需要完成用户要求时，可以直接使用 `sudo -n`、systemctl 和系统目录。",
-      "修改服务代码后先完成语法或构建校验，再重启对应服务并检查健康状态。",
+      "开发与操作在指定工作区目录内完成，遵循最小修改原则。",
+      "修改普通代码后先完成语法或构建校验。严禁在对话执行过程中直接执行 systemctl restart witt.service 或重启 Worker 自身；Witt 自身的网页更新由开发工作流或独立部署脚本执行，避免打断当前执行。",
       "修改网页界面或浏览器交互后，必须使用 Playwright 浏览器工具在 390×844 手机视口和 1440×900 桌面视口完成真实验收；检查关键交互、布局溢出、控制台错误和页面错误，不能只做源码或静态字符串检查。",
       "删除大量数据、覆盖数据库、修改防火墙或其他难以恢复的操作，执行前仍需向用户明确说明目标和影响。",
       "兼容备用通道：修改 drop-vault 后端但不适合直接重启时，仍可写入 /data/drop-vault/restart-request 请求延迟校验重启。",
@@ -2738,7 +2844,28 @@ class ChatService {
   }
 
   async runNext() {
-    if (this.active) return;
+    await this.recovery;
+    if (this.runningNext) return;
+    this.runningNext = true;
+    try { await this.runNextInternal(); } finally { this.runningNext = false; }
+  }
+
+  async runNextInternal() {
+    if (this.active) {
+      if (this.active.isWorker && this.workerClient) {
+        try {
+          const workerStatus = await this.workerClient.getTurnStatus(this.active.conversationId, this.active.messageId);
+          if (workerStatus?.unavailable) return;
+          if (workerStatus?.ok && workerStatus.status !== "running") {
+            this.completeWorkerTurn(this.active.messageId, workerStatus);
+          } else return;
+        } catch {
+          return;
+        }
+      } else {
+        return;
+      }
+    }
     const queued = this.nextQueued();
     if (!queued) return;
     const { conversation, user, assistant } = queued;
@@ -2769,6 +2896,10 @@ class ChatService {
     const attachments = (user.attachments || []).map((file) => this.readUpload(file.id)).filter(Boolean);
     user.status = "running";
     assistant.status = "running";
+    if (this.workerClient && !this.remoteWorkspaceBinding(conversation) &&
+        ["grok-build", "google-antigravity"].includes(conversation.harnessId)) {
+      assistant.workerDispatchPending = true;
+    }
     assistant.startedAt = new Date().toISOString();
     assistant.activity = [{ type: "thinking", label: "正在阅读并理解消息", status: "running" }];
     assistant.stream = Array.isArray(assistant.stream) ? assistant.stream : [];
@@ -2822,15 +2953,29 @@ class ChatService {
       setImmediate(() => this.runNext());
       return;
     }
-    if (harnessId === "grok-build") {
-      await this.runGrokTurn(conversation, user, assistant, model, reasoning, attachments,
-        gitBaseline, gitBaselineError);
-      return;
-    }
-    if (harnessId === "google-antigravity") {
-      await this.runAntigravityTurn(conversation, user, assistant, model, reasoning, attachments,
-        gitBaseline, gitBaselineError);
-      return;
+    if (harnessId === "grok-build" || harnessId === "google-antigravity") {
+      const workerAvail = this.workerClient ? await this.workerClient.isAvailable() : false;
+      console.log(`[ChatService] Dispatching turn for conv ${conversation.id}: harness=${harnessId}, workerAvail=${workerAvail}`);
+      if (workerAvail && !remoteWorkspace) {
+        await this.runWorkerTurn(conversation, user, assistant, model, reasoning, accessMode, workDir, attachments,
+          gitBaseline, gitBaselineError);
+        return;
+      }
+      if (this.workerClient && !remoteWorkspace) {
+        this.finishRun(conversation, user, assistant, false, "", "执行服务暂时不可用，请稍后重试");
+        setImmediate(() => this.runNext());
+        return;
+      }
+      if (harnessId === "grok-build") {
+        await this.runGrokTurn(conversation, user, assistant, model, reasoning, attachments,
+          gitBaseline, gitBaselineError);
+        return;
+      }
+      if (harnessId === "google-antigravity") {
+        await this.runAntigravityTurn(conversation, user, assistant, model, reasoning, attachments,
+          gitBaseline, gitBaselineError);
+        return;
+      }
     }
     if (harnessId !== "codex") {
       const completedAt = new Date().toISOString();
@@ -2955,6 +3100,142 @@ class ChatService {
     }
     conversation.updatedAt = new Date().toISOString();
     this.writeConversation(conversation);
+  }
+
+
+
+  async runWorkerTurn(conversation, user, assistant, model, reasoning, accessMode, workDir, attachments,
+      gitBaseline = null, gitBaselineError = "git_baseline_unavailable") {
+    const binding = this.remoteWorkspaceBinding(conversation);
+    const remoteWorkspace = binding ? this.remoteWorkspaceService.runtimeFor(binding) : null;
+    const existingSession = binding && !conversation.remoteWorkspaceStarted ? null : (conversation.harnessSessionId || null);
+    const promptConversation = { ...conversation, codexThreadId: existingSession };
+    const prompt = this.buildPrompt(promptConversation, user, attachments);
+    const harnessId = conversation.harnessId || resolveHarness(model, "auto");
+
+    this.active = {
+      conversationId: conversation.id,
+      messageId: assistant.id,
+      userId: user.id,
+      ownerDeviceId: user.senderDeviceId || null,
+      harnessId,
+      isWorker: true,
+      threadId: existingSession,
+      turnStarted: true,
+      finalResponse: "",
+      finished: false,
+      pendingSteers: [],
+      pendingApprovals: new Map(),
+      gitBaseline,
+      gitBaselineError,
+    };
+
+    const startResult = await this.workerClient.startTurn({
+      userId: this.ownerUserId,
+      conversationId: conversation.id,
+      userMessageId: user.id,
+      assistantMessageId: assistant.id,
+      harnessId,
+      model,
+      reasoning,
+      accessMode,
+      workDir,
+      prompt,
+      attachments: attachments.map((a) => ({ id: a.id, name: a.name, path: a.path, mimeType: a.mimeType })),
+      gitBaseline: gitBaseline ? { ...gitBaseline,
+        preexisting: [...gitBaseline.preexisting], preexistingSnapshots: [...(gitBaseline.preexistingSnapshots || [])] } : null,
+      gitBaselineError,
+      existingSession,
+      chatDir: this.chatDir,
+      dataDir: this.dataDir,
+      harnessOptions: this.harnessOptions,
+      remoteWorkspace,
+    });
+
+    if (!startResult.ok) {
+      this.failActive(`Worker 调度失败: ${startResult.error || "unknown"}`);
+      return;
+    }
+
+    this.requestActiveInterrupt();
+
+    this.active.unsubscribe = this.workerClient.subscribeTurnEvents(conversation.id, assistant.id, {
+      fromSeq: 0,
+      onEvent: (type, payload) => {
+        const current = this.active;
+        if (!current || current.messageId !== assistant.id || current.finished) return;
+        this.scheduleConversationEvent(conversation.id);
+      },
+      onFinish: (result) => {
+        const current = this.active;
+        if (!current || current.messageId !== assistant.id || current.finished) return;
+        this.completeWorkerTurn(assistant.id, result);
+      },
+      onError: () => {},
+      onEnd: () => this.checkWorkerTurn(assistant.id),
+    });
+  }
+
+  ensureActiveFor(conversationId) {
+    if (this.active && this.active.conversationId === conversationId && !this.active.finished) {
+      return this.active;
+    }
+    const conversation = this.readConversation(conversationId);
+    if (!conversation || !this.workerClient || this.remoteWorkspaceBinding(conversation) ||
+        !["google-antigravity", "grok-build"].includes(conversation.harnessId)) return null;
+    const runningAssistant = conversation.messages?.findLast((m) => m.role === "assistant" && m.status === "running");
+    if (!runningAssistant) return null;
+    this.resumeWorkerTurn(conversation, runningAssistant);
+    return this.active;
+  }
+
+  resumeWorkerTurn(conversation, assistant) {
+    if (this.active) return;
+    const replyToUser = conversation.messages?.find((m) => m.id === assistant.replyTo);
+    this.active = {
+      conversationId: conversation.id,
+      messageId: assistant.id,
+      userId: replyToUser?.id || null,
+      ownerDeviceId: replyToUser?.senderDeviceId || null,
+      harnessId: conversation.harnessId || "google-antigravity",
+      isWorker: true,
+      turnStarted: true,
+      finished: false,
+      pendingSteers: [],
+      pendingApprovals: new Map(),
+    };
+    this.active.unsubscribe = this.workerClient.subscribeTurnEvents(conversation.id, assistant.id, {
+      fromSeq: 0,
+      onEvent: () => {
+        this.scheduleConversationEvent(conversation.id);
+      },
+      onFinish: (result) => {
+        const current = this.active;
+        if (!current || current.messageId !== assistant.id || current.finished) return;
+        this.completeWorkerTurn(assistant.id, result);
+      },
+      onError: () => {},
+      onEnd: () => this.checkWorkerTurn(assistant.id),
+    });
+  }
+
+  async checkWorkerTurn(messageId) {
+    const current = this.active;
+    if (!current?.isWorker || current.messageId !== messageId || current.finished) return;
+    const status = await this.workerClient.getTurnStatus(current.conversationId, messageId);
+    if (status?.unavailable) return;
+    if (!status) this.completeWorkerTurn(messageId, { status: "failed", error: "执行服务已重启，本轮未自动重放；请检查工作区" });
+    else if (status.status !== "running") this.completeWorkerTurn(messageId, status);
+  }
+
+  completeWorkerTurn(messageId, result) {
+    const current = this.active;
+    if (!current || current.messageId !== messageId || current.finished) return;
+    const conversation = this.readConversation(current.conversationId);
+    const assistant = conversation?.messages.find((message) => message.id === messageId);
+    current.unsubscribe?.();
+    this.finishActive(result.status === "completed", assistant?.text || result.text || "",
+      result.error || "执行失败", result.status === "interrupted");
   }
 
 

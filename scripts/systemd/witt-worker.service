@@ -1,0 +1,26 @@
+[Unit]
+Description=Witt AI Execution Worker
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/root/.witt/app.env
+Environment=WITT_WORKER_RELEASE_SHA=UNCONFIGURED
+WorkingDirectory=/opt/witt
+Environment=WITT_WORKER_SOCKET=/run/witt/worker.sock
+ExecStart=/usr/local/bin/node /opt/witt/.git/witt-releases/${WITT_WORKER_RELEASE_SHA}/backend/worker-service.js
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+RuntimeDirectory=witt
+RuntimeDirectoryMode=0700
+UMask=0077
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
