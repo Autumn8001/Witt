@@ -17,6 +17,8 @@ Gemini 的前序记录报告了 Witt 单轮真实回复 `Witt Native Harness Ver
 
 `antigravityAdapter()` 只在会话 `accessMode === "danger-full-access"` 时设置 `skipPermissions`。全局 `harnessOptions.antigravity.skipPermissions` 不再覆盖普通会话。
 
+注意：Witt 原有 `createConversation()` 的通用默认权限是 `danger-full-access`，本次没有改变已有产品默认值或会话设置。不要把“取消全局覆盖”理解为“所有新会话默认安全”；使用前应在会话设置中确认 `workspace-write` / `read-only`，只有确实需要并接受风险时才使用全权限模式。
+
 `read-only` 和 `workspace-write` 不传 `--dangerously-skip-permissions`，但这不等于 Witt 已实现逐项工具审批、文件系统只读沙箱或工作区外访问隔离。实际工具策略由 CLI 决定，尚未实测。需要审批而非交互模式无法完成的操作可能失败；不得自动改为危险模式。
 
 普通用户降权不是沙箱。`agytest` 能读写其系统权限允许的文件，包括自己的登录凭据。现有 UID 1000 与某些容器进程 UID 重合：禁止使用 `pkill -u agytest` 等宽泛清理，只处理已确认属于本次任务的进程。
