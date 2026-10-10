@@ -21,7 +21,8 @@ const {
 } = require("./chat-service");
 
 const REPO = path.join(__dirname, "..");
-const GEMINI = "gemini-3.8-flash-high";
+const GEMINI = "gemini-3.7-flash-high"; // Still paused; preserve its denial coverage.
+const ENABLED_GEMINI = "gemini-3.8-flash-high";
 
 // A stand-in that reports as an executable file, to prove the adapter honours the
 // operator's configured binary instead of only the default install path.
@@ -104,12 +105,12 @@ test("T-CAP-02 the selectable Grok model is offered with its harness and provide
   assert.equal(grok.provider, "cpa");
 });
 
-test("T-CAP-03 Gemini is not offered, for any role", async () => {
+test("T-CAP-03 only enabled Gemini is offered, subject to role policy", async () => {
   for (const allowedModels of [null, new Set(["gpt-5.5"])]) {
     const { service, sent } = makeService({ allowedModels });
     const { raw, payload } = await capabilities(service, sent);
-    assert.equal(payload.models.some((model) => String(model.id).startsWith("gemini")), false);
-    assert.equal(raw.includes("gemini"), false);
+    assert.equal(payload.models.some((model) => model.id === GEMINI), false);
+    assert.equal(payload.models.some((model) => model.id === ENABLED_GEMINI), allowedModels === null);
   }
 });
 
@@ -125,7 +126,7 @@ test("T-CAP-04 Codex failure does not remove Grok capability", async () => {
   assert.ok(["ready", "executable_not_found"].includes(grokRuntime.status),
     `unexpected grok status: ${grokRuntime.status}`);
   assert.equal(grokRuntime.provider, "cpa");
-  assert.equal(runtime["google-antigravity"].status, PAUSED_RUNTIME_REASON);
+  assert.ok(["ready", "executable_not_found"].includes(runtime["google-antigravity"].status));
   assert.deepEqual(payload.support, { fork: false, compact: false, review: false, plans: false });
   assert.ok(payload.models.some((model) => model.id === "grok-4.7-high"));
 });
@@ -153,6 +154,15 @@ test("T-CAP-06 runtime status uses the configured Grok binary", async () => {
   assert.equal(payload.runtime["grok-build"].status, "ready");
 });
 
+test("Antigravity executable status honours its configured binary", async () => {
+  const { service, sent } = makeService({
+    harnessOptions: { antigravity: { bin: REAL_EXECUTABLE } },
+  });
+  const { payload } = await capabilities(service, sent);
+  assert.equal(payload.runtime["google-antigravity"].available, true);
+  assert.equal(payload.runtime["google-antigravity"].status, "ready");
+});
+
 test("T-CAP-07 Codex-reported paused and retired models are filtered out", async (t) => {
   const { service, sent, root } = makeService();
   // A local credential file gates the real CLI; this test uses a fake client and
@@ -166,7 +176,7 @@ test("T-CAP-07 Codex-reported paused and retired models are filtered out", async
     async request(method) {
       if (method === "model/list") {
         return { data: [
-          { id: "gemini-3.8-flash-high" },
+          { id: GEMINI },
           { id: "gpt-5.6-sol" },
           { id: "grok-4.7-medium" },
         ] };
@@ -181,9 +191,10 @@ test("T-CAP-07 Codex-reported paused and retired models are filtered out", async
   // Allowed GPT survives.
   assert.ok(ids.includes("gpt-5.6-sol"), `expected gpt retained, got ${ids.join(", ")}`);
   // Paused and retired entries do not, even though Codex listed them.
-  assert.equal(ids.some((id) => String(id).startsWith("gemini")), false);
+  assert.equal(ids.includes(GEMINI), false);
+  assert.equal(ids.includes(ENABLED_GEMINI), true);
   assert.equal(ids.includes("grok-4.7-medium"), false);
-  assert.equal(raw.includes("gemini"), false);
+  assert.equal(raw.includes(GEMINI), false);
   // No duplicate entries when both Codex and the harness catalog offer a model.
   assert.equal(new Set(ids).size, ids.length, `duplicate ids in ${ids.join(", ")}`);
 });
@@ -251,6 +262,8 @@ test("T-MODEL-04 a retired-model turn fails without calling the Grok runtime", a
 // ------------------------------------------------------------ catalog split
 
 test("T-MODEL-01 selectable and legacy catalogs are separate", () => {
+  assert.equal(SELECTABLE_HARNESS_MODELS.has(ENABLED_GEMINI), true);
+  assert.equal(PAUSED_RUNTIME_MODELS.has(ENABLED_GEMINI), false);
   assert.equal(SELECTABLE_MODELS.has(GEMINI), false, "Gemini must not be selectable");
   assert.equal(LEGACY_KNOWN_MODELS.has(GEMINI), true, "Gemini must stay recognisable");
   assert.equal(SELECTABLE_HARNESS_MODELS.has(GEMINI), false);

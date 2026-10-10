@@ -8,6 +8,7 @@ const { ConversationStore } = require("./sqlite-store");
 const { workspaceOverview } = require("./workspace-overview");
 const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime/runtime-resolver");
 const { GrokBuildAdapter } = require("./runtime/grok-build-adapter");
+const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
 const { describeBinary } = require("./runtime/runtime-binaries");
 const { RuntimeLogger } = require("./runtime/runtime-log");
 const { createGitChangeBaseline, collectGitChanges } = require("./git-change-collector");
@@ -19,13 +20,13 @@ const DEFAULT_PROVIDER_ID = "cpa";
 
 // --- Model catalogs ---------------------------------------------------------
 // SELECTABLE: models a caller may choose for a NEW session or through PATCH.
-// Deliberately contains no Gemini, so nobody - not even an administrator whose
-// policy is unrestricted - can select a paused runtime.
-const SELECTABLE_HARNESS_MODELS = new Set(["grok-4.7-high"]);
+// Gemini 3.8 is enabled through the explicitly provisioned Antigravity runtime.
+// Other paused runtimes remain unavailable, even to unrestricted administrators.
+const SELECTABLE_HARNESS_MODELS = new Set(["grok-4.7-high", "gemini-3.8-flash-high"]);
 // Runtimes that are paused (Gemini): selecting one is refused with this reason.
 const PAUSED_RUNTIME_REASON = "blocked_runtime_incompatible";
 const PAUSED_RUNTIME_MODELS = new Set([
-  "gemini-3.8-flash-high", "gemini-3.7-flash-high", "gemini-3.6-flash-high",
+  "gemini-3.7-flash-high", "gemini-3.6-flash-high",
   "gemini-3.1-flash-lite",
 ]);
 // Harness models that were never verified end-to-end. They must never be silently
@@ -1038,7 +1039,7 @@ class ChatService {
       if (this.modelBlockReason(id)) continue;
       models.push({
         id,
-        displayName: `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}`,
+        displayName: id.startsWith("gemini-") ? `Gemini ${id.replace(/^gemini-/, "").replace(/-/g, " ")}` : `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}`,
         isDefault: id === this.defaultModel,
         inputModalities: ["text", "image"],
         defaultReasoningEffort: "high",
@@ -1163,6 +1164,7 @@ class ChatService {
     // Use the operator's configured binary, not just the default install path.
     const configuredBin = this.harnessOptions?.grok?.bin;
     const grok = describeBinary("grok-build", configuredBin ? { bin: configuredBin } : {});
+    const antigravity = describeBinary("google-antigravity", this.harnessOptions?.antigravity || {});
     return {
       codex: {
         available: codex.available,
@@ -1174,7 +1176,11 @@ class ChatService {
         status: grok && grok.exists ? "ready" : "executable_not_found",
         provider: providerForModel(DEFAULT_HARNESS_MODEL),
       },
-      "google-antigravity": { available: false, status: PAUSED_RUNTIME_REASON },
+      "google-antigravity": {
+        available: Boolean(antigravity.exists),
+        status: antigravity.exists ? "ready" : "executable_not_found",
+        provider: "google-antigravity",
+      },
     };
   }
 
@@ -2821,6 +2827,11 @@ class ChatService {
         gitBaseline, gitBaselineError);
       return;
     }
+    if (harnessId === "google-antigravity") {
+      await this.runAntigravityTurn(conversation, user, assistant, model, reasoning, attachments,
+        gitBaseline, gitBaselineError);
+      return;
+    }
     if (harnessId !== "codex") {
       const completedAt = new Date().toISOString();
       user.status = "failed";
@@ -2945,6 +2956,171 @@ class ChatService {
     conversation.updatedAt = new Date().toISOString();
     this.writeConversation(conversation);
   }
+
+
+  antigravityAdapter(model, conversation) {
+    const options = this.harnessOptions?.antigravity || {};
+    // A global runtime option must not override a session's access policy.
+    const skipPermissions = conversation?.accessMode === "danger-full-access";
+    return new AntigravityAdapter({
+      bin: options.bin,
+      model,
+      cwd: this.effectiveWorkDir(conversation),
+      printTimeoutMs: options.timeoutMs || 300000,
+      skipPermissions,
+      logger: this.runtimeLogger,
+    });
+  }
+
+  async runAntigravityTurn(conversation, user, assistant, model, reasoning, attachments,
+      gitBaseline = null, gitBaselineError = "git_baseline_unavailable") {
+    const workDir = this.effectiveWorkDir(conversation);
+    const adapter = this.antigravityAdapter(model, conversation);
+    const remoteWorkspace = this.remoteWorkspaceBinding(conversation);
+    const existingSession = conversation.harnessSessionId || null;
+    const promptConversation = { ...conversation, codexThreadId: existingSession };
+    const prompt = this.buildPrompt(promptConversation, user, attachments);
+
+    this.active = {
+      conversationId: conversation.id,
+      messageId: assistant.id,
+      userId: user.id,
+      ownerDeviceId: user.senderDeviceId || null,
+      harnessId: "google-antigravity",
+      harnessAdapter: adapter,
+      harnessHandle: null,
+      client: { request: () => Promise.reject(new Error("google-antigravity has no app-server client")) },
+      threadId: existingSession,
+      turnId: null,
+      turnStarted: false,
+      finalResponse: "",
+      finished: false,
+      pendingSteers: [],
+      pendingApprovals: new Map(),
+      codexHome: null,
+      gitBaseline,
+      gitBaselineError,
+    };
+
+    try {
+      await adapter.startRuntime();
+    } catch (error) {
+      this.failActive(`Failed to start Google Antigravity: ${String(error.message || error).slice(0, 200)}`);
+      return;
+    }
+    if (!this.active || this.active.messageId !== assistant.id) return;
+    if (this.active.interruptRequested) {
+      this.finishActive(false, "", "interrupted", true);
+      return;
+    }
+
+    const skipPermissions = adapter.skipPermissions;
+    const handle = adapter.sendPrompt({
+      prompt,
+      model,
+      cwd: workDir,
+      effort: /-(high|medium|low|max)$/.test(model) ? null : (HARNESS_REASONING[reasoning] || "medium"),
+      skipPermissions,
+      ...(existingSession ? { conversationId: existingSession } : {}),
+    });
+    this.active.harnessHandle = handle;
+    this.active.turnStarted = true;
+    this.active.toolEntries = new Map();
+    this.requestActiveInterrupt();
+
+    handle.events.on("event", (event) => {
+      const current = this.active;
+      if (!current || current.messageId !== assistant.id || current.finished) return;
+      const live = this.readConversation(conversation.id) || conversation;
+      const liveAssistant = live.messages.find((message) => message.id === assistant.id);
+      if (!liveAssistant) return;
+      const discoveredSessionId = event.sessionId || event.raw?.sessionId;
+      if (discoveredSessionId) {
+        live.harnessSessionId = String(discoveredSessionId);
+        live.harnessId = "google-antigravity";
+        live.providerId = "google-antigravity";
+        if (remoteWorkspace) live.remoteWorkspaceStarted = true;
+      }
+      if (event.type === "text_delta") {
+        const entry = this.upsertStream(liveAssistant, "harness-message",
+          { kind: "message", phase: "final_answer", status: "running" });
+        entry.text = `${entry.text || ""}${event.text || ""}`;
+      } else if (event.type === "reasoning_delta") {
+        if (!current.reasoningNoted) {
+          current.reasoningNoted = true;
+          this.addActivity(liveAssistant, "thinking", "reasoning", "running");
+        }
+      } else if (event.type === "result") {
+        if (event.text) {
+          const entry = this.upsertStream(liveAssistant, "harness-message",
+            { kind: "message", phase: "final_answer", status: "running" });
+          entry.text = event.text;
+        }
+        current.harnessUsage = event.usage || null;
+      } else if (event.type === "error") {
+        current.harnessEventError = String(event.error || "run_error").slice(0, 200);
+        this.addActivity(liveAssistant, "error", "Antigravity error event", "failed");
+      }
+      live.updatedAt = new Date().toISOString();
+      this.writeConversation(live);
+      if (discoveredSessionId) this.store.save(live, { immediate: true });
+    });
+
+    const result = await handle.done;
+    if (!this.active || this.active.messageId !== assistant.id || this.active.finished) return;
+
+    const finalConversation = this.readConversation(conversation.id) || conversation;
+    const finalAssistant = finalConversation.messages.find((message) => message.id === assistant.id);
+    const text = (finalAssistant?.stream || [])
+      .filter((entry) => entry.kind === "message")
+      .map((entry) => entry.text || "").join("").trim() || (result.text || "").trim();
+
+    if (result.sessionId) {
+      finalConversation.harnessSessionId = result.sessionId;
+      finalConversation.harnessId = "google-antigravity";
+      finalConversation.providerId = "google-antigravity";
+      if (remoteWorkspace) finalConversation.remoteWorkspaceStarted = true;
+    }
+    if (result.sessionId) this.writeConversation(finalConversation);
+
+    // 1. Append git changes before finishActive
+    if (!remoteWorkspace) await this.appendGitChanges(this.active);
+
+    // 2. Timeout check
+    if (result.timedOut) {
+      finalConversation.updatedAt = new Date().toISOString();
+      this.writeConversation(finalConversation);
+      this.finishActive(false, text, "Google Antigravity timeout");
+      return;
+    }
+
+    // 3. Interrupt check
+    if (this.active.interruptRequested) {
+      finalConversation.updatedAt = new Date().toISOString();
+      this.writeConversation(finalConversation);
+      this.finishActive(false, text, "interrupted", true);
+      return;
+    }
+
+    finalConversation.updatedAt = new Date().toISOString();
+    this.writeConversation(finalConversation);
+
+    // 4. Strict error check: if exit code not ok or error event received, always fail
+    if (!result.ok || this.active.harnessEventError) {
+      this.finishActive(false, text, `Google Antigravity ${result.errorType || "failed"}`);
+      return;
+    }
+
+    // 5. Empty output check
+    if (!text) {
+      this.finishActive(false, "", "Google Antigravity produced no response");
+      return;
+    }
+
+    // 6. Success completion
+    this.finishActive(true, text, "");
+  }
+
 
   grokAdapter(model, conversation) {
     const options = this.harnessOptions.grok || {};
