@@ -372,7 +372,9 @@ function chatFor(principal) {
     // Existing sessions keep whatever they already have stored.
     defaultModel: "grok-4.7-high",
     defaultProviderId: "cpa",
-    quotaExhausted: !principal.admin && !principal.unrestrictedModels,
+    // Invitation status is not a quota measurement. Let the model provider
+    // enforce its real limits; the allowlist above still controls model access.
+    quotaExhausted: false,
     codexProfiles,
     harnessOptions: { ...harnessOptions, grok: {
       ...harnessOptions.grok,

@@ -15,7 +15,7 @@ const invite = auth.initialize("correct horse battery staple", "owner");
 const port = 32000 + Math.floor(Math.random() * 1000);
 const origin = `http://127.0.0.1:${port}`;
 const child = spawn(process.execPath, [path.join(__dirname, "../backend/server.js")], {
-  stdio: "ignore",
+  stdio: ["ignore", "ignore", "pipe"],
   env: {
     ...process.env,
     DROP_VAULT_PORT: String(port),
@@ -28,6 +28,8 @@ const child = spawn(process.execPath, [path.join(__dirname, "../backend/server.j
     DROP_VAULT_TOKEN_FILE: tokenFile,
   },
 });
+let startupError = "";
+child.stderr.on("data", (chunk) => { startupError += chunk.toString(); });
 
 async function waitForServer() {
   for (let index = 0; index < 50; index += 1) {
@@ -37,7 +39,7 @@ async function waitForServer() {
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("test server did not start");
+  throw new Error(`test server did not start: ${startupError}`);
 }
 
 (async () => {
@@ -75,6 +77,38 @@ async function waitForServer() {
       body: JSON.stringify({ label: "accepted" }),
     });
     if (accepted.status !== 201) throw new Error("same-origin browser request was rejected");
+    const memberInvite = (await accepted.json()).invite;
+    const memberActivation = await fetch(`${origin}/auth/activate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Witt-Client": "browser" },
+      body: JSON.stringify({ inviteCode: memberInvite.code,
+        deviceId: "44444444-4444-4444-8444-444444444444", deviceName: "Invited member" }),
+    });
+    if (memberActivation.status !== 201) throw new Error("member activation failed");
+    const memberCookie = (memberActivation.headers.get("set-cookie") || "").split(";", 1)[0];
+    const memberHeaders = { Cookie: memberCookie, Origin: origin, "Content-Type": "application/json" };
+    const memberStatus = await fetch(`${origin}/auth/status`, { headers: memberHeaders });
+    const memberPrincipal = (await memberStatus.json()).principal;
+    if (!memberPrincipal || memberPrincipal.admin || memberPrincipal.unrestrictedModels) {
+      throw new Error("test member unexpectedly has elevated privileges");
+    }
+    const created = await fetch(`${origin}/chat/conversations`, {
+      method: "POST", headers: memberHeaders, body: JSON.stringify({ model: "gemini-3.8-flash-high" }),
+    });
+    if (created.status !== 201) throw new Error("invited user cannot create a conversation");
+    const conversation = (await created.json()).conversation;
+    if (conversation.contextUsage?.usedTokens === 1 && conversation.contextUsage?.contextWindow === 1) {
+      throw new Error("invited user received fabricated exhausted quota");
+    }
+    // Empty input reaches normal validation without invoking a real model.
+    const message = await fetch(`${origin}/chat/conversations/${conversation.id}/messages`, {
+      method: "POST", headers: memberHeaders, body: JSON.stringify({ text: "" }),
+    });
+    if (message.status !== 400 || (await message.json()).error !== "请输入消息或添加附件") {
+      throw new Error("invited user was blocked before normal message validation");
+    }
+    const memberAdmin = await fetch(`${origin}/admin/devices`, { headers: memberHeaders });
+    if (memberAdmin.ok) throw new Error("invited user gained administrator access");
     console.log("browser session checks passed");
   } finally {
     child.kill("SIGTERM");
