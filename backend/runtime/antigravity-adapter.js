@@ -51,6 +51,7 @@ class AntigravityAdapter {
    * @param {string} [options.cwd]
    * @param {string} [options.apiKeyEnv]     env var name for the Gemini-compatible key
    * @param {string} [options.apiKeyValue]
+   * @param {string} [options.baseUrl]       Gemini-compatible API base URL
    * @param {number} [options.printTimeoutMs]
    * @param {boolean} [options.stdinSessions] use one stdin-driven process per session
    */
@@ -63,6 +64,7 @@ class AntigravityAdapter {
     this.cwd = options.cwd || process.cwd();
     this.apiKeyEnv = options.apiKeyEnv || "GEMINI_API_KEY";
     this.apiKeyValue = options.apiKeyValue || "";
+    this.baseUrl = options.baseUrl || "";
     this.printTimeoutMs = Number(options.printTimeoutMs || 5 * 60 * 1000);
     this.stdinSessions = options.stdinSessions === true;
     this.skipPermissions = options.skipPermissions === true;
@@ -81,6 +83,7 @@ class AntigravityAdapter {
   childEnv() {
     const env = {};
     if (this.apiKeyEnv && this.apiKeyValue) env[this.apiKeyEnv] = this.apiKeyValue;
+    if (this.baseUrl) env.GOOGLE_GEMINI_BASE_URL = this.baseUrl;
     return env;
   }
 

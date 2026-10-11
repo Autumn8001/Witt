@@ -227,6 +227,7 @@ const harnessOptions = {
     providerId: "sub2api",
     apiKeyEnv: "GEMINI_API_KEY",
     apiKeyValue: process.env.GEMINI_API_KEY || "",
+    baseUrl: process.env.GOOGLE_GEMINI_BASE_URL || "",
   },
 };
 

@@ -65,6 +65,10 @@ function deserializeGitBaseline(baseline) {
   return baseline;
 }
 
+function antigravityFailureReason(eventError, result = {}) {
+  return redactHarnessText(eventError || result.errorType || "failed", 200);
+}
+
 function settleWithin(promise, timeoutMs) {
   let timer;
   return Promise.race([
@@ -398,6 +402,9 @@ class TurnInstance {
       bin: options.bin,
       model: this.model,
       cwd: this.workDir,
+      apiKeyEnv: options.apiKeyEnv || "GEMINI_API_KEY",
+      apiKeyValue: options.apiKeyValue || "",
+      baseUrl: options.baseUrl || "",
       printTimeoutMs: options.timeoutMs || 300000,
       skipPermissions,
       logger: this.worker.logger,
@@ -498,7 +505,8 @@ class TurnInstance {
       return;
     }
     if (!result.ok || this.error) {
-      this.finish("failed", `Google Antigravity ${result.errorType || this.error || "failed"}`);
+      const reason = antigravityFailureReason(this.error, result);
+      this.finish("failed", `Google Antigravity ${reason}`);
       return;
     }
     if (!this.text) {
@@ -1006,6 +1014,7 @@ if (require.main === module) {
 module.exports = {
   WorkerService,
   TurnInstance,
+  antigravityFailureReason,
   serializeGitBaseline,
   deserializeGitBaseline,
 };
