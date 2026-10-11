@@ -39,7 +39,7 @@ const codexWorkDir = process.env.DROP_VAULT_CODEX_WORKDIR || "/home/ubuntu/Docum
 const codexProfiles = {
   default: {
     id: "default",
-    label: "Witt 默认账号",
+    label: "Chloe 默认账号",
     codexHome: "/home/ubuntu/.codex",
     workDir: codexWorkDir,
   },
@@ -437,14 +437,14 @@ function runNextTask() {
   writeTask(task);
 
   const context = [
-    "你通过 Witt 应用运行在用户私人服务器上，负责协助用户完成开发任务。",
+    "你通过 Chloe 应用运行在用户私人服务器上，负责协助用户完成开发任务。",
     `固定工作目录：${codexWorkDir}`,
-    `Witt 文件目录：${dataDir}`,
+    `Chloe 文件目录：${dataDir}`,
     "只处理用户这条消息明确要求的任务；保留现有数据和未提交修改。",
     "禁止展示、记录或回传凭据原文。用户明确授权时，允许认证程序使用指定的本地凭据文件完成认证，不将凭据或生成的 Token 输出到聊天及日志。",
     "如果任务需要超出上述项目目录的写入、对外发送消息、删除数据或其他高风险操作，只说明需要用户确认，不要执行。",
     "",
-    `用户通过 Witt 发来的消息：${task.prompt}`,
+    `用户通过 Chloe 发来的消息：${task.prompt}`,
   ].join("\n");
   const args = [
     "exec",
@@ -601,7 +601,7 @@ function createTask(req, res) {
     }
     const prompt = String(body?.prompt || "").trim();
     if (!prompt) {
-      sendJson(res, 400, { error: "请填写要交给 Witt 的任务" });
+      sendJson(res, 400, { error: "请填写要交给 Chloe 的任务" });
       return;
     }
     if (Buffer.byteLength(prompt, "utf8") > maxPromptBytes) {

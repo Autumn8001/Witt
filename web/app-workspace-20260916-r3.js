@@ -1095,7 +1095,7 @@
   };
   const projects = {
     "": "空白",
-    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "维特",
+    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "Chloe",
     "/home/ubuntu/Documents/Codex/2026-07-26-xlsb": "年报",
     "/data/xuanyu-build-console/repo": "玄遇",
   };
@@ -1862,7 +1862,7 @@
   function openLocalSsh() {
     closeDrawer();
     if (versionLessThan(state.nativeVersion, "2.2.16")) {
-      toast("请先更新 Witt 后使用本地终端");
+      toast("请先更新 Chloe 后使用本地终端");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -1977,7 +1977,7 @@
     const currentBridge = bridge();
     if (versionLessThan(state.nativeVersion, "2.2.19")) {
       if (profile !== "xuanyu") {
-        toast("请先更新 Witt 后登录更多账号");
+        toast("请先更新 Chloe 后登录更多账号");
         currentBridge?.checkForUpdates?.();
         return false;
       }
@@ -2010,7 +2010,7 @@
   function consumeQuotaReset() {
     closeQuotaResetConfirm();
     if (typeof bridge()?.consumeRateLimitReset !== "function") {
-      toast("请先更新 Witt 后再使用重置额度");
+      toast("请先更新 Chloe 后再使用重置额度");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -2148,10 +2148,10 @@
   function openImageViewer(url, name, mimeType = "") {
     if (!url) return;
     $("#imageViewerImage").src = url;
-    $("#imageViewerImage").alt = name || "Witt 图片";
-    $("#imageViewerName").textContent = name || "Witt 图片";
+    $("#imageViewerImage").alt = name || "Chloe 图片";
+    $("#imageViewerName").textContent = name || "Chloe 图片";
     $("#downloadImageViewer").dataset.url = url;
-    $("#downloadImageViewer").dataset.name = name || "Witt 图片";
+    $("#downloadImageViewer").dataset.name = name || "Chloe 图片";
     $("#downloadImageViewer").dataset.mimeType = mimeType;
     $("#imageViewer").classList.add("open");
     $("#imageViewer").setAttribute("aria-hidden", "false");
@@ -2205,7 +2205,7 @@
     const latestAssistant = conversation?.messages?.filter((item) => item.role === "assistant").at(-1);
     const latestUser = conversation?.messages?.filter((item) => item.role === "user").at(-1);
     const taskSummary = String(latestUser?.text || "更新项目文件").replace(/\s+/g, " ").trim().slice(0, 72) || "更新项目文件";
-    const commitSeed = `Witt: ${taskSummary}`;
+    const commitSeed = `Chloe: ${taskSummary}`;
     const branch = conversation?.gitBranch || conversation?.branch ||
       details.branch || details.gitBranch || entry.branch || "";
     const allowedHarness = ["grok-build", "codex"].includes(conversation?.harnessId);
@@ -2271,7 +2271,7 @@
           </div>` : ""}
         ${canDeploy ? `<button type="button" class="development-workflow-launch" data-workflow-prepare-deploy>准备部署</button>
           <div class="development-workflow-confirm" data-workflow-deploy-confirm-panel hidden>
-            <p>已提交并推送到产品分支。确认后将重启 Witt 服务并检查健康状态；也可以暂不部署。</p>
+            <p>已提交并推送到产品分支。确认后将重启 Chloe 服务并检查健康状态；也可以暂不部署。</p>
             <div><button type="button" class="secondary" data-workflow-cancel-deploy>暂不部署</button><button type="button" data-workflow-confirm-deploy data-job-id="${escapeHtml(job.id)}">确认部署并重启</button></div>
           </div>` : ""}
         ${finished || canResumePush || canCommit || canDeploy ? "" : running
@@ -2596,7 +2596,7 @@
     if (!url) return;
     const link = document.createElement("a");
     link.href = url;
-    link.download = name || "Witt 交付文件";
+    link.download = name || "Chloe 交付文件";
     link.rel = "noopener";
     document.body.append(link);
     link.click();
@@ -2644,7 +2644,7 @@
   function inlineImageHtml(image, className = "") {
     const url = imageUrl(image);
     if (!url) return "";
-    const name = String(image.name || "Witt 图片");
+    const name = String(image.name || "Chloe 图片");
     return `<button type="button" class="inline-image ${className}" data-inline-image="${escapeHtml(url)}" data-image-name="${escapeHtml(name)}" data-image-mime="${escapeHtml(image.mimeType || "")}">
       <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async">
       <span><b>${escapeHtml(name)}</b><small>${formatBytes(image.size)}</small></span>
@@ -3270,7 +3270,7 @@
       ));
     });
     $("#welcome").hidden = orderedMessages.length > 0;
-    $("#chatTitle").textContent = state.active?.title || "Witt";
+    $("#chatTitle").textContent = state.active?.title || "Chloe";
     const liveIds = new Set(orderedMessages.map((message) => message.id));
     let changed = false;
     list.querySelectorAll(":scope > .message").forEach((node) => {
@@ -3460,7 +3460,7 @@
     state.workDir = conversation.workDir || "";
     persistConversation(conversation);
     updateModelControls();
-    setConnected(true, conversation.busy ? "Witt 正在处理" : "服务器在线");
+    setConnected(true, conversation.busy ? "Chloe 正在处理" : "服务器在线");
     renderMessages(true);
     if (state.detailRequest && state.detailEntry &&
         $("#actionDetailSheet").classList.contains("open")) {
@@ -3634,8 +3634,8 @@
         dismissBoot();
         setConnected(false, "需要更新 App");
         $("#welcome h1").textContent = "新版对话已经准备好";
-        $("#welcome>p").textContent = "请先更新 Witt，更新完成后即可在这里连续对话。";
-        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Witt</b><small>安装支持连续对话的新版本</small></button>`;
+        $("#welcome>p").textContent = "请先更新 Chloe，更新完成后即可在这里连续对话。";
+        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Chloe</b><small>安装支持连续对话的新版本</small></button>`;
         $("#legacyUpdate").addEventListener("click", () => bridge()?.checkForUpdates?.());
         $("#messageInput").disabled = true;
         $("#attachButton").disabled = true;
@@ -3754,7 +3754,7 @@
       localSshManualDisconnect = false;
       renderLocalSsh(JSON.parse(json));
       ensureLocalTerminal()?.reset();
-      appendLocalTerminal("\x1b[38;2;85;214;170mWitt SSH\x1b[0m  手机已直连服务器\r\n");
+      appendLocalTerminal("\x1b[38;2;85;214;170mChloe SSH\x1b[0m  手机已直连服务器\r\n");
       toast("服务器已连接");
     },
     onLocalSshOutput(text) {
@@ -3777,7 +3777,7 @@
       $("#localSshDrawerStatus").textContent = "连接已中断";
       $("#localTerminalTarget").textContent = `${state.localSsh.username || "root"}@${state.localSsh.host} · 已断开`;
       syncLocalSshPanels();
-      appendLocalTerminal("\r\n\x1b[31m[Witt] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
+      appendLocalTerminal("\r\n\x1b[31m[Chloe] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
     },
     onLocalSftpList(json) {
       renderLocalSftp(JSON.parse(json));
@@ -4266,7 +4266,7 @@
     setChatMoreMenu(!$("#chatMoreMenu").classList.contains("open")));
   $("#moreShareButton").addEventListener("click", async () => {
     setChatMoreMenu(false);
-    const payload = { title: state.active?.title || "Witt 对话", text: "来自 Witt 的对话" };
+    const payload = { title: state.active?.title || "Chloe 对话", text: "来自 Chloe 的对话" };
     try {
       if (navigator.share) await navigator.share(payload);
       else { await navigator.clipboard.writeText(payload.text); toast("分享说明已复制"); }
@@ -4569,7 +4569,7 @@
     const confirmCommit = event.target.closest("[data-workflow-confirm-commit]");
     if (confirmCommit) {
       if (typeof bridge()?.confirmDevelopmentCommit !== "function") {
-        toast("请更新 Witt App 后再提交");
+        toast("请更新 Chloe App 后再提交");
         return;
       }
       const section = event.target.closest(".development-workflow");
@@ -4618,7 +4618,7 @@
     const confirmDeploy = event.target.closest("[data-workflow-confirm-deploy]");
     if (confirmDeploy) {
       if (typeof bridge()?.confirmDevelopmentDeploy !== "function") {
-        toast("请更新 Witt App 后再部署");
+        toast("请更新 Chloe App 后再部署");
         return;
       }
       const key = event.target.closest(".development-workflow")?.dataset.workflowKey || "";
@@ -4633,7 +4633,7 @@
     const stop = event.target.closest("[data-workflow-stop]");
     if (stop) {
       if (typeof bridge()?.cancelDevelopmentWorkflow !== "function") {
-        toast("请更新 Witt App 后再取消交付");
+        toast("请更新 Chloe App 后再取消交付");
         return;
       }
       stop.disabled = true;
@@ -4643,7 +4643,7 @@
     const resumePush = event.target.closest("[data-workflow-resume-push]");
     if (resumePush) {
       if (typeof bridge()?.resumeDevelopmentPush !== "function") {
-        toast("请更新 Witt App 后再重试推送");
+        toast("请更新 Chloe App 后再重试推送");
         return;
       }
       if (state.pendingDevelopmentWorkflowKey) return;
@@ -4678,7 +4678,7 @@
     }
     const native = bridge();
     if (typeof native?.startDevelopmentWorkflow !== "function") {
-      toast("请更新 Witt App 后再使用项目交付");
+      toast("请更新 Chloe App 后再使用项目交付");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -4727,7 +4727,7 @@
     }
     const link = document.createElement("a");
     link.href = button.dataset.url;
-    link.download = button.dataset.name || "Witt 图片";
+    link.download = button.dataset.name || "Chloe 图片";
     link.click();
   });
   $("#imageViewerBackdrop").addEventListener("click", closeImageViewer);

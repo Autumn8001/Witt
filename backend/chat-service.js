@@ -183,7 +183,7 @@ class ChatService {
     this.codexProfiles = options.codexProfiles || {
       default: {
         id: "default",
-        label: "Witt 默认账号",
+        label: "Chloe 默认账号",
         codexHome: "/home/ubuntu/.codex",
         workDir: this.codexWorkDir,
       },
@@ -770,7 +770,7 @@ class ChatService {
     fs.writeFileSync(destination, buffer, { mode: 0o600, flag: "wx" });
     const image = {
       id,
-      name: String(name || `Witt 图片${type.extension}`).slice(0, 180),
+      name: String(name || `Chloe 图片${type.extension}`).slice(0, 180),
       size: buffer.length,
       mimeType: type.mimeType,
       source,
@@ -801,7 +801,7 @@ class ChatService {
       buffer, path.basename(verified.sourcePath), source, artifactId);
   }
 
-  storeImageData(value, name = "Witt 生成图片", source = "execution") {
+  storeImageData(value, name = "Chloe 生成图片", source = "execution") {
     const raw = String(value || "");
     const dataUrl = raw.match(/^data:(image\/(?:png|jpeg|webp|gif));base64,([a-zA-Z0-9+/=\s]+)$/);
     const encoded = dataUrl ? dataUrl[2] : raw;
@@ -850,7 +850,7 @@ class ChatService {
     const savedPath = item.savedPath || item.saved_path;
     const stored = savedPath
       ? this.storeImagePath(savedPath, "execution")
-      : this.storeImageData(item.result, "Witt 生成图片", "execution");
+      : this.storeImageData(item.result, "Chloe 生成图片", "execution");
     return this.attachImage(message, stored);
   }
 
@@ -925,7 +925,7 @@ class ChatService {
     if (!requested) return null;
     if (!path.isAbsolute(requested)) throw new Error("项目路径必须是绝对路径");
     const lexical = path.resolve(requested);
-    const outsideError = () => new Error("该项目路径不在 Witt 允许的工作目录范围内");
+    const outsideError = () => new Error("该项目路径不在 Chloe 允许的工作目录范围内");
 
     let stats;
     try {
@@ -2484,7 +2484,7 @@ class ChatService {
       return {
         approvalType: "user_input",
         title: questions.length === 1 ? questions[0]?.header : "需要你的选择",
-        reason: questions.length > 1 ? "回答以下问题后，Witt 会继续当前任务。" : "",
+        reason: questions.length > 1 ? "回答以下问题后，Chloe 会继续当前任务。" : "",
         approvalQuestions: questions,
       };
     }
@@ -2767,11 +2767,13 @@ class ChatService {
     const remote = this.remoteWorkspaceBinding(conversation);
     if (remote) {
       return [
+        "你是 Chloe 的开发助手。Chloe 是当前应用的名称；内部 witt_* MCP 工具名和服务标识保持不变，不代表其他人的 Witt 实例。",
+        "以本轮用户请求为准，不自动执行历史开发任务；新对话不自动继承其他对话，只使用实际提供的上下文和当前授权项目的信息。",
         "你正在操作一个 Remote Vibecoding Workspace。客户电脑上的项目只能通过 witt_remote_workspace MCP 工具访问。",
         "本会话已固定绑定到一个客户、一个设备和一个项目根目录；不要索取、猜测或尝试切换 device_id、磁盘路径、网络共享或其他目录。",
         "不要使用本机文件工具、shell、浏览器或 SSH 来替代 workspace MCP；它们不代表客户项目。",
         "先用 workspace_list/read/search/stat 理解代码。修改前读取 SHA-256，写入必须附带刚读取的 SHA-256；patch 必须使用唯一的 before/after 文本。",
-        "执行操作只使用 program 加 argv，绝不拼接 shell 命令。遇到需要确认的安装、服务、外部 Git 操作或其他命令时，等待 Witt 的确认界面，不要尝试绕过。",
+        "执行操作只使用 program 加 argv，绝不拼接 shell 命令。遇到需要确认的安装、服务、外部 Git 操作或其他命令时，等待 Chloe 的确认界面，不要尝试绕过。",
         "写入或命令若返回 EXECUTION_STATE_UNKNOWN，立即停止重试，先读取文件和 git diff 重新确认状态。",
         "完成修改后用 workspace_git_status 和 workspace_git_diff 报告实际变化；不要提交、推送或触碰凭据。",
         "回答使用简洁自然的中文，禁止展示、记录或回传任何凭据原文。",
@@ -2779,21 +2781,25 @@ class ChatService {
     }
     const workDir = this.effectiveWorkDir(conversation);
     return [
-      "你通过 Witt 应用运行在用户私人服务器上，负责协助用户完成开发任务。",
+      "你是 Chloe 的开发助手，通过 Chloe 应用运行在用户私人服务器上。Chloe 是本应用的产品名称，不是模型或 CLI 的名称。",
+      "本应用与其他人的 Witt 实例独立；内部 witt.service、witt_* 工具名及既有路径保持不变。",
       `固定工作目录：${workDir}`,
-      `Witt 附件目录：${this.dataDir}`,
+      `Chloe 附件目录：${this.dataDir}`,
       "记住用户在本线程中的上下文，回答使用简洁自然的中文。",
+      "以用户当前消息为准。普通问候或询问状态时只回答或只读检查，不自行续做旧开发任务，不因历史任务而修改文件或部署。",
+      "只将本轮实际提供的历史和当前 CLI 会话上下文视为已知。新对话不自动继承其他对话；服务器保存了记录不等于你已经读过。需要旧任务信息时请用户提供交接摘要，或仅在已有工具与权限允许时读取当前用户明确指定的记录；不要访问其他用户记录。",
+      "不得声称已读取历史、已完成测试或已部署，除非有实际证据。任务交接时简要列出目标、已完成与未完成事项、修改文件、验证结果和下一步；不要将密钥写入交接摘要。",
       "只处理用户明确要求的任务，保留现有数据和未提交修改。",
       "禁止展示、记录或回传凭据原文。用户明确授权时，允许认证程序使用指定的本地凭据文件完成认证，不将凭据或生成的 Token 输出到聊天及日志",
       "访问范围由本对话的权限设置决定。删除数据、对外发送消息等不可逆或对外动作仍需先向用户说明。",
       "开发与操作在指定工作区目录内完成，遵循最小修改原则。",
-      "修改普通代码后先完成语法或构建校验。严禁在对话执行过程中直接执行 systemctl restart witt.service 或重启 Worker 自身；Witt 自身的网页更新由开发工作流或独立部署脚本执行，避免打断当前执行。",
+      "修改普通代码后先完成语法或构建校验。严禁在对话执行过程中直接执行 systemctl restart witt.service 或重启 Worker 自身；Chloe 自身的网页更新由开发工作流或独立部署脚本执行，避免打断当前执行。",
       "修改网页界面或浏览器交互后，必须使用 Playwright 浏览器工具在 390×844 手机视口和 1440×900 桌面视口完成真实验收；检查关键交互、布局溢出、控制台错误和页面错误，不能只做源码或静态字符串检查。",
       "删除大量数据、覆盖数据库、修改防火墙或其他难以恢复的操作，执行前仍需向用户明确说明目标和影响。",
       "兼容备用通道：修改 drop-vault 后端但不适合直接重启时，仍可写入 /data/drop-vault/restart-request 请求延迟校验重启。",
       "右上角交付区是用户主动索取文件时使用的下载通道，不是每轮回复存档。",
       "仅当用户明确要求交付、打包、下载，或要求把服务器上的某个文件放入交付区时，才在最终回复末尾逐行输出 [[deliver:/绝对/文件路径]]。普通回答或普通代码修改绝对不要输出该标记。只能交付普通文件，目录需先打包。",
-      "用户明确要求制作或展示前端动画、交互网页、网页演示，或要求像 Claude Artifact 一样直接预览时，视为明确要求交付：请创建一个自包含的单文件 .html，且仅在这种情况下在最终回复末尾输出对应 [[deliver:/绝对/文件路径]]。不要使用外部 CDN、远程图片、网络请求或额外本地资源；Witt 会在独立 Artifact 工作区运行页面，桌面端位于聊天右侧、手机端使用单栏工作区。页面只实现作品内容，不要自行重复宿主的标题栏、版本、预览/源码、复制、下载或返回控件。",
+      "用户明确要求制作或展示前端动画、交互网页、网页演示，或要求像 Claude Artifact 一样直接预览时，视为明确要求交付：请创建一个自包含的单文件 .html，且仅在这种情况下在最终回复末尾输出对应 [[deliver:/绝对/文件路径]]。不要使用外部 CDN、远程图片、网络请求或额外本地资源；Chloe 会在独立 Artifact 工作区运行页面，桌面端位于聊天右侧、手机端使用单栏工作区。页面只实现作品内容，不要自行重复宿主的标题栏、版本、预览/源码、复制、下载或返回控件。",
       "制作交互网页时使用 Claude Artifact 式增量预览协议：始终维护同一个自包含 .html 文件；完成第一个可独立运行且结构闭合的版本后，在 commentary 中单独输出 [[preview:/绝对/文件路径]]。此控制行不会展示给用户。之后每次完成一轮可独立运行的界面更新，再输出同一控制行。只有在 HTML、BODY 均完整闭合且当前版本可运行时才能发布；不要发布正在写入的半成品。",
       "Artifact 页面必须响应式适配手机宽度和横竖屏，避免固定桌面画布。聊天中直接展示内容本体，不要在 HTML 内再绘制外层设备框、预览卡标题栏、下载按钮或放大按钮。",
     ].join("\n");
@@ -2812,13 +2818,13 @@ class ChatService {
       const history = conversation.messages
         .filter((message) => message.id !== user.id &&
           ["user", "assistant"].includes(message.role) && message.text)
-        .map((message) => `${message.role === "user" ? "用户" : "Witt"}：${message.text}`)
+        .map((message) => `${message.role === "user" ? "用户" : "Chloe"}：${message.text}`)
         .join("\n\n")
         .slice(-120_000);
       return [
         this.buildDeveloperInstructions(conversation),
         "",
-        "以下是当前 Witt 会话在切换模型提供商前的历史，请继续同一会话：",
+        "以下是当前 Chloe 会话在切换模型提供商前的历史，请以本轮用户请求为准参考这些记录，不自动执行旧任务：",
         history || "（暂无历史）",
         "",
         `用户：${userText}${attachmentText}`,

@@ -64,7 +64,7 @@ test("the shared developer prompt is provider-neutral", (t) => {
   const { service, root } = makeService();
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const prompt = service.buildDeveloperInstructions({ workDir: root });
-  assert.match(prompt, /通过 Witt 应用/);
+  assert.match(prompt, /通过 Chloe 应用/);
   assert.doesNotMatch(prompt, /你是.*(?:Witt|Codex|Grok)/);
 });
 

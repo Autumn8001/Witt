@@ -722,7 +722,7 @@
   };
   const projects = {
     "": "空白",
-    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "维特",
+    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "Chloe",
     "/home/ubuntu/Documents/Codex/2026-07-26-xlsb": "年报",
     "/data/xuanyu-build-console/repo": "玄遇",
   };
@@ -1407,7 +1407,7 @@
   function openLocalSsh() {
     closeDrawer();
     if (versionLessThan(state.nativeVersion, "2.2.16")) {
-      toast("请先更新 Witt 后使用本地终端");
+      toast("请先更新 Chloe 后使用本地终端");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -1522,7 +1522,7 @@
     const currentBridge = bridge();
     if (versionLessThan(state.nativeVersion, "2.2.19")) {
       if (profile !== "xuanyu") {
-        toast("请先更新 Witt 后登录更多账号");
+        toast("请先更新 Chloe 后登录更多账号");
         currentBridge?.checkForUpdates?.();
         return false;
       }
@@ -1555,7 +1555,7 @@
   function consumeQuotaReset() {
     closeQuotaResetConfirm();
     if (typeof bridge()?.consumeRateLimitReset !== "function") {
-      toast("请先更新 Witt 后再使用重置额度");
+      toast("请先更新 Chloe 后再使用重置额度");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -1686,10 +1686,10 @@
   function openImageViewer(url, name, mimeType = "") {
     if (!url) return;
     $("#imageViewerImage").src = url;
-    $("#imageViewerImage").alt = name || "Witt 图片";
-    $("#imageViewerName").textContent = name || "Witt 图片";
+    $("#imageViewerImage").alt = name || "Chloe 图片";
+    $("#imageViewerName").textContent = name || "Chloe 图片";
     $("#downloadImageViewer").dataset.url = url;
-    $("#downloadImageViewer").dataset.name = name || "Witt 图片";
+    $("#downloadImageViewer").dataset.name = name || "Chloe 图片";
     $("#downloadImageViewer").dataset.mimeType = mimeType;
     $("#imageViewer").classList.add("open");
     $("#imageViewer").setAttribute("aria-hidden", "false");
@@ -1964,7 +1964,7 @@
     if (!url) return;
     const link = document.createElement("a");
     link.href = url;
-    link.download = name || "Witt 交付文件";
+    link.download = name || "Chloe 交付文件";
     link.rel = "noopener";
     document.body.append(link);
     link.click();
@@ -2012,7 +2012,7 @@
   function inlineImageHtml(image, className = "") {
     const url = imageUrl(image);
     if (!url) return "";
-    const name = String(image.name || "Witt 图片");
+    const name = String(image.name || "Chloe 图片");
     return `<button type="button" class="inline-image ${className}" data-inline-image="${escapeHtml(url)}" data-image-name="${escapeHtml(name)}" data-image-mime="${escapeHtml(image.mimeType || "")}">
       <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async">
       <span><b>${escapeHtml(name)}</b><small>${formatBytes(image.size)}</small></span>
@@ -2625,7 +2625,7 @@
       ));
     });
     $("#welcome").hidden = orderedMessages.length > 0;
-    $("#chatTitle").textContent = state.active?.title || "Witt";
+    $("#chatTitle").textContent = state.active?.title || "Chloe";
     const liveIds = new Set(orderedMessages.map((message) => message.id));
     let changed = false;
     list.querySelectorAll(":scope > .message").forEach((node) => {
@@ -2794,7 +2794,7 @@
     restorePreferredSettings(conversation);
     persistConversation(conversation);
     updateModelControls();
-    setConnected(true, conversation.busy ? "Witt 正在处理" : "服务器在线");
+    setConnected(true, conversation.busy ? "Chloe 正在处理" : "服务器在线");
     renderMessages(true);
     if (pendingLatestConversationId === conversation.id) {
       scrollOpenedConversationToLatest(conversation.id, true);
@@ -2934,8 +2934,8 @@
         dismissBoot();
         setConnected(false, "需要更新 App");
         $("#welcome h1").textContent = "新版对话已经准备好";
-        $("#welcome>p").textContent = "请先更新 Witt，更新完成后即可在这里连续对话。";
-        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Witt</b><small>安装支持连续对话的新版本</small></button>`;
+        $("#welcome>p").textContent = "请先更新 Chloe，更新完成后即可在这里连续对话。";
+        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Chloe</b><small>安装支持连续对话的新版本</small></button>`;
         $("#legacyUpdate").addEventListener("click", () => bridge()?.checkForUpdates?.());
         $("#messageInput").disabled = true;
         $("#attachButton").disabled = true;
@@ -3047,7 +3047,7 @@
       localSshManualDisconnect = false;
       renderLocalSsh(JSON.parse(json));
       ensureLocalTerminal()?.reset();
-      appendLocalTerminal("\x1b[38;2;85;214;170mWitt SSH\x1b[0m  手机已直连服务器\r\n");
+      appendLocalTerminal("\x1b[38;2;85;214;170mChloe SSH\x1b[0m  手机已直连服务器\r\n");
       toast("服务器已连接");
     },
     onLocalSshOutput(text) {
@@ -3070,7 +3070,7 @@
       $("#localSshDrawerStatus").textContent = "连接已中断";
       $("#localTerminalTarget").textContent = `${state.localSsh.username || "root"}@${state.localSsh.host} · 已断开`;
       syncLocalSshPanels();
-      appendLocalTerminal("\r\n\x1b[31m[Witt] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
+      appendLocalTerminal("\r\n\x1b[31m[Chloe] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
     },
     onLocalSftpList(json) {
       renderLocalSftp(JSON.parse(json));
@@ -3447,7 +3447,7 @@
     setChatMoreMenu(!$("#chatMoreMenu").classList.contains("open")));
   $("#moreShareButton").addEventListener("click", async () => {
     setChatMoreMenu(false);
-    const payload = { title: state.active?.title || "Witt 对话", text: "来自 Witt 的对话" };
+    const payload = { title: state.active?.title || "Chloe 对话", text: "来自 Chloe 的对话" };
     try {
       if (navigator.share) await navigator.share(payload);
       else { await navigator.clipboard.writeText(payload.text); toast("分享说明已复制"); }
@@ -3702,7 +3702,7 @@
     }
     const link = document.createElement("a");
     link.href = button.dataset.url;
-    link.download = button.dataset.name || "Witt 图片";
+    link.download = button.dataset.name || "Chloe 图片";
     link.click();
   });
   $("#imageViewerBackdrop").addEventListener("click", closeImageViewer);
