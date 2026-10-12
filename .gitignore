@@ -16,6 +16,8 @@ playwright-report/
 **/signing.properties
 /runtime/
 **/tests/ui-*.png
+tests/*.png
+tests/**/*.png
 tests/legacy-token-fixture.txt
 android/app/src/main/assets/lumora/
 /web/update.json

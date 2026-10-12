@@ -38,6 +38,7 @@ const codexBin = process.env.DROP_VAULT_CODEX_BIN || "/home/ubuntu/.local/bin/co
 const codexWorkDir = process.env.DROP_VAULT_CODEX_WORKDIR || "/home/ubuntu/Documents/Codex/2026-07-26-xlsb";
 const sub2api = process.env.CHLOE_SUB2API_ENABLED === "1" ? {
   baseUrl: process.env.WITT_SUB2API_URL || "http://127.0.0.1:8080/v1",
+  routerBaseUrl: process.env.CHLOE_SUB2API_ROUTER_URL || "",
   plusKey: process.env.CHLOE_SUB2API_PLUS_KEY || "",
   freeKey: process.env.CHLOE_SUB2API_FREE_KEY || "",
   codexHomeRoot: process.env.CHLOE_SUB2API_CODEX_HOME || "/root/.witt/codex-sub2api",

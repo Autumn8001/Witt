@@ -31,7 +31,10 @@ function createSub2ApiRoute({ model, sub2api }) {
     error.group = group;
     throw error;
   }
-  const baseUrl = String(sub2api.baseUrl || "").trim().replace(/\/+$/, "");
+  // Codex reuses a parent app-server connection for spawned agents, so a child
+  // can inherit the parent's credential. The local router chooses the account
+  // pool from each request model at the HTTP boundary.
+  const baseUrl = String(sub2api.routerBaseUrl || sub2api.baseUrl || "").trim().replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(baseUrl)) {
     const error = new Error("Sub2API base URL is not configured");
     error.code = "sub2api_base_url_missing";

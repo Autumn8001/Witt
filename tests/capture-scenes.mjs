@@ -39,7 +39,7 @@ const autumnBg = readFileSync(new URL("../web/assets/autumn-bg.jpg", import.meta
 
 const browser = await chromium.launch({ headless: true });
 
-async function setupPage(viewport, theme = "light", initialConversations = []) {
+async function setupPage(viewport, theme = "light", initialConversations = [], activeId = null) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: "https://wit.test" });
 
@@ -123,7 +123,7 @@ async function setupPage(viewport, theme = "light", initialConversations = []) {
     } else {
       localStorage.removeItem("wit_active_conversation");
     }
-  }, { theme, activeId: initialConversations[0]?.id || null });
+  }, { theme, activeId });
 
   await page.goto("https://wit.test/vault/index.html");
   await page.evaluate(() => {
@@ -136,16 +136,43 @@ async function setupPage(viewport, theme = "light", initialConversations = []) {
   return page;
 }
 
-// 场景 1：桌面 1440 × 900，首页
+const defaultConversations = [
+  { id: "conv-1", title: "翻译对话", updatedAt: new Date().toISOString() },
+  { id: "conv-2", title: "请尝试 luna_worker 创建一...", updatedAt: new Date(Date.now() - 3600000).toISOString() },
+  { id: "conv-3", title: "部署服务的最佳实践", updatedAt: new Date(Date.now() - 86400000).toISOString() },
+  { id: "conv-4", title: "数据库设计方案讨论", updatedAt: new Date(Date.now() - 86400000 * 1.2).toISOString() },
+  { id: "conv-5", title: "前端性能优化建议", updatedAt: new Date(Date.now() - 86400000 * 1.5).toISOString() },
+];
+
+// 场景 0：设计稿原生尺寸 1672 × 941，首页（用于 1:1 绝对像素对比）
 {
-  const page = await setupPage({ width: 1440, height: 900 }, "light");
+  const page = await setupPage({ width: 1672, height: 941 }, "light", defaultConversations);
+  await page.evaluate(() => {
+    const firstRow = document.querySelector(".conversation-row");
+    if (firstRow) firstRow.classList.add("active");
+  });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `tests/${prefix}-1-target-1672x941.png`, fullPage: false });
+  await page.close();
+}
+
+// 场景 1：标准桌面 1440 × 900，首页
+{
+  const page = await setupPage({ width: 1440, height: 900 }, "light", defaultConversations);
   await page.screenshot({ path: `tests/${prefix}-1-desktop-home.png`, fullPage: false });
+  await page.close();
+}
+
+// 场景 1b：宽屏桌面 1920 × 1080，首页
+{
+  const page = await setupPage({ width: 1920, height: 1080 }, "light", defaultConversations);
+  await page.screenshot({ path: `tests/${prefix}-1-desktop-1080p.png`, fullPage: false });
   await page.close();
 }
 
 // 场景 2：桌面 1440 × 900，展开相关设置
 {
-  const page = await setupPage({ width: 1440, height: 900 }, "light");
+  const page = await setupPage({ width: 1440, height: 900 }, "light", defaultConversations);
   await page.locator("#runtimeSettingsButton").click();
   await page.locator("#settingsSheet.open").waitFor();
   await page.waitForTimeout(300);
@@ -155,14 +182,14 @@ async function setupPage(viewport, theme = "light", initialConversations = []) {
 
 // 场景 3：手机 390 × 844，首页
 {
-  const page = await setupPage({ width: 390, height: 844 }, "light");
+  const page = await setupPage({ width: 390, height: 844 }, "light", defaultConversations);
   await page.screenshot({ path: `tests/${prefix}-3-mobile-home.png`, fullPage: false });
   await page.close();
 }
 
 // 场景 4：手机 390 × 844，侧边栏展开
 {
-  const page = await setupPage({ width: 390, height: 844 }, "light");
+  const page = await setupPage({ width: 390, height: 844 }, "light", defaultConversations);
   await page.locator("#menuButton").click();
   await page.locator("#drawer.open").waitFor();
   await page.waitForTimeout(300);

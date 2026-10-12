@@ -165,11 +165,11 @@
           <svg class="night-icon-moon" viewBox="0 0 24 24"><path d="M20 15.2A8.2 8.2 0 0 1 8.8 4a8.3 8.3 0 1 0 11.2 11.2Z"/></svg>
           <svg class="night-icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v2M12 19.5v2M4.3 4.3l1.4 1.4m12.6 12.6 1.4 1.4M2.5 12h2m15 0h2M4.3 19.7l1.4-1.4M18.3 5.7l1.4-1.4"/></svg>
         </button>
-        <button class="compact-nav-button compact-new-chat" id="newChatButton" aria-label="新建对话">
-          <svg viewBox="0 0 24 24"><path d="M5 19h4l10-10a2.8 2.8 0 0 0-4-4L5 15v4Z"/><path d="m13.5 6.5 4 4"/></svg>
+        <button class="compact-nav-button compact-new-chat" id="newChatButton" aria-label="秋日主题与对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20z"/><path d="M2 21c0-3 1.8-6.5 5-8"/></svg>
         </button>
         <button class="compact-nav-button compact-more-button" id="chatMoreButton" aria-label="更多操作" aria-expanded="false">
-          <svg viewBox="0 0 24 24"><path d="M12 5.5v.1M12 11.95v.1M12 18.4v.1"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
         </button>
       </div>
       <section class="chat-more-menu" id="chatMoreMenu" aria-hidden="true">
@@ -212,11 +212,11 @@
 
     <main class="chat-stage" id="chatStage">
       <section class="welcome" id="welcome">
-        <span class="hero-eyebrow-pill">
+        <span class="hero-eyebrow-pill" title="Chloe 开发工作台" aria-label="Chloe 开发工作台">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20z"/><path d="M2 21c0-3 1.8-6.5 5-8"/></svg>
-          Chloe 开发工作台
+          你的个人 AI 开发工作区
         </span>
-        <h1 class="hero-greeting-title animate-blur-fade-up">你好，我是 <span class="chloe-brand-name">Chloe</span></h1>
+        <h1 class="hero-greeting-title animate-blur-fade-up">你好，我是<span class="chloe-brand-name">Chloe</span></h1>
         <p class="hero-greeting-desc animate-blur-fade-up">我可以帮助你编写代码、调试问题、连接远程环境，并管理你的服务器与项目。</p>
         <div class="suggestions">
           <div class="feature-rich-card">
@@ -250,9 +250,10 @@
               <div class="feature-card-header">
                 <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <path d="M18 7C13 7 10 11 10 15C10 18 12.5 19.5 14.5 20C15.5 20.2 16.5 21 16.5 22V28H19.5V22C19.5 21 20.5 20.2 21.5 20C23.5 19.5 26 18 26 15C26 11 23 7 18 7Z" fill="#D98A3A"/>
-                  <path d="M14 14C15 12 17 11 18 11M18 11C19 11 21 12 22 14" stroke="#FFF" stroke-width="1.4" stroke-linecap="round" opacity="0.9"/>
-                  <path d="M18 22V28M15 28H21" stroke="#4D533C" stroke-width="2" stroke-linecap="round"/>
+                  <rect x="8" y="9" width="20" height="13" rx="2" stroke="#4D533C" stroke-width="1.8"/>
+                  <path d="M11.5 13.5L14 15.5L11.5 17.5M16 17.5H19.5" stroke="#4D533C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M18 22V26M13 26H23" stroke="#4D533C" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M23 7.5C25 6 27.5 7 28 9C28 10.5 26.5 12 24.5 11.5C23.5 11 22.5 9 23 7.5Z" fill="#D98A3A"/>
                 </svg>
                 <span class="feature-card-badge">02</span>
               </div>
@@ -276,10 +277,11 @@
               <div class="feature-card-header">
                 <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <ellipse cx="16" cy="11" rx="7" ry="3" fill="#C26A28" opacity="0.85"/>
-                  <path d="M9 11V17C9 18.6 12.1 20 16 20C19.9 20 23 18.6 23 17V11" stroke="#8E4823" stroke-width="1.8"/>
-                  <path d="M9 17V23C9 24.6 12.1 26 16 26C19.9 26 23 24.6 23 23V17" stroke="#8E4823" stroke-width="1.8"/>
-                  <path d="M23 18C25 17 27 18 28 20C28 22 26 24 24 24C22.5 24 22 23 23 18Z" fill="#D98A3A"/>
+                  <ellipse cx="16" cy="10" rx="7" ry="2.5" fill="#D98A3A" opacity="0.9"/>
+                  <path d="M9 10V15C9 16.4 12.1 17.5 16 17.5C19.9 17.5 23 16.4 23 15V10" stroke="#8E4823" stroke-width="1.6"/>
+                  <path d="M9 15V20C9 21.4 12.1 22.5 16 22.5C19.9 22.5 23 21.4 23 20V15" stroke="#8E4823" stroke-width="1.6"/>
+                  <path d="M9 20V25C9 26.4 12.1 27.5 16 27.5C19.9 27.5 23 26.4 23 25V20" stroke="#8E4823" stroke-width="1.6"/>
+                  <path d="M23 18C25 17 27 18 28 20C28 22 26 24 24 24C22.5 24 22 23 23 18Z" fill="#C26A28"/>
                 </svg>
                 <span class="feature-card-badge">03</span>
               </div>
@@ -301,7 +303,10 @@
 
         <div class="chloe-status-idle-strip" id="idleTaskPromptStrip">
           <div class="status-strip-left">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4D533C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7M9 15l3-3 3 3M7 11l5-5 5 5M5 7l7-5 7 5"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="7.5" r="4.5" fill="#4D533C"/>
+              <path d="M12 12V20M9 20H15" stroke="#4D533C" stroke-width="2" stroke-linecap="round"/>
+            </svg>
             <strong>尚未开始</strong>
             <span>不同任务请使用独立对话</span>
           </div>
@@ -329,7 +334,7 @@
             </button>
             <button class="composer-model composer-pill-btn" id="modelButton" aria-label="模型与执行环境">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="M9 3v18M3 9h18"/></svg>
-              <span class="composer-env-pill" id="composerEnvPill">服务器</span>
+              <span class="composer-env-pill" id="composerEnvPill">服务端</span>
               <b id="modelLabel">Grok 4.7 High</b>
               <i></i>
               <span id="reasoningLabel">均衡</span>
@@ -364,7 +369,7 @@
         <span class="quick-reasoning-heading">智能程度</span>
         <div class="quick-reasoning-options" id="quickReasoningOptions" role="radiogroup" aria-label="选择智能程度"></div>
       </section>
-      <p id="composerHint" class="composer-hint">重要操作会先确认</p>
+      <p id="composerHint" class="composer-hint">由你服务器上的 AI Harness 处理 · 重要操作会先确认</p>
     </section>
   </div>
 
@@ -411,14 +416,27 @@
     <div class="drawer-panel">
       <div class="drawer-head sidebar-brand">
         <div class="sidebar-brand-left">
-          <svg class="chloe-logo-icon" width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 2.5C16 2.5 17.8 7.5 21.5 9.2C25.2 10.9 29.5 9.8 29.5 9.8C29.5 9.8 28.2 14.2 25.8 17C23.4 19.8 23.5 23.5 23.5 23.5C23.5 23.5 19.2 22.8 16.5 24.8C13.8 26.8 12.5 30.5 12.5 30.5C12.5 30.5 11.8 25.8 9.5 23.8C7.2 21.8 2.5 22.5 2.5 22.5C2.5 22.5 3.8 18.2 6.2 15.5C8.6 12.8 7.5 8.5 7.5 8.5C7.5 8.5 11.8 9.5 14.5 7.8C17.2 6.1 16 2.5 16 2.5Z" fill="url(#chloe-leaf-grad)"/>
-            <path d="M16 8.5V25M16 14L21 11M16 18L10 16" stroke="#8E4823" stroke-width="1.6" stroke-linecap="round"/>
+          <svg class="chloe-logo-icon" width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12.5 19.5C8.5 18 6.5 14.5 7.5 10.5C9.5 8.5 13 9.5 16 13C16.5 16 15 19 12.5 19.5Z" fill="url(#chloe-leaf-left)" opacity="0.92"/>
+            <path d="M9 13C12 14.5 15 15.5 15.5 15.5" stroke="#8A421D" stroke-width="1.1" stroke-linecap="round"/>
+            <path d="M23.5 19.5C27.5 18 29.5 14.5 28.5 10.5C26.5 8.5 23 9.5 20 13C19.5 16 21 19 23.5 19.5Z" fill="url(#chloe-leaf-right)" opacity="0.92"/>
+            <path d="M27 13C24 14.5 21 15.5 20.5 15.5" stroke="#8A421D" stroke-width="1.1" stroke-linecap="round"/>
+            <path d="M18 4C18 4 13.5 10 13.5 17C13.5 23 18 27.5 18 27.5C18 27.5 22.5 23 22.5 17C22.5 10 18 4 18 4Z" fill="url(#chloe-leaf-center)"/>
+            <path d="M18 7.5V26M18 14L15 12M18 17L21 15M18 20L15 18" stroke="#7A3614" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M18 27.5C17.5 30 16 32 14.5 33" stroke="#8A421D" stroke-width="1.5" stroke-linecap="round"/>
             <defs>
-              <linearGradient id="chloe-leaf-grad" x1="6" y1="4" x2="26" y2="28" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#D98A3A"/>
-                <stop offset="0.55" stop-color="#C26A28"/>
-                <stop offset="1" stop-color="#9E441D"/>
+              <linearGradient id="chloe-leaf-center" x1="13.5" y1="4" x2="22.5" y2="28" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#E5993E"/>
+                <stop offset="0.6" stop-color="#C66723"/>
+                <stop offset="1" stop-color="#9C4016"/>
+              </linearGradient>
+              <linearGradient id="chloe-leaf-left" x1="7" y1="9" x2="16" y2="20" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#EDB353"/>
+                <stop offset="1" stop-color="#C26A28"/>
+              </linearGradient>
+              <linearGradient id="chloe-leaf-right" x1="29" y1="9" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#E28935"/>
+                <stop offset="1" stop-color="#B2501E"/>
               </linearGradient>
             </defs>
           </svg>
@@ -833,5 +851,16 @@
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
   <script src="/vault/customer-devices.js?v=3"></script>
   <script src="/vault/app-workspace-20260916-r3.js?v=3.2.7-remote-workspace"></script>
+  <script>
+    document.getElementById('historySearchToggle')?.addEventListener('click', () => {
+      const controls = document.querySelector('.history-controls');
+      if (controls) {
+        controls.classList.toggle('open');
+        if (controls.classList.contains('open')) {
+          document.getElementById('historySearch')?.focus();
+        }
+      }
+    });
+  </script>
 </body>
 </html>

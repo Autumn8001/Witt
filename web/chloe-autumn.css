@@ -52,9 +52,9 @@
   background-color: var(--chloe-canvas);
   background-image: url('/vault/assets/autumn-bg.jpg');
   background-size: cover;
-  background-position: center top;
+  background-position: right 18% top;
   background-repeat: no-repeat;
-  opacity: 0.92;
+  opacity: 0.98;
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
@@ -63,7 +63,7 @@
   position: fixed;
   inset: 0;
   z-index: 1;
-  background: radial-gradient(circle at 65% 25%, rgba(251, 248, 242, 0.35) 0%, rgba(251, 248, 242, 0.78) 55%, rgba(251, 248, 242, 0.94) 100%);
+  background: radial-gradient(ellipse 1100px 650px at 58% 50%, rgba(251, 248, 242, 0.42) 0%, rgba(251, 248, 242, 0.20) 55%, rgba(251, 248, 242, 0) 100%);
   pointer-events: none;
 }
 
@@ -124,9 +124,17 @@ body.web-browser .compact-nav-actions {
    4. 侧边栏（Sidebar）1:1 复刻
    ========================================================================== */
 @media (min-width: 900px) {
+  :root body.web-browser .app-shell {
+    width: calc(100% - min(22vw, 360px)) !important;
+    margin-left: min(22vw, 360px) !important;
+    max-width: none !important;
+  }
+
   body.web-browser .drawer {
     background: transparent !important;
     border-right: 1px solid var(--chloe-card-border) !important;
+    width: min(22vw, 360px) !important;
+    min-width: 320px !important;
   }
 
   body.web-browser .drawer-panel {
@@ -135,38 +143,57 @@ body.web-browser .compact-nav-actions {
     -webkit-backdrop-filter: var(--chloe-glass-filter) !important;
     border-right: 1px solid var(--chloe-card-border) !important;
     box-shadow: 6px 0 24px rgba(68, 54, 38, 0.03) !important;
-    padding: 16px 14px 14px !important;
+    padding: 20px 16px 14px !important;
+    width: min(22vw, 360px) !important;
+    min-width: 320px !important;
+    height: 100dvh !important;
+    box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: space-between !important;
-    gap: 12px !important;
+    justify-content: flex-start !important; /* 彻底打破 space-between，消灭不合理空白 */
+    gap: 0 !important;
+  }
+
+  :root body.web-browser .drawer-head #closeDrawer,
+  body.web-browser #closeDrawer {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0.8 !important;
   }
 }
 
 /* 侧边栏品牌区域 Logo */
 .sidebar-brand {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 6px 8px;
-  margin-bottom: 2px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 2px 4px 6px !important;
+  margin-bottom: 16px !important;
+  flex: 0 0 auto !important;
 }
 
 .sidebar-brand-left {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   text-decoration: none;
   cursor: pointer;
+}
+
+.sidebar-brand-left .chloe-logo-icon {
+  width: 34px !important;
+  height: 34px !important;
+  flex-shrink: 0 !important;
 }
 
 .sidebar-brand-left h2 {
   margin: 0 !important;
   font-family: "Newsreader", "Songti SC", serif, -apple-system !important;
-  font-size: 22px !important;
-  font-weight: 600 !important;
+  font-size: 26px !important;
+  font-weight: 650 !important;
   letter-spacing: -0.01em !important;
-  color: var(--chloe-text-title) !important;
+  color: #3d2619 !important;
 }
 
 .sidebar-toggle-btn {
@@ -191,18 +218,19 @@ body.web-browser .compact-nav-actions {
 :root body.web-browser .drawer-panel button.drawer-new,
 :root body.web-browser #drawerNewChat {
   width: 100% !important;
-  min-height: 44px !important;
-  padding: 0 14px !important;
+  min-height: 46px !important;
+  padding: 0 16px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  border-radius: 12px !important;
+  border-radius: 13px !important;
   border: 0 !important;
   background: var(--chloe-olive-primary) !important;
   color: #ffffff !important;
   box-shadow: 0 6px 18px rgba(77, 83, 60, 0.25) !important;
   cursor: pointer !important;
-  margin-bottom: 12px !important;
+  margin: 0 0 20px 0 !important;
+  flex: 0 0 auto !important;
   transition: all 0.18s ease !important;
 }
 
@@ -223,14 +251,14 @@ body.web-browser .compact-nav-actions {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
-  font-size: 14px !important;
+  font-size: 14.5px !important;
   font-weight: 600 !important;
   color: #ffffff !important;
 }
 
 :root body.web-browser .drawer-panel button.drawer-new .drawer-new-copy svg {
-  width: 17px !important;
-  height: 17px !important;
+  width: 18px !important;
+  height: 18px !important;
   stroke: #ffffff !important;
   stroke-width: 2.2 !important;
 }
@@ -248,22 +276,30 @@ body.web-browser .compact-nav-actions {
   letter-spacing: 0.02em !important;
 }
 
-/* 侧边栏历史列表容器 */
+/* 侧边栏历史列表容器（弹性伸缩，承接多余空间） */
 body.web-browser .drawer-history {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
+  flex: 1 1 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100px !important;
+  overflow: hidden !important;
+  margin-bottom: 14px !important;
 }
 
 body.web-browser .drawer-history-head {
-  padding: 8px 6px 4px !important;
+  flex: 0 0 auto !important;
+  padding: 0 4px 6px !important;
   color: var(--chloe-text-muted) !important;
-  font-size: 12px !important;
+  font-size: 12.5px !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
+  margin-bottom: 4px !important;
 }
 
 .drawer-history-title-group {
@@ -307,45 +343,108 @@ body.web-browser .drawer-history-head {
   height: 15px;
 }
 
+/* 历史搜索控制栏（默认收起，点击搜索按钮展开） */
+:root body.web-browser .drawer-history .history-controls:not(.open) {
+  display: none !important;
+}
+
+:root body.web-browser .history-project-label {
+  display: none !important;
+}
+
 /* 会话行（Conversation Row） */
-body.web-browser .conversation-row {
-  border-radius: 10px !important;
-  margin-bottom: 3px !important;
+:root body.web-browser .conversation-row {
+  border-radius: 12px !important;
+  margin-bottom: 4px !important;
   transition: all 0.15s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-right: 8px !important;
 }
 
-body.web-browser .conversation-row:hover {
-  background: rgba(255, 255, 255, 0.5) !important;
+:root body.web-browser .conversation-row:hover {
+  background: rgba(255, 255, 255, 0.55) !important;
 }
 
-body.web-browser .conversation-row.active {
-  background: rgba(255, 255, 255, 0.85) !important;
-  box-shadow: 0 2px 8px rgba(68, 54, 38, 0.04) !important;
+:root body.web-browser .conversation-row.active {
+  background: rgba(246, 240, 229, 0.95) !important;
+  border-left: 3px solid #4d533c !important;
+  border-top-left-radius: 4px !important;
+  border-bottom-left-radius: 4px !important;
+  box-shadow: 0 2px 10px rgba(68, 54, 38, 0.05) !important;
 }
 
-body.web-browser .conversation-open {
+:root body.web-browser .conversation-open {
   padding: 8px 10px !important;
   gap: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  text-align: left !important;
 }
 
-.conversation-icon-wrap {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  color: var(--chloe-gold-accent);
-  flex-shrink: 0;
+:root body.web-browser .conversation-open small {
+  display: none !important;
 }
 
-.conversation-icon-wrap svg {
-  width: 16px;
-  height: 16px;
+:root body.web-browser .conversation-open > span:last-child {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  display: block !important;
 }
 
-body.web-browser .conversation-open strong {
-  font-size: 13px !important;
+:root body.web-browser .conversation-open strong {
+  font-size: 13.5px !important;
   font-weight: 500 !important;
   color: var(--chloe-text-title) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  display: block !important;
+}
+
+/* 统一秋叶会话图标（零 Emoji 纯矢量秋叶） */
+:root body.web-browser .conversation-mark {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  background-color: var(--chloe-gold-accent, #c26a28) !important;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20zM2 21c0-3 1.8-6.5 5-8"/></svg>') no-repeat center / contain !important;
+  mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20zM2 21c0-3 1.8-6.5 5-8"/></svg>') no-repeat center / contain !important;
+  flex-shrink: 0 !important;
+  border-radius: 0 !important;
+}
+
+:root body.web-browser .conversation-mark svg,
+:root body.web-browser .conversation-mark i {
+  display: none !important;
+}
+
+:root body.web-browser .conversation-more {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--chloe-text-muted) !important;
+  font-size: 13px !important;
+  letter-spacing: 1px !important;
+  padding: 4px 6px !important;
+  cursor: pointer !important;
+}
+
+body.web-browser .drawer-tools {
+  margin-top: auto !important;
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
 }
 
 /* 侧边栏下部功能卡片 */
@@ -466,9 +565,10 @@ body.web-browser .theme-options button:hover {
    5. 中央舞台 Hero 与三张核心卡片（1:1 复刻）
    ========================================================================== */
 :root body.web-browser .welcome {
-  max-width: 960px !important;
+  width: 100% !important;
+  max-width: 1180px !important;
   margin: 0 auto !important;
-  padding: 44px 18px 20px !important;
+  padding: 24px 0 16px !important;
   text-align: center !important;
   align-items: center !important;
   justify-content: flex-start !important;
@@ -477,84 +577,125 @@ body.web-browser .theme-options button:hover {
 
 /* 顶部小胶囊徽标 */
 .hero-eyebrow-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid var(--chloe-card-border);
-  color: var(--chloe-amber-accent);
-  font-size: 12px;
-  font-weight: 550;
-  margin-bottom: 14px;
-  box-shadow: 0 2px 8px rgba(68, 54, 38, 0.03);
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 14px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(215, 203, 185, 0.4) !important;
+  color: #7a4623 !important;
+  font-size: 12.5px !important;
+  font-weight: 550 !important;
+  margin-bottom: 14px !important;
+  box-shadow: 0 1px 4px rgba(68, 54, 38, 0.02) !important;
 }
 
 .hero-eyebrow-pill svg {
-  width: 14px;
-  height: 14px;
+  width: 15px !important;
+  height: 15px !important;
 }
 
-/* 主大标："你好，我是 Chloe" */
-.hero-greeting-title {
-  margin: 0 0 12px !important;
-  font-size: clamp(32px, 3.8vw, 42px) !important;
-  font-weight: 700 !important;
+/* 主大标："你好，我是 Chloe"（50px 结实厚重，你好我是为深黑，Chloe为深橄榄绿无衬线粗体） */
+:root body.web-browser .welcome h1,
+:root body.web-browser .welcome h1.hero-greeting-title,
+:root body.web-browser .hero-greeting-title {
+  margin: 0 0 14px !important;
+  font-size: 50px !important;
+  font-weight: 800 !important;
   letter-spacing: -0.02em !important;
-  color: var(--chloe-text-title) !important;
+  color: #1f1d1a !important;
   line-height: 1.25 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
 }
 
-.hero-greeting-title span.chloe-brand-name {
-  font-family: "Newsreader", "Songti SC", serif, -apple-system;
-  font-weight: 600;
-  color: #2b2520;
+:root body.web-browser .hero-greeting-title span.chloe-brand-name,
+:root body.web-browser .welcome h1 span.chloe-brand-name {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+  font-weight: 800 !important;
+  color: #4d533c !important;
+  letter-spacing: -0.01em !important;
+  margin-left: 2px !important;
 }
 
 /* 人文副标解释 */
-.hero-greeting-desc {
-  font-size: 15px !important;
-  line-height: 1.65 !important;
+:root body.web-browser .welcome > p,
+:root body.web-browser .welcome > p.hero-greeting-desc,
+:root body.web-browser .hero-greeting-desc {
+  font-size: 16px !important;
+  line-height: 1.7 !important;
   color: var(--chloe-text-body) !important;
-  max-width: 680px !important;
+  max-width: 820px !important;
   margin: 0 auto 34px !important;
 }
 
-/* 三张核心功能卡片网格容器 */
+/* 三张核心功能卡片网格容器（1140px 舒展大尺度） */
 :root body.web-browser .suggestions {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 18px !important;
+  gap: 22px !important;
   width: 100% !important;
-  max-width: 960px !important;
-  margin: 0 auto 20px !important;
+  max-width: 1140px !important;
+  margin: 0 auto 22px !important;
 }
 
-/* 功能卡片单体（Soft-Glass Card） */
-.feature-rich-card {
-  position: relative;
+/* 功能卡片单体（深度对齐设计稿 256px 高度与充足留白） */
+:root body.web-browser .feature-rich-card {
+  position: relative !important;
   border-radius: 20px !important;
   border: 1px solid var(--chloe-card-border) !important;
   background: var(--chloe-card-bg) !important;
   backdrop-filter: var(--chloe-glass-filter) !important;
   -webkit-backdrop-filter: var(--chloe-glass-filter) !important;
-  box-shadow: var(--chloe-shadow-card) !important;
-  padding: 20px 20px 16px !important;
+  box-shadow: 0 10px 30px rgba(68, 54, 38, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  padding: 24px 22px 20px !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
-  min-height: 220px !important;
+  min-height: 256px !important;
   text-align: left !important;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease !important;
   cursor: pointer;
 }
 
+/* 卡片一：开发推进（暖象牙白，极淡鼠尾草绿，米绿色 Tag） */
+:root body.web-browser .suggestions .feature-rich-card:nth-child(1) {
+  background: rgba(251, 252, 248, 0.94) !important;
+  border-color: rgba(212, 218, 206, 0.72) !important;
+}
+:root body.web-browser .suggestions .feature-rich-card:nth-child(1) .feature-card-tag-pill {
+  background: rgba(238, 242, 232, 0.85) !important;
+  border-color: rgba(206, 215, 198, 0.6) !important;
+  color: #424e3a !important;
+}
+
+/* 卡片二：远程开发工作区（中性暖白，浅米色 Tag） */
+:root body.web-browser .suggestions .feature-rich-card:nth-child(2) {
+  background: rgba(254, 253, 250, 0.94) !important;
+  border-color: rgba(222, 214, 200, 0.7) !important;
+}
+:root body.web-browser .suggestions .feature-rich-card:nth-child(2) .feature-card-tag-pill {
+  background: rgba(244, 239, 230, 0.85) !important;
+  border-color: rgba(218, 208, 192, 0.6) !important;
+  color: #52473a !important;
+}
+
+/* 卡片三：服务器与额度（微暖奶油白，微暖米金 Tag） */
+:root body.web-browser .suggestions .feature-rich-card:nth-child(3) {
+  background: rgba(255, 251, 245, 0.94) !important;
+  border-color: rgba(226, 212, 194, 0.7) !important;
+}
+:root body.web-browser .suggestions .feature-rich-card:nth-child(3) .feature-card-tag-pill {
+  background: rgba(248, 240, 228, 0.88) !important;
+  border-color: rgba(224, 208, 186, 0.6) !important;
+  color: #5c4730 !important;
+}
+
 :root body.web-browser .feature-rich-card:hover {
   transform: translateY(-3px) !important;
-  background: var(--chloe-card-bg-hover) !important;
-  border-color: var(--chloe-card-border-hover) !important;
-  box-shadow: var(--chloe-shadow-card-hover) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(195, 148, 90, 0.6) !important;
+  box-shadow: 0 14px 38px rgba(68, 54, 38, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03) !important;
 }
 
 /* 主体按钮：纯透明内容区，彻底消除 button 的默认边框背景 */
@@ -580,12 +721,18 @@ body.web-browser .theme-options button:hover {
   display: flex !important;
   align-items: flex-start !important;
   justify-content: space-between !important;
-  margin-bottom: 14px !important;
+  margin-bottom: 16px !important;
   width: 100% !important;
 }
 
+.feature-card-header .feature-card-icon {
+  width: 44px !important;
+  height: 44px !important;
+  flex-shrink: 0 !important;
+}
+
 .feature-card-badge {
-  font-size: 13px !important;
+  font-size: 13.5px !important;
   font-weight: 600 !important;
   color: var(--chloe-text-faint) !important;
   letter-spacing: 0.04em !important;
@@ -601,25 +748,25 @@ body.web-browser .theme-options button:hover {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  margin-bottom: 8px !important;
+  margin-bottom: 10px !important;
 }
 
 .feature-card-content h3 {
   margin: 0 !important;
-  font-size: 18px !important;
+  font-size: 19.5px !important;
   font-weight: 700 !important;
-  color: var(--chloe-text-title) !important;
+  color: #221d17 !important;
   line-height: 1.3 !important;
 }
 
 .feature-card-arrow-circle {
   display: grid !important;
   place-items: center !important;
-  width: 28px !important;
-  height: 28px !important;
+  width: 32px !important;
+  height: 32px !important;
   border-radius: 50% !important;
-  background: rgba(244, 238, 227, 0.75) !important;
-  color: var(--chloe-text-body) !important;
+  background: rgba(244, 238, 227, 0.85) !important;
+  color: #4f4438 !important;
   transition: all 0.18s ease !important;
   flex-shrink: 0 !important;
 }
@@ -631,10 +778,10 @@ body.web-browser .theme-options button:hover {
 }
 
 .feature-card-content p {
-  margin: 0 0 16px !important;
-  font-size: 13px !important;
-  line-height: 1.55 !important;
-  color: var(--chloe-text-body) !important;
+  margin: 0 0 18px !important;
+  font-size: 13.5px !important;
+  line-height: 1.62 !important;
+  color: #5c5244 !important;
 }
 
 /* 卡片底部 Tag 横排区域（确保水平排列） */
@@ -642,7 +789,7 @@ body.web-browser .theme-options button:hover {
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: wrap !important;
-  gap: 7px !important;
+  gap: 8px !important;
   margin-top: auto !important;
   width: 100% !important;
 }
@@ -654,13 +801,13 @@ body.web-browser .theme-options button:hover {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 5px 11px !important;
+  padding: 6px 13px !important;
   margin: 0 !important;
   border-radius: 999px !important;
-  border: 1px solid rgba(215, 203, 185, 0.45) !important;
-  background: rgba(244, 238, 227, 0.72) !important;
-  color: #554c42 !important;
-  font-size: 11px !important;
+  border: 1px solid rgba(215, 203, 185, 0.5) !important;
+  background: rgba(244, 238, 227, 0.8) !important;
+  color: #52473a !important;
+  font-size: 12px !important;
   font-weight: 550 !important;
   line-height: 1.2 !important;
   box-shadow: none !important;
@@ -676,25 +823,34 @@ body.web-browser .theme-options button:hover {
   transform: translateY(-1px) !important;
 }
 
-/* 任务状态胶囊指示条（Status Strip） */
+/* 首页展示时，隐藏底层会话态状态条，确保主舞台只有唯一一条尚未开始胶囊 */
+:root body.web-browser .welcome:not([hidden]) ~ #taskStatusStrip {
+  display: none !important;
+}
+:root body.web-browser:has(.welcome:not([hidden])) #taskStatusStrip {
+  display: none !important;
+}
+
+/* 任务状态胶囊指示条（Status Strip · 对齐 1140px 舒展大卡片） */
 :root body.web-browser .task-status-strip:not([hidden]),
-.chloe-status-idle-strip {
+:root body.web-browser .chloe-status-idle-strip {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   width: 100% !important;
-  max-width: 960px !important;
-  min-height: 44px !important;
-  margin: 12px auto 26px !important;
-  padding: 8px 16px !important;
+  max-width: 1140px !important;
+  min-height: 48px !important;
+  margin: 0 auto 28px !important;
+  padding: 10px 20px !important;
   border-radius: 14px !important;
-  border: 1px solid var(--chloe-card-border) !important;
-  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px solid rgba(220, 212, 198, 0.6) !important;
+  background: rgba(255, 255, 255, 0.75) !important;
   backdrop-filter: var(--chloe-glass-filter) !important;
-  box-shadow: 0 4px 16px rgba(68, 54, 38, 0.03) !important;
-  font-size: 13px !important;
+  box-shadow: 0 4px 16px rgba(68, 54, 38, 0.02) !important;
+  font-size: 13.5px !important;
   color: var(--chloe-text-body) !important;
   box-sizing: border-box !important;
+  cursor: pointer !important;
 }
 
 .status-strip-left {
@@ -719,21 +875,35 @@ body.web-browser .theme-options button:hover {
 }
 
 /* ==========================================================================
-   6. 底部输入区（Composer）1:1 复刻
+   6. 底部输入区（Composer）1:1 复刻（1040px 舒展主视觉输入区）
    ========================================================================== */
 :root body.web-browser .composer-wrap {
-  width: min(calc(100% - 32px), 880px) !important;
-  max-width: 880px !important;
+  width: min(calc(100% - 48px), 1040px) !important;
+  max-width: 1040px !important;
   margin: 0 auto !important;
-  padding: 10px 0 calc(16px + env(safe-area-inset-bottom)) !important;
+  padding: 10px 0 calc(20px + env(safe-area-inset-bottom)) !important;
   background: transparent !important;
+}
+
+:root body.web-browser .composer-hint {
+  text-align: center !important;
+  color: var(--chloe-text-muted) !important;
+  font-size: 11.5px !important;
+  margin: 9px auto 0 !important;
+  letter-spacing: 0.01em !important;
+  display: block !important;
+  width: 100% !important;
+  opacity: 0.85 !important;
 }
 
 /* 输入卡片复合材质 */
 :root body.web-browser .composer {
-  min-height: 104px !important;
-  padding: 14px 16px 12px !important;
-  border-radius: 24px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  min-height: 116px !important;
+  padding: 16px 22px 14px !important;
+  border-radius: 26px !important;
   border: 1px solid var(--chloe-card-border) !important;
   background: var(--chloe-card-bg) !important;
   backdrop-filter: var(--chloe-glass-filter) !important;
@@ -815,82 +985,129 @@ body.web-browser .theme-options button:hover {
   transform: scale(1.04) !important;
 }
 
-/* 秋日模型与档位控制药丸（Pill Selector · 高优先级） */
+/* 秋日模型与档位控制药丸（3 枚独立舒展胶囊，对齐目标设计图） */
 :root body.web-browser .composer-toolbar .composer-model,
 :root body.web-browser #modelButton.composer-model {
   display: inline-flex !important;
   width: auto !important;
   max-width: none !important;
-  height: 32px !important;
-  padding: 0 10px !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(215, 203, 185, 0.45) !important;
-  background: rgba(244, 238, 227, 0.78) !important;
-  color: var(--chloe-text-body) !important;
-  font-size: 12px !important;
-  font-weight: 550 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   cursor: pointer !important;
-  transition: all 0.15s ease !important;
   white-space: nowrap !important;
   align-items: center !important;
-  gap: 5px !important;
+  gap: 8px !important;
 }
 
-:root body.web-browser .composer-toolbar .composer-model:hover,
-:root body.web-browser #modelButton.composer-model:hover {
-  background: rgba(238, 230, 215, 0.95) !important;
-  color: var(--chloe-text-title) !important;
-  border-color: var(--chloe-card-border-hover) !important;
-}
-
-:root body.web-browser #modelButton b {
-  display: inline-block !important;
-  max-width: 120px !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  color: var(--chloe-text-title) !important;
+:root body.web-browser #modelButton.composer-model > svg:first-child {
+  display: none !important;
 }
 
 :root body.web-browser #modelButton .composer-env-pill {
   display: inline-flex !important;
   align-items: center !important;
-  padding: 1px 6px !important;
-  border-radius: 4px !important;
-  font-size: 10px !important;
+  height: 32px !important;
+  padding: 0 11px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(215, 203, 185, 0.5) !important;
+  background: rgba(244, 238, 227, 0.78) !important;
+  color: #4d453b !important;
+  font-size: 12px !important;
+  font-weight: 550 !important;
+  gap: 4px !important;
+  transition: all 0.15s ease !important;
+}
+
+:root body.web-browser #modelButton .composer-env-pill::after {
+  content: "▾";
+  font-size: 11px;
+  margin-left: 2px;
+  color: #7d7265;
+}
+
+:root body.web-browser #modelButton b {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(215, 203, 185, 0.5) !important;
+  background: rgba(244, 238, 227, 0.78) !important;
+  color: #24201c !important;
+  font-size: 12px !important;
   font-weight: 600 !important;
-  background: rgba(77, 83, 60, 0.12) !important;
-  color: #4d533c !important;
+  max-width: 150px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+}
+
+:root body.web-browser #modelButton b::before {
+  content: "";
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 5px;
+  background-color: var(--chloe-gold-accent, #c26a28);
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20zM2 21c0-3 1.8-6.5 5-8"/></svg>') no-repeat center / contain;
+  mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20zM2 21c0-3 1.8-6.5 5-8"/></svg>') no-repeat center / contain;
+}
+
+:root body.web-browser #modelButton b::after {
+  content: "▾";
+  font-size: 11px;
+  margin-left: 3px;
+  color: #7d7265;
 }
 
 :root body.web-browser #modelButton #reasoningLabel {
-  display: inline-block !important;
-  font-size: 11px !important;
-  color: var(--chloe-text-muted) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  padding: 0 11px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(215, 203, 185, 0.5) !important;
+  background: rgba(244, 238, 227, 0.78) !important;
+  color: #4d453b !important;
+  font-size: 12px !important;
+  font-weight: 550 !important;
+  transition: all 0.15s ease !important;
 }
 
-:root body.web-browser #modelButton i {
-  display: inline-block !important;
-  width: 3px !important;
-  height: 3px !important;
-  border-radius: 50% !important;
-  background: var(--chloe-text-faint) !important;
-  margin: 0 1px !important;
+:root body.web-browser #modelButton #reasoningLabel::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  background-color: #d98a3a;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>') no-repeat center / contain;
+  mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>') no-repeat center / contain;
 }
 
-:root body.web-browser #modelButton svg {
-  width: 13px !important;
-  height: 13px !important;
-  flex-shrink: 0 !important;
+:root body.web-browser #modelButton #reasoningLabel::after {
+  content: "▾";
+  font-size: 11px;
+  margin-left: 2px;
+  color: #7d7265;
 }
 
+:root body.web-browser #modelButton i,
 :root body.web-browser #modelButton .pill-chevron {
-  color: var(--chloe-text-muted) !important;
-  width: 10px !important;
-  height: 10px !important;
-  margin-left: 1px !important;
+  display: none !important;
+}
+
+:root body.web-browser #modelButton .composer-env-pill:hover,
+:root body.web-browser #modelButton b:hover,
+:root body.web-browser #modelButton #reasoningLabel:hover {
+  background: rgba(238, 230, 215, 0.95) !important;
+  border-color: rgba(195, 148, 90, 0.5) !important;
+  transform: translateY(-1px) !important;
 }
 
 /* 麦克风按键 */
@@ -906,10 +1123,12 @@ body.web-browser .theme-options button:hover {
   transition: all 0.15s ease !important;
 }
 
-/* 发送按键（深橄榄秋褐圆形按键） */
-:root body.web-browser .send-button {
-  width: 38px !important;
-  height: 38px !important;
+/* 发送按键（深橄榄秋褐圆形按键 · 坚实视觉重心） */
+:root body.web-browser .send-button,
+:root body.web-browser .send-button:disabled,
+:root body.web-browser .send-button:not(.working):not(.sending):not(.pausing):disabled {
+  width: 42px !important;
+  height: 42px !important;
   border-radius: 50% !important;
   border: 0 !important;
   background: var(--chloe-olive-primary) !important;
@@ -918,18 +1137,23 @@ body.web-browser .theme-options button:hover {
   display: grid !important;
   place-items: center !important;
   cursor: pointer !important;
+  opacity: 0.95 !important;
   transition: all 0.18s ease !important;
 }
 
-:root body.web-browser .send-button:hover {
+:root body.web-browser .send-button:hover:not(:disabled) {
   background: var(--chloe-olive-hover) !important;
   transform: scale(1.05) !important;
   box-shadow: 0 6px 18px rgba(77, 83, 60, 0.38) !important;
 }
 
-:root body.web-browser .send-button svg {
-  width: 18px !important;
-  height: 18px !important;
+:root body.web-browser .send-button svg,
+:root body.web-browser .send-button:disabled svg,
+:root body.web-browser .send-button:not(.working):not(.sending):not(.pausing):disabled svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 20px !important;
+  height: 20px !important;
   stroke-width: 2.3 !important;
 }
 
@@ -947,12 +1171,14 @@ body.web-browser .theme-options button:hover {
     padding: 16px 14px !important;
   }
 
-  .hero-greeting-title {
-    font-size: 26px !important;
+  :root body.web-browser .welcome h1,
+  :root body.web-browser .hero-greeting-title {
+    font-size: 28px !important;
   }
 
-  .hero-greeting-desc {
-    font-size: 13px !important;
+  :root body.web-browser .welcome > p,
+  :root body.web-browser .hero-greeting-desc {
+    font-size: 13.5px !important;
     margin-bottom: 20px !important;
   }
 
@@ -1011,18 +1237,39 @@ body.web-browser .theme-options button:hover {
 
   :root body.web-browser .composer-toolbar .composer-model,
   :root body.web-browser #modelButton.composer-model {
-    height: 30px !important;
-    max-width: 175px !important;
-    padding: 0 8px !important;
-    font-size: 11px !important;
+    height: auto !important;
+    max-width: none !important;
+    padding: 0 !important;
+    gap: 4px !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 4px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  :root body.web-browser #modelButton .composer-env-pill {
+    height: 28px !important;
+    padding: 0 7px !important;
+    font-size: 11px !important;
+    flex-shrink: 0 !important;
   }
 
   :root body.web-browser #modelButton b {
-    max-width: 85px !important;
-    display: inline-block !important;
+    height: 28px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    max-width: 95px !important;
+    flex-shrink: 1 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  :root body.web-browser #modelButton #reasoningLabel {
+    height: 28px !important;
+    padding: 0 7px !important;
+    font-size: 11px !important;
+    flex-shrink: 0 !important;
   }
 
   :root body.web-browser .voice-button {
