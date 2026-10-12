@@ -196,12 +196,6 @@ body {
   font-size: 13px;
 }
 
-.suggestions {
-  margin-top: 26px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.suggestions button,
 .stream-action,
 .stream-action-group,
 .activity,
@@ -215,18 +209,6 @@ body {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, .08), 0 12px 30px rgba(0, 0, 0, .12);
 }
 
-.suggestions button {
-  min-width: 0;
-  padding: 13px;
-  border-radius: 18px;
-}
-
-.suggestions button:active {
-  color: #000;
-  background: #fff;
-}
-
-.suggestions small,
 .stream-action,
 .stream-group-copy small,
 .activity p,
@@ -717,14 +699,6 @@ body {
     font-size: 38px;
   }
 
-  .suggestions {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .suggestions button {
-    padding: 12px 14px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

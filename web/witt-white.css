@@ -68,7 +68,6 @@
 :root:not([data-theme="dark"]) .compact-nav-button,
 :root:not([data-theme="dark"]) .compact-nav-actions .compact-nav-button,
 :root:not([data-theme="dark"]) .chat-more-menu,
-:root:not([data-theme="dark"]) .suggestions button,
 :root:not([data-theme="dark"]) .composer,
 :root:not([data-theme="dark"]) .attachment-menu,
 :root:not([data-theme="dark"]) .quick-model-menu,
@@ -214,21 +213,6 @@
   line-height: 1.55 !important;
 }
 
-:root:not([data-theme="dark"]) .suggestions {
-  max-width: 560px !important;
-  margin-top: 26px !important;
-  gap: 8px !important;
-}
-
-:root:not([data-theme="dark"]) .suggestions button {
-  min-height: 56px !important;
-  padding: 11px 13px !important;
-  border: 1px solid #e5e5e5 !important;
-  border-radius: 14px !important;
-  box-shadow: none !important;
-}
-
-:root:not([data-theme="dark"]) .suggestions button > span,
 :root:not([data-theme="dark"]) .completed-process-mark,
 :root:not([data-theme="dark"]) .stream-action > span,
 :root:not([data-theme="dark"]) .stream-group-icon,
@@ -237,11 +221,6 @@
 :root:not([data-theme="dark"]) .delivery-download,
 :root:not([data-theme="dark"]) .artifact-handoff-icon {
   color: #525252 !important;
-  background: #ffffff !important;
-}
-
-:root:not([data-theme="dark"]) .suggestions button:active {
-  border-color: #d4d4d4 !important;
   background: #ffffff !important;
 }
 
@@ -445,61 +424,6 @@
     color: #666666 !important;
     font-size: 13px !important;
     line-height: 1.5 !important;
-  }
-
-  :root:not([data-theme="dark"]) .suggestions {
-    display: grid !important;
-    width: 100% !important;
-    max-width: 360px !important;
-    margin: 0 auto !important;
-    grid-template-columns: 1fr !important;
-    gap: 8px !important;
-  }
-
-  :root:not([data-theme="dark"]) .suggestions button {
-    min-height: 52px !important;
-    padding: 10px 14px !important;
-    display: grid !important;
-    grid-template-columns: 24px minmax(0, 1fr) auto !important;
-    align-items: center !important;
-    gap: 10px !important;
-    border: 1px solid #e5e5e5 !important;
-    border-radius: 12px !important;
-    background: #ffffff !important;
-    text-align: left !important;
-  }
-
-  :root:not([data-theme="dark"]) .suggestions button > span {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 20px !important;
-    height: 20px !important;
-    border-radius: 6px !important;
-    background: #f0f4f3 !important;
-    color: #227b70 !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-  }
-
-  :root:not([data-theme="dark"]) .suggestions button b {
-    display: block !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    color: #111111 !important;
-  }
-
-  :root:not([data-theme="dark"]) .suggestions button small {
-    display: block !important;
-    font-size: 11px !important;
-    color: #666666 !important;
-  }
-
-  :root:not([data-theme="dark"]) .suggestions button > i {
-    display: inline-block !important;
-    font-style: normal !important;
-    color: #999999 !important;
-    font-size: 14px !important;
   }
 
   :root:not([data-theme="dark"]) .messages {

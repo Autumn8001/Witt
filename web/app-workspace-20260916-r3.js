@@ -160,7 +160,9 @@
     const last = state.active?.messages?.findLast((message) => message.role === "assistant");
     const status = approval ? { state: "waiting_confirmation", label: "等你确认" }
       : state.active?.taskStatus || { state: state.busy ? "running" : last?.status || "idle", label: state.busy ? "处理中" : last?.status === "failed" ? "执行失败" : last?.status === "interrupted" ? "已暂停" : last ? "已完成" : "准备就绪" };
-    strip.hidden = !state.activeId;
+    // A fresh conversation is the welcome surface, not an idle task.
+    // Running tasks and approvals can precede the first assistant message.
+    strip.hidden = !state.activeId || (!state.busy && !approval && !state.active?.messages?.length && (!state.active?.taskStatus || state.active.taskStatus.state === "idle"));
     strip.dataset.state = status.state;
     strip.innerHTML = `<span class="task-state-dot"></span><strong>${escapeHtml(status.label)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : ""}`;
     strip.querySelector("#jumpToApproval")?.addEventListener("click", () => $("#approvalDock")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
@@ -2099,13 +2101,20 @@
   }
 
   function openDrawer() {
+    if (document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches) {
+      document.body.classList.remove("sidebar-collapsed");
+      $("#drawer").setAttribute("aria-hidden", "false");
+      return;
+    }
     $("#drawer").classList.add("open");
     $("#drawer").setAttribute("aria-hidden", "false");
   }
 
   function closeDrawer() {
     $("#drawer").classList.remove("open");
-    $("#drawer").setAttribute("aria-hidden", "true");
+    const desktop = document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches;
+    const hidden = desktop ? document.body.classList.contains("sidebar-collapsed") : true;
+    $("#drawer").setAttribute("aria-hidden", String(hidden));
   }
 
   function allArtifacts() {
@@ -3653,8 +3662,7 @@
         setConnected(false, "需要更新 App");
         $("#welcome h1").textContent = "新版对话已经准备好";
         $("#welcome>p").textContent = "请先更新 Chloe，更新完成后即可在这里连续对话。";
-        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Chloe</b><small>安装支持连续对话的新版本</small></button>`;
-        $("#legacyUpdate").addEventListener("click", () => bridge()?.checkForUpdates?.());
+        $("#composerHint").textContent = "请在侧栏中检查更新，以使用连续对话功能。";
         $("#messageInput").disabled = true;
         $("#attachButton").disabled = true;
         $("#sendButton").disabled = true;
@@ -4343,7 +4351,12 @@
   $("#workspaceBackdrop").addEventListener("click", closeWorkspaceOverview);
   $("#refreshWorkspace").addEventListener("click", requestWorkspaceOverview);
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeWorkspaceOverview(); });
-  $("#closeDrawer").addEventListener("click", closeDrawer);
+  $("#closeDrawer").addEventListener("click", () => {
+    if (document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches) {
+      document.body.classList.add("sidebar-collapsed");
+    }
+    closeDrawer();
+  });
   $("#drawerBackdrop").addEventListener("click", closeDrawer);
   $("#profileButton").addEventListener("click", openProfile);
   $("#localSshButton").addEventListener("click", openLocalSsh);
@@ -5111,30 +5124,6 @@
     const archiveId = event.target.closest("[data-archive]")?.dataset.archive;
     if (openId) selectConversation(openId);
     if (archiveId) openArchiveDialog(archiveId);
-  });
-  $(".suggestions").addEventListener("click", (event) => {
-    let btn = event.target.closest("button");
-    if (!btn) {
-      const card = event.target.closest(".feature-rich-card");
-      if (card && !event.target.closest(".feature-card-tags")) {
-        btn = card.querySelector(".feature-card-main-btn");
-      }
-    }
-    if (!btn) return;
-    const action = btn.dataset.action;
-    if (action === "remote-workspace" && window.WittCustomerDevices?.open) {
-      window.WittCustomerDevices.open();
-      return;
-    }
-    const prompt = btn.dataset.prompt;
-    if (prompt) {
-      $("#messageInput").value = prompt;
-      $("#messageInput").dispatchEvent(new Event("input"));
-      $("#messageInput").focus();
-    }
-  });
-  $("#idleTaskPromptStrip")?.addEventListener("click", () => {
-    $("#messageInput")?.focus();
   });
   $("#cancelArchive").addEventListener("click", closeArchiveDialog);
   $(".dialog-backdrop").addEventListener("click", closeArchiveDialog);

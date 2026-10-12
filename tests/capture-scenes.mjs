@@ -35,7 +35,7 @@ const xtermFitJs = readFileSync(new URL("../web/vendor/xterm/addon-fit.js", impo
 const xtermWebLinksJs = readFileSync(new URL("../web/vendor/xterm/addon-web-links.js", import.meta.url), "utf8");
 const xtermCss = readFileSync(new URL("../web/vendor/xterm/xterm.css", import.meta.url), "utf8");
 const icon = readFileSync(new URL("../web/icon.svg", import.meta.url), "utf8");
-const autumnBg = readFileSync(new URL("../web/assets/autumn-bg.jpg", import.meta.url));
+const autumnBg = readFileSync(new URL("../web/assets/autumn-landscape.jpg", import.meta.url));
 
 const browser = await chromium.launch({ headless: true });
 
@@ -50,7 +50,7 @@ async function setupPage(viewport, theme = "light", initialConversations = [], a
     if (pathname.endsWith("version.json")) {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ frontendSha: "abcdef0123456789" }) });
     }
-    if (pathname.endsWith("autumn-bg.jpg")) {
+    if (pathname.endsWith("autumn-landscape.jpg")) {
       return route.fulfill({ contentType: "image/jpeg", body: autumnBg });
     }
     if (pathname.endsWith(".css")) {
@@ -136,6 +136,12 @@ async function setupPage(viewport, theme = "light", initialConversations = [], a
       window.DropVault.onAuthStatus(JSON.stringify({ authenticated: true, admin: true, principal: { admin: true, label: "管理员" }, clientMode: "browser" }));
     }
   }, { theme });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const background = new Image();
+    background.src = "/vault/assets/autumn-landscape.jpg";
+    await background.decode();
+  });
   await page.waitForTimeout(800);
   return page;
 }

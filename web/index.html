@@ -128,9 +128,12 @@
   <link rel="stylesheet" href="/vault/component-interactions.css?v=2-transcript-inset">
   <link rel="stylesheet" href="/vault/profile-overview.css?v=4-profile-hierarchy">
   <link rel="stylesheet" href="/vault/ui-system.css?v=1">
-  <link rel="stylesheet" href="/vault/chloe-autumn.css?v=3.5.0">
+  <link rel="stylesheet" href="/vault/chloe-autumn.css?v=4.0.0">
 </head>
 <body class="chloe-autumn-workspace">
+  <!-- Chloe autumn: supplied Figma is visual authority. Warm ivory sidebar,
+       olive actions, botanical SVG branding, landscape-led welcome and floating
+       composer. Homepage shortcuts are removed; runtime task status is retained. -->
   <div class="chloe-bg-layer" aria-hidden="true"></div>
   <div class="chloe-bg-mask" aria-hidden="true"></div>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -218,100 +221,6 @@
         </span>
         <h1 class="hero-greeting-title animate-blur-fade-up">你好，我是<span class="chloe-brand-name">Chloe</span></h1>
         <p class="hero-greeting-desc animate-blur-fade-up">我可以帮助你编写代码、调试问题、连接远程环境，并管理你的服务器与项目。</p>
-        <div class="suggestions">
-          <div class="feature-rich-card">
-            <button type="button" class="feature-card-main-btn" data-action="new-task" data-prompt="请帮我推进一个开发任务，先梳理目标和执行方案。">
-              <div class="feature-card-header">
-                <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <path d="M13 13L8 18L13 23M23 13L28 18L23 23M19 12L17 24" stroke="#4D533C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M22 22C24 20 26 21 27 23C27 25 25 27 23 27C21 27 20 25 22 22Z" fill="#C26A28" opacity="0.85"/>
-                  <path d="M22 25L24 23" stroke="#FFF" stroke-width="1" stroke-linecap="round"/>
-                </svg>
-                <span class="feature-card-badge">01</span>
-              </div>
-              <div class="feature-card-content">
-                <div class="feature-card-title-row">
-                  <h3>开发推进</h3>
-                  <span class="feature-card-arrow-circle"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
-                </div>
-                <p>代码编写、重构与测试交付<br>从想法到可运行的结果。</p>
-              </div>
-            </button>
-            <div class="feature-card-tags">
-              <button type="button" class="feature-card-tag-pill" data-prompt="请为我生成当前任务的核心代码实现与必要注释。">代码生成</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="请审查当前代码并进行结构与性能重构优化。">重构优化</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="请为当前功能模块编写完整的测试用例并验证边界条件。">测试用例</button>
-            </div>
-          </div>
-
-          <div class="feature-rich-card">
-            <button type="button" class="feature-card-main-btn" data-action="remote-workspace" data-prompt="检查当前远程开发工作区状态与授权设备。">
-              <div class="feature-card-header">
-                <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <rect x="8" y="9" width="20" height="13" rx="2" stroke="#4D533C" stroke-width="1.8"/>
-                  <path d="M11.5 13.5L14 15.5L11.5 17.5M16 17.5H19.5" stroke="#4D533C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M18 22V26M13 26H23" stroke="#4D533C" stroke-width="1.8" stroke-linecap="round"/>
-                  <path d="M23 7.5C25 6 27.5 7 28 9C28 10.5 26.5 12 24.5 11.5C23.5 11 22.5 9 23 7.5Z" fill="#D98A3A"/>
-                </svg>
-                <span class="feature-card-badge">02</span>
-              </div>
-              <div class="feature-card-content">
-                <div class="feature-card-title-row">
-                  <h3>远程开发工作区</h3>
-                  <span class="feature-card-arrow-circle"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
-                </div>
-                <p>连接 Windows 电脑与多终端环境<br>在你的真实开发环境中完成任务。</p>
-              </div>
-            </button>
-            <div class="feature-card-tags">
-              <button type="button" class="feature-card-tag-pill" data-prompt="检查与 Windows 受控电脑的远程连接状态。">远程连接</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="查看当前已授权的环境与运行依赖项。">环境管理</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="在绑定的远程项目目录中推进协作开发。">项目协作</button>
-            </div>
-          </div>
-
-          <div class="feature-rich-card">
-            <button type="button" class="feature-card-main-btn" data-action="server-check" data-prompt="检查服务器运行状态与 CPA 模型额度。">
-              <div class="feature-card-header">
-                <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <ellipse cx="16" cy="10" rx="7" ry="2.5" fill="#D98A3A" opacity="0.9"/>
-                  <path d="M9 10V15C9 16.4 12.1 17.5 16 17.5C19.9 17.5 23 16.4 23 15V10" stroke="#8E4823" stroke-width="1.6"/>
-                  <path d="M9 15V20C9 21.4 12.1 22.5 16 22.5C19.9 22.5 23 21.4 23 20V15" stroke="#8E4823" stroke-width="1.6"/>
-                  <path d="M9 20V25C9 26.4 12.1 27.5 16 27.5C19.9 27.5 23 26.4 23 25V20" stroke="#8E4823" stroke-width="1.6"/>
-                  <path d="M23 18C25 17 27 18 28 20C28 22 26 24 24 24C22.5 24 22 23 23 18Z" fill="#C26A28"/>
-                </svg>
-                <span class="feature-card-badge">03</span>
-              </div>
-              <div class="feature-card-content">
-                <div class="feature-card-title-row">
-                  <h3>服务器与额度</h3>
-                  <span class="feature-card-arrow-circle"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
-                </div>
-                <p>服务器健康、资源及可用额度<br>随时掌握运行状态与资源使用。</p>
-              </div>
-            </button>
-            <div class="feature-card-tags">
-              <button type="button" class="feature-card-tag-pill" data-prompt="检查服务器各项服务与 Docker 容器运行健康度。">健康监控</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="检查当前 CPU、内存、磁盘以及模型资源配额。">资源管理</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="查看 CPA 与 Sub2API 的账号组用量与消耗分析。">成本分析</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="chloe-status-idle-strip" id="idleTaskPromptStrip">
-          <div class="status-strip-left">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="7.5" r="4.5" fill="#4D533C"/>
-              <path d="M12 12V20M9 20H15" stroke="#4D533C" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <strong>尚未开始</strong>
-            <span>不同任务请使用独立对话</span>
-          </div>
-          <span class="status-strip-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-        </div>
       </section>
       <section class="task-status-strip" id="taskStatusStrip" aria-live="polite" hidden></section>
       <button class="history-load" id="loadOlderMessages" type="button" hidden>加载更早消息</button>
@@ -416,29 +325,18 @@
     <div class="drawer-panel">
       <div class="drawer-head sidebar-brand">
         <div class="sidebar-brand-left">
-          <svg class="chloe-logo-icon" width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12.5 19.5C8.5 18 6.5 14.5 7.5 10.5C9.5 8.5 13 9.5 16 13C16.5 16 15 19 12.5 19.5Z" fill="url(#chloe-leaf-left)" opacity="0.92"/>
-            <path d="M9 13C12 14.5 15 15.5 15.5 15.5" stroke="#8A421D" stroke-width="1.1" stroke-linecap="round"/>
-            <path d="M23.5 19.5C27.5 18 29.5 14.5 28.5 10.5C26.5 8.5 23 9.5 20 13C19.5 16 21 19 23.5 19.5Z" fill="url(#chloe-leaf-right)" opacity="0.92"/>
-            <path d="M27 13C24 14.5 21 15.5 20.5 15.5" stroke="#8A421D" stroke-width="1.1" stroke-linecap="round"/>
-            <path d="M18 4C18 4 13.5 10 13.5 17C13.5 23 18 27.5 18 27.5C18 27.5 22.5 23 22.5 17C22.5 10 18 4 18 4Z" fill="url(#chloe-leaf-center)"/>
-            <path d="M18 7.5V26M18 14L15 12M18 17L21 15M18 20L15 18" stroke="#7A3614" stroke-width="1.3" stroke-linecap="round"/>
-            <path d="M18 27.5C17.5 30 16 32 14.5 33" stroke="#8A421D" stroke-width="1.5" stroke-linecap="round"/>
-            <defs>
-              <linearGradient id="chloe-leaf-center" x1="13.5" y1="4" x2="22.5" y2="28" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#E5993E"/>
-                <stop offset="0.6" stop-color="#C66723"/>
-                <stop offset="1" stop-color="#9C4016"/>
-              </linearGradient>
-              <linearGradient id="chloe-leaf-left" x1="7" y1="9" x2="16" y2="20" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#EDB353"/>
-                <stop offset="1" stop-color="#C26A28"/>
-              </linearGradient>
-              <linearGradient id="chloe-leaf-right" x1="29" y1="9" x2="20" y2="20" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#E28935"/>
-                <stop offset="1" stop-color="#B2501E"/>
-              </linearGradient>
-            </defs>
+          <svg class="chloe-logo-icon" viewBox="0 0 54 54" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="chloe-botanical-gold" x2=".7" y2="1"><stop stop-color="#bb8a32"/><stop offset="1" stop-color="#765020"/></linearGradient><linearGradient id="chloe-botanical-rust" x2=".7" y2="1"><stop stop-color="#c4782b"/><stop offset="1" stop-color="#884315"/></linearGradient></defs>
+            <g stroke="none">
+              <path d="M27 30C22 21 28 9 40 5c-2 7 3 12-2 19-3 5-7 6-11 6Z" fill="url(#chloe-botanical-rust)"/>
+              <path d="M23 34C12 32 10 22 10 13c6 6 12 3 16 12 2 5 0 8-3 9Z" fill="url(#chloe-botanical-gold)"/>
+              <path d="M27 38c4-11 15-14 23-11-6 3-5 10-13 12-4 1-7 0-10-1Z" fill="url(#chloe-botanical-gold)"/>
+              <path d="M20 41C10 43 7 38 5 31c5 2 10-2 14 3 2 2 2 5 1 7Z" fill="#906020"/>
+            </g>
+            <g fill="none" stroke="#68481f" stroke-linecap="round" stroke-width="1.25">
+              <path d="M19 51c5-13 10-24 19-41M23 40l-8-19M25 42l18-12M22 43l-11-7"/>
+              <path d="m31 25 1-10m-2 13 9-6m-18 9-7-4m17 8 7 1" stroke-width=".8" opacity=".7"/>
+            </g>
           </svg>
           <h2>Chloe</h2>
         </div>
@@ -475,10 +373,10 @@
           <button class="drawer-entry-card drawer-admin-entry" id="customerDevicesButton" hidden aria-controls="customerDevicesSheet">
             <span class="profile-monogram customer-device-monogram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11" rx="2"/><path d="M8 19.5h8M12 15.5v4M7 8h10M7 11h5"/></svg></span>
             <span class="drawer-entry-text"><strong>远程开发工作区</strong><small>连接 Windows 电脑与受控项目</small></span>
-            <i class="drawer-entry-arrow" aria-hidden="true">›</i>
+            <svg class="drawer-entry-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
           </button>
-          <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>↗</span></button>
-          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet">模型、Harness 与服务端设置</button>
+          <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet"><span>模型、Harness 与服务端设置</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
         <div class="drawer-section-group">
           <div class="drawer-utilities">
@@ -502,7 +400,7 @@
         </div>
         <section class="drawer-theme" aria-labelledby="themeTitle">
           <span>
-            <i aria-hidden="true">◐</i>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>
             <b id="themeTitle">外观</b>
           </span>
           <div class="theme-options" role="group" aria-label="选择界面主题">

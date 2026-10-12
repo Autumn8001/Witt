@@ -80,7 +80,8 @@ button:disabled {
     #runtimeProfileOptions button):not(.selected):not(.active):not(:disabled):not([aria-disabled="true"]):hover {
     background: var(--ui-hover-surface) !important;
   }
-  :root :is(.send-button, .save-settings, .drawer-new, .suggestions button,
+
+  :root :is(.send-button, .save-settings, .drawer-new,
     .auth-gate-card button, .approval-form-actions button,
     .approval-carousel-actions button, .development-workflow-confirm button,
     .development-workflow-launch,

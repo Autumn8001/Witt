@@ -106,68 +106,6 @@ body.web-browser .welcome > p {
   margin: 0 0 28px !important;
   max-width: 680px !important;
 }
-:root body.web-browser .suggestions {
-  width: 100% !important;
-  max-width: 100% !important;
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 14px !important;
-  margin: 0 0 20px !important;
-}
-:root body.web-browser .suggestions button {
-  min-height: 106px !important;
-  padding: 16px 18px !important;
-  border: 1px solid var(--web-line) !important;
-  border-radius: 14px !important;
-  color: var(--web-text) !important;
-  background: var(--web-canvas) !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,.03) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  text-align: left !important;
-  cursor: pointer !important;
-  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease !important;
-}
-body.web-browser .suggestions button:hover {
-  background: var(--web-hover) !important;
-  border-color: #cfd8d6 !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 6px 18px rgba(0,0,0,.06) !important;
-}
-body.web-browser .suggestions button > span {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 22px !important;
-  height: 22px !important;
-  border-radius: 6px !important;
-  background: rgba(34,123,112,.08) !important;
-  color: #227b70 !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  margin-bottom: 8px !important;
-}
-body.web-browser .suggestions button b {
-  display: block !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-  color: var(--web-text) !important;
-  line-height: 1.35 !important;
-  margin-bottom: 4px !important;
-}
-body.web-browser .suggestions button small {
-  display: block !important;
-  color: var(--web-muted) !important;
-  font-size: 12px !important;
-  line-height: 1.45 !important;
-}
-body.web-browser .suggestions button > i {
-  align-self: flex-end !important;
-  font-style: normal !important;
-  color: var(--web-muted) !important;
-  font-size: 14px !important;
-}
 
 :root body.web-browser .composer-wrap {
   width: min(calc(100% - 32px), var(--workbench-max-width, 860px)) !important;
@@ -223,8 +161,6 @@ body.web-browser .composer-env-pill.is-remote {
   color: #1d4ed8 !important;
   border: 1px solid rgba(29,78,216,.2) !important;
 }
-
-
 
 :root .drawer-entry-card:not([hidden]),
 :root body.web-browser .drawer-entry-card:not([hidden]) {
@@ -524,7 +460,6 @@ body.web-browser .composer-env-pill.is-remote {
   body.web-browser .compact-nav { padding-inline: 22px !important; }
 }
 
-
 @media (max-width: 899px) {
   :root body.web-browser .welcome {
     padding: calc(48px + env(safe-area-inset-top)) 16px calc(var(--composer-inset, 96px) + 20px) !important;
@@ -539,39 +474,7 @@ body.web-browser .composer-env-pill.is-remote {
     text-align: left !important;
     margin-bottom: 20px !important;
   }
-  :root body.web-browser .suggestions {
-    grid-template-columns: 1fr !important;
-    max-width: 100% !important;
-    gap: 10px !important;
-    margin: 0 0 20px !important;
-  }
-  :root body.web-browser .suggestions button {
-    min-height: 60px !important;
-    padding: 12px 14px !important;
-    display: grid !important;
-    grid-template-columns: 28px minmax(0, 1fr) auto !important;
-    align-items: center !important;
-    gap: 12px !important;
-    border-radius: 14px !important;
-  }
-  :root body.web-browser .suggestions button > span {
-    display: inline-flex !important;
-    width: 24px !important;
-    height: 24px !important;
-    margin-bottom: 0 !important;
-  }
-  :root body.web-browser .suggestions button b {
-    font-size: 14px !important;
-    margin-bottom: 2px !important;
-  }
-  :root body.web-browser .suggestions button small {
-    font-size: 12px !important;
-  }
-  :root body.web-browser .suggestions button > i {
-    align-self: center !important;
-    margin-top: 0 !important;
-    font-size: 14px !important;
-  }
+
   :root body.web-browser .composer-wrap {
     width: calc(100% - 20px) !important;
     margin: 0 auto !important;
@@ -593,14 +496,7 @@ body.web-browser .composer-env-pill.is-remote {
   border-color: #79cabc !important;
   box-shadow: 0 0 0 3px rgba(121,202,188,.2), 0 8px 24px rgba(0,0,0,.3) !important;
 }
-[data-theme="dark"] body.web-browser .suggestions button {
-  background: #262626 !important;
-  border-color: #383838 !important;
-}
-[data-theme="dark"] body.web-browser .suggestions button:hover {
-  background: #303030 !important;
-  border-color: #4a4a4a !important;
-}
+
 [data-theme="dark"] body.web-browser .drawer-entry-card {
   background: #212121 !important;
   border-color: #383838 !important;
