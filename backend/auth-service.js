@@ -127,14 +127,14 @@ class AuthService {
     return store.userPolicies[userId];
   }
 
-  activate(input) {
+  activate(input, { currentDeviceId = null } = {}) {
     const code = String(input?.inviteCode || "").trim();
     const deviceId = String(input?.deviceId || "");
     if (!code || !ID.test(deviceId)) throw new Error("邀请码或设备编号无效");
     const store = this.read();
     const invite = store.invites.find((item) => item.code === code);
-    if (!invite || invite.disabled || (invite.expiresAt && Date.parse(invite.expiresAt) <= Date.now()) || invite.usedDevices >= invite.maxDevices) {
-      throw new Error("邀请码无效、已过期或设备数量已满");
+    if (!invite || invite.disabled || (invite.expiresAt && Date.parse(invite.expiresAt) <= Date.now())) {
+      throw new Error("邀请码无效或已过期");
     }
     const existing = store.devices.find((item) => item.id === deviceId);
     if (existing && !existing.disabled && existing.inviteId === invite.id) {
@@ -142,10 +142,31 @@ class AuthService {
       existing.tokenHash = hash(token); existing.lastSeenAt = now(); this.write(store);
       return { token, device: existing };
     }
-    if (existing) throw new Error("该设备已绑定其他用户，请先在管理端移除");
+    if (existing && !existing.disabled && currentDeviceId !== deviceId) {
+      throw new Error("此设备已绑定其他账号；请先使用当前账号登录后再切换邀请码");
+    }
+    if (invite.usedDevices >= invite.maxDevices) {
+      throw new Error("邀请码设备数量已满");
+    }
     const token = randomToken();
-    const device = { id: deviceId, userId: invite.userId, inviteId: invite.id, label: String(input.deviceName || "未命名设备").slice(0, 48), admin: invite.admin, disabled: false, tokenHash: hash(token), createdAt: now(), lastSeenAt: now() };
-    store.devices.push(device); invite.usedDevices += 1; this.write(store);
+    const device = {
+      id: deviceId,
+      userId: invite.userId,
+      inviteId: invite.id,
+      label: String(input.deviceName || existing?.label || "未命名设备").slice(0, 48),
+      admin: invite.admin,
+      disabled: false,
+      tokenHash: hash(token),
+      createdAt: existing?.createdAt || now(),
+      lastSeenAt: now(),
+    };
+    if (existing) {
+      store.devices[store.devices.indexOf(existing)] = device;
+    } else {
+      store.devices.push(device);
+    }
+    invite.usedDevices += 1;
+    this.write(store);
     return { token, device };
   }
 
@@ -178,7 +199,7 @@ class AuthService {
       this.readJsonBody(req, 8 * 1024, (error, body) => {
         try {
           if (error) throw error;
-          const result = this.activate(body);
+          const result = this.activate(body, { currentDeviceId: principal?.deviceId || null });
           const browser = req.headers["x-witt-client"] === "browser";
           const headers = browser ? {
             "Set-Cookie": `witt_session=${encodeURIComponent(result.token)}; Path=/vault-api/; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict`,

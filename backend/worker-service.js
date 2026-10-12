@@ -407,6 +407,7 @@ class TurnInstance {
       baseUrl: options.baseUrl || "",
       printTimeoutMs: options.timeoutMs || 300000,
       skipPermissions,
+      runAsAdmin: options.runAsAdmin === true && skipPermissions,
       logger: this.worker.logger,
     });
 

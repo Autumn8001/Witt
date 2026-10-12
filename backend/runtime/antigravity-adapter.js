@@ -62,6 +62,7 @@ class AntigravityAdapter {
    * @param {string} [options.apiKeyEnv]     env var name for the Gemini-compatible key
    * @param {string} [options.apiKeyValue]
    * @param {string} [options.baseUrl]       Gemini-compatible API base URL
+   * @param {boolean} [options.runAsAdmin]    trusted server-side administrator execution identity
    * @param {number} [options.printTimeoutMs]
    * @param {boolean} [options.stdinSessions] use one stdin-driven process per session
    */
@@ -78,6 +79,7 @@ class AntigravityAdapter {
     this.printTimeoutMs = Number(options.printTimeoutMs || 5 * 60 * 1000);
     this.stdinSessions = options.stdinSessions === true;
     this.skipPermissions = options.skipPermissions === true;
+    this.runAsAdmin = options.runAsAdmin === true && this.skipPermissions;
     this.logger = options.logger || new RuntimeLogger({ enabled: false });
     this.children = new Set();
     this.sessions = new Map();
@@ -94,6 +96,9 @@ class AntigravityAdapter {
     const env = {};
     if (this.apiKeyEnv && this.apiKeyValue) env[this.apiKeyEnv] = this.apiKeyValue;
     if (this.baseUrl) env.GOOGLE_GEMINI_BASE_URL = this.baseUrl;
+    // Never inherit an admin marker from the parent process. The launcher only
+    // honors this marker when the trusted caller selected full-access mode.
+    env.CHLOE_AGY_ADMIN_EXECUTION = this.runAsAdmin ? "1" : "0";
     return env;
   }
 

@@ -9,6 +9,7 @@ const { AntigravityAdapter } = require("../backend/runtime/antigravity-adapter")
 const { antigravityFailureReason } = require("../backend/worker-service");
 
 const SECRET_PARENT_ENV = "WITT_ANTIGRAVITY_ENV_TEST_SECRET";
+const ADMIN_EXECUTION_ENV = "CHLOE_AGY_ADMIN_EXECUTION";
 const FAKE_API_KEY = "fake-cpa-gemini-key-for-test-only";
 const FAKE_BASE_URL = "http://127.0.0.1:8317/gemini";
 
@@ -18,11 +19,14 @@ function makeEnvProbe(t, expectations) {
   const script = path.join(directory, "probe-child-env.js");
   const expectedKey = expectations.key === null ? "undefined" : JSON.stringify(expectations.key);
   const expectedBase = expectations.baseUrl === null ? "undefined" : JSON.stringify(expectations.baseUrl);
+  const expectedAdmin = expectations.admin === null ? "undefined" : JSON.stringify(expectations.admin);
   fs.writeFileSync(script, [
     `const expectedKey = ${expectedKey};`,
     `const expectedBase = ${expectedBase};`,
+    `const expectedAdmin = ${expectedAdmin};`,
     `if (process.env.GEMINI_API_KEY !== expectedKey) process.exit(31);`,
     `if (process.env.GOOGLE_GEMINI_BASE_URL !== expectedBase) process.exit(32);`,
+    `if (process.env.${ADMIN_EXECUTION_ENV} !== expectedAdmin) process.exit(34);`,
     `if (process.env.${SECRET_PARENT_ENV} !== undefined) process.exit(33);`,
   ].join("\n"), { mode: 0o600 });
   return script;
@@ -39,6 +43,7 @@ async function runProbe(t, options, expected) {
   assert.equal(result.ok, true, `environment probe child exited with ${result.code}`);
   assert.equal(handle.process.env.GEMINI_API_KEY, expected.key ?? undefined);
   assert.equal(handle.process.env.GOOGLE_GEMINI_BASE_URL, expected.baseUrl ?? undefined);
+  assert.equal(handle.process.env[ADMIN_EXECUTION_ENV], expected.admin ?? undefined);
   assert.equal(handle.process.env[SECRET_PARENT_ENV], undefined);
 }
 
@@ -54,7 +59,7 @@ test("explicit CPA Gemini key and base URL reach only the actual harness child",
     apiKeyEnv: "GEMINI_API_KEY",
     apiKeyValue: FAKE_API_KEY,
     baseUrl: FAKE_BASE_URL,
-  }, { key: FAKE_API_KEY, baseUrl: FAKE_BASE_URL });
+  }, { key: FAKE_API_KEY, baseUrl: FAKE_BASE_URL, admin: "0" });
 });
 
 test("default account-login mode adds no API key or custom base URL", async (t) => {
@@ -66,8 +71,8 @@ test("default account-login mode adds no API key or custom base URL", async (t) 
   });
 
   const adapter = new AntigravityAdapter({ bin: process.execPath });
-  assert.deepEqual(adapter.childEnv(), {});
-  await runProbe(t, { bin: process.execPath }, { key: null, baseUrl: null });
+  assert.deepEqual(adapter.childEnv(), { [ADMIN_EXECUTION_ENV]: "0" });
+  await runProbe(t, { bin: process.execPath }, { key: null, baseUrl: null, admin: "0" });
 });
 
 test("Antigravity runtime error takes priority over the generic process exit label", () => {
