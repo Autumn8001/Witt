@@ -40,6 +40,15 @@
 
   /* 模糊滤镜 */
   --chloe-glass-filter: blur(18px) saturate(115%);
+
+  /* 统一侧边栏宽度 Token（消除尺寸冲突） */
+  --chloe-sidebar-width: 360px;
+}
+
+@media (min-width: 1000px) and (max-width: 1240px) {
+  :root {
+    --chloe-sidebar-width: 300px;
+  }
 }
 
 /* ==========================================================================
@@ -123,18 +132,22 @@ body.web-browser .compact-nav-actions {
 /* ==========================================================================
    4. 侧边栏（Sidebar）1:1 复刻
    ========================================================================== */
-@media (min-width: 900px) {
+@media (min-width: 1000px) {
   :root body.web-browser .app-shell {
-    width: calc(100% - min(22vw, 360px)) !important;
-    margin-left: min(22vw, 360px) !important;
+    width: calc(100% - var(--chloe-sidebar-width)) !important;
+    margin-left: var(--chloe-sidebar-width) !important;
     max-width: none !important;
   }
 
   body.web-browser .drawer {
+    inset: 0 auto 0 0 !important;
     background: transparent !important;
     border-right: 1px solid var(--chloe-card-border) !important;
-    width: min(22vw, 360px) !important;
-    min-width: 320px !important;
+    width: var(--chloe-sidebar-width) !important;
+    min-width: var(--chloe-sidebar-width) !important;
+    max-width: var(--chloe-sidebar-width) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
   }
 
   body.web-browser .drawer-panel {
@@ -144,14 +157,16 @@ body.web-browser .compact-nav-actions {
     border-right: 1px solid var(--chloe-card-border) !important;
     box-shadow: 6px 0 24px rgba(68, 54, 38, 0.03) !important;
     padding: 20px 16px 14px !important;
-    width: min(22vw, 360px) !important;
-    min-width: 320px !important;
+    width: var(--chloe-sidebar-width) !important;
+    min-width: var(--chloe-sidebar-width) !important;
+    max-width: var(--chloe-sidebar-width) !important;
     height: 100dvh !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: flex-start !important; /* 彻底打破 space-between，消灭不合理空白 */
+    justify-content: flex-start !important;
     gap: 0 !important;
+    transform: none !important;
   }
 
   :root body.web-browser .drawer-head #closeDrawer,
@@ -160,6 +175,31 @@ body.web-browser .compact-nav-actions {
     align-items: center !important;
     justify-content: center !important;
     opacity: 0.8 !important;
+  }
+}
+
+@media (max-width: 999px) {
+  :root body.web-browser .app-shell {
+    width: 100% !important;
+    margin-left: 0 !important;
+    max-width: none !important;
+  }
+
+  body.web-browser .drawer {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  body.web-browser .drawer.open {
+    width: 100% !important;
+  }
+
+  body.web-browser .drawer-panel {
+    width: min(85vw, 340px) !important;
+    min-width: 0 !important;
+    max-width: 85vw !important;
+    padding: 20px 16px 14px !important;
   }
 }
 
@@ -604,7 +644,7 @@ body.web-browser .theme-options button:hover {
   font-size: 50px !important;
   font-weight: 800 !important;
   letter-spacing: -0.02em !important;
-  color: #1f1d1a !important;
+  color: var(--chloe-text-title) !important;
   line-height: 1.25 !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
 }
@@ -613,7 +653,7 @@ body.web-browser .theme-options button:hover {
 :root body.web-browser .welcome h1 span.chloe-brand-name {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
   font-weight: 800 !important;
-  color: #4d533c !important;
+  color: var(--chloe-olive-primary) !important;
   letter-spacing: -0.01em !important;
   margin-left: 2px !important;
 }
@@ -637,6 +677,20 @@ body.web-browser .theme-options button:hover {
   width: 100% !important;
   max-width: 1140px !important;
   margin: 0 auto 22px !important;
+}
+
+@media (max-width: 1100px) and (min-width: 721px) {
+  :root body.web-browser .suggestions {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+    gap: 16px !important;
+  }
+}
+
+@media (max-width: 720px) {
+  :root body.web-browser .suggestions {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
 }
 
 /* 功能卡片单体（深度对齐设计稿 256px 高度与充足留白） */
@@ -823,11 +877,8 @@ body.web-browser .theme-options button:hover {
   transform: translateY(-1px) !important;
 }
 
-/* 首页展示时，隐藏底层会话态状态条，确保主舞台只有唯一一条尚未开始胶囊 */
-:root body.web-browser .welcome:not([hidden]) ~ #taskStatusStrip {
-  display: none !important;
-}
-:root body.web-browser:has(.welcome:not([hidden])) #taskStatusStrip {
+/* 当真实任务状态激活（执行中/等待确认/失败等）时，空闲提示自动隐藏，真实状态条享有最高展示优先级 */
+:root body.web-browser:has(#taskStatusStrip:not([hidden])) #idleTaskPromptStrip {
   display: none !important;
 }
 
@@ -985,22 +1036,35 @@ body.web-browser .theme-options button:hover {
   transform: scale(1.04) !important;
 }
 
-/* 秋日模型与档位控制药丸（3 枚独立舒展胶囊，对齐目标设计图） */
+/* 秋日模型与环境组合选择控件（统一一体化高质感胶囊，行为与视觉严格一致） */
 :root body.web-browser .composer-toolbar .composer-model,
 :root body.web-browser #modelButton.composer-model {
   display: inline-flex !important;
+  align-items: center !important;
   width: auto !important;
   max-width: none !important;
-  height: auto !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  min-height: 33px !important;
+  padding: 0 13px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(215, 203, 185, 0.6) !important;
+  background: rgba(245, 239, 228, 0.82) !important;
+  box-shadow: 0 1px 4px rgba(68, 54, 38, 0.03) !important;
   cursor: pointer !important;
   white-space: nowrap !important;
-  align-items: center !important;
   gap: 8px !important;
+  transition: all 0.18s ease !important;
+}
+
+:root body.web-browser #modelButton:hover {
+  background: rgba(239, 231, 217, 0.95) !important;
+  border-color: rgba(195, 148, 90, 0.55) !important;
+  box-shadow: 0 2px 8px rgba(68, 54, 38, 0.06) !important;
+  transform: translateY(-1px) !important;
+}
+
+:root body.web-browser #modelButton:focus-visible {
+  outline: 2px solid var(--chloe-gold-accent) !important;
+  outline-offset: 2px !important;
 }
 
 :root body.web-browser #modelButton.composer-model > svg:first-child {
@@ -1010,41 +1074,31 @@ body.web-browser .theme-options button:hover {
 :root body.web-browser #modelButton .composer-env-pill {
   display: inline-flex !important;
   align-items: center !important;
-  height: 32px !important;
-  padding: 0 11px !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(215, 203, 185, 0.5) !important;
-  background: rgba(244, 238, 227, 0.78) !important;
-  color: #4d453b !important;
+  height: auto !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #5c5244 !important;
   font-size: 12px !important;
   font-weight: 550 !important;
-  gap: 4px !important;
-  transition: all 0.15s ease !important;
-}
-
-:root body.web-browser #modelButton .composer-env-pill::after {
-  content: "▾";
-  font-size: 11px;
-  margin-left: 2px;
-  color: #7d7265;
 }
 
 :root body.web-browser #modelButton b {
   display: inline-flex !important;
   align-items: center !important;
-  height: 32px !important;
-  padding: 0 12px !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(215, 203, 185, 0.5) !important;
-  background: rgba(244, 238, 227, 0.78) !important;
-  color: #24201c !important;
+  height: auto !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #1f1d1a !important;
   font-size: 12px !important;
-  font-weight: 600 !important;
+  font-weight: 650 !important;
   max-width: 150px !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
-  transition: all 0.15s ease !important;
 }
 
 :root body.web-browser #modelButton b::before {
@@ -1052,62 +1106,59 @@ body.web-browser .theme-options button:hover {
   display: inline-block;
   width: 13px;
   height: 13px;
-  margin-right: 5px;
+  margin-right: 4px;
   background-color: var(--chloe-gold-accent, #c26a28);
   -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20zM2 21c0-3 1.8-6.5 5-8"/></svg>') no-repeat center / contain;
   mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20zM2 21c0-3 1.8-6.5 5-8"/></svg>') no-repeat center / contain;
 }
 
-:root body.web-browser #modelButton b::after {
-  content: "▾";
-  font-size: 11px;
-  margin-left: 3px;
-  color: #7d7265;
+:root body.web-browser #modelButton i {
+  display: inline-block !important;
+  width: 3px !important;
+  height: 3px !important;
+  border-radius: 50% !important;
+  background: rgba(140, 130, 115, 0.6) !important;
+  margin: 0 1px !important;
 }
 
 :root body.web-browser #modelButton #reasoningLabel {
   display: inline-flex !important;
   align-items: center !important;
-  height: 32px !important;
-  padding: 0 11px !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(215, 203, 185, 0.5) !important;
-  background: rgba(244, 238, 227, 0.78) !important;
-  color: #4d453b !important;
+  height: auto !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #5c5244 !important;
   font-size: 12px !important;
   font-weight: 550 !important;
-  transition: all 0.15s ease !important;
 }
 
 :root body.web-browser #modelButton #reasoningLabel::before {
   content: "";
   display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 4px;
+  width: 11px;
+  height: 11px;
+  margin-right: 3px;
   background-color: #d98a3a;
   -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>') no-repeat center / contain;
   mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>') no-repeat center / contain;
 }
 
-:root body.web-browser #modelButton #reasoningLabel::after {
-  content: "▾";
-  font-size: 11px;
-  margin-left: 2px;
-  color: #7d7265;
+:root body.web-browser #modelButton .pill-chevron {
+  display: inline-block !important;
+  width: 12px !important;
+  height: 12px !important;
+  color: #8c8070 !important;
+  margin-left: 2px !important;
 }
 
-:root body.web-browser #modelButton i,
-:root body.web-browser #modelButton .pill-chevron {
+/* 模型与环境面板显示隐藏规范 */
+:root body.web-browser .quick-model-menu:not(.open) {
   display: none !important;
 }
-
-:root body.web-browser #modelButton .composer-env-pill:hover,
-:root body.web-browser #modelButton b:hover,
-:root body.web-browser #modelButton #reasoningLabel:hover {
-  background: rgba(238, 230, 215, 0.95) !important;
-  border-color: rgba(195, 148, 90, 0.5) !important;
-  transform: translateY(-1px) !important;
+:root body.web-browser .quick-model-menu.open {
+  display: block !important;
 }
 
 /* 麦克风按键 */
@@ -1124,9 +1175,7 @@ body.web-browser .theme-options button:hover {
 }
 
 /* 发送按键（深橄榄秋褐圆形按键 · 坚实视觉重心） */
-:root body.web-browser .send-button,
-:root body.web-browser .send-button:disabled,
-:root body.web-browser .send-button:not(.working):not(.sending):not(.pausing):disabled {
+:root body.web-browser .send-button {
   width: 42px !important;
   height: 42px !important;
   border-radius: 50% !important;
@@ -1137,8 +1186,16 @@ body.web-browser .theme-options button:hover {
   display: grid !important;
   place-items: center !important;
   cursor: pointer !important;
-  opacity: 0.95 !important;
+  opacity: 1 !important;
   transition: all 0.18s ease !important;
+}
+
+:root body.web-browser .send-button svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 20px !important;
+  height: 20px !important;
+  stroke-width: 2.3 !important;
 }
 
 :root body.web-browser .send-button:hover:not(:disabled) {
@@ -1147,14 +1204,21 @@ body.web-browser .theme-options button:hover {
   box-shadow: 0 6px 18px rgba(77, 83, 60, 0.38) !important;
 }
 
-:root body.web-browser .send-button svg,
+/* 禁用态：明显弱化且指示不可点击 */
+:root body.web-browser .send-button:disabled,
+:root body.web-browser .send-button:not(.working):not(.sending):not(.pausing):disabled {
+  background: rgba(225, 218, 206, 0.65) !important;
+  color: #9e9585 !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+  transform: none !important;
+}
+
 :root body.web-browser .send-button:disabled svg,
 :root body.web-browser .send-button:not(.working):not(.sending):not(.pausing):disabled svg {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-  width: 20px !important;
-  height: 20px !important;
-  stroke-width: 2.3 !important;
+  color: #9e9585 !important;
+  stroke: #9e9585 !important;
 }
 
 /* ==========================================================================
@@ -1237,39 +1301,20 @@ body.web-browser .theme-options button:hover {
 
   :root body.web-browser .composer-toolbar .composer-model,
   :root body.web-browser #modelButton.composer-model {
-    height: auto !important;
-    max-width: none !important;
-    padding: 0 !important;
+    min-height: 28px !important;
+    padding: 0 9px !important;
     gap: 4px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    flex-wrap: nowrap !important;
-    overflow: hidden !important;
-  }
-
-  :root body.web-browser #modelButton .composer-env-pill {
-    height: 28px !important;
-    padding: 0 7px !important;
     font-size: 11px !important;
-    flex-shrink: 0 !important;
   }
 
   :root body.web-browser #modelButton b {
-    height: 28px !important;
-    padding: 0 8px !important;
-    font-size: 11px !important;
     max-width: 95px !important;
-    flex-shrink: 1 !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
+    font-size: 11px !important;
   }
 
+  :root body.web-browser #modelButton .composer-env-pill,
   :root body.web-browser #modelButton #reasoningLabel {
-    height: 28px !important;
-    padding: 0 7px !important;
-    font-size: 11px !important;
-    flex-shrink: 0 !important;
+    font-size: 10.5px !important;
   }
 
   :root body.web-browser .voice-button {
@@ -1281,4 +1326,113 @@ body.web-browser .theme-options button:hover {
     width: 34px !important;
     height: 34px !important;
   }
+}
+
+/* ==========================================================================
+   8. 夜间 / 暗色模式（:root[data-theme="dark"] 高对比度秋夜优雅深色体系）
+   ========================================================================== */
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  --chloe-canvas: #151412;
+  --chloe-canvas-warm: #1c1a17;
+  --chloe-sidebar-bg: rgba(22, 20, 18, 0.94);
+  --chloe-card-bg: rgba(28, 25, 22, 0.88);
+  --chloe-card-bg-hover: rgba(36, 33, 28, 0.95);
+  --chloe-card-border: rgba(90, 80, 70, 0.45);
+  --chloe-card-border-hover: rgba(195, 148, 90, 0.65);
+
+  --chloe-olive-primary: #a3b082;
+  --chloe-text-title: #f5f2ea;
+  --chloe-text-body: #cfc7bc;
+  --chloe-text-muted: #8e887d;
+  --chloe-text-faint: #635d54;
+
+  --chloe-chip-bg: rgba(45, 41, 36, 0.85);
+  --chloe-chip-bg-hover: rgba(58, 52, 45, 0.95);
+  --chloe-chip-text: #ddd6cb;
+  --chloe-chip-border: rgba(90, 80, 70, 0.45);
+
+  --chloe-shadow-card: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --chloe-shadow-composer: 0 16px 42px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="dark"] .chloe-bg-layer,
+[data-theme="dark"] .chloe-bg-layer {
+  opacity: 0.32 !important;
+  filter: brightness(0.6) contrast(1.15) !important;
+}
+
+:root[data-theme="dark"] .chloe-bg-mask,
+[data-theme="dark"] .chloe-bg-mask {
+  background: radial-gradient(ellipse 1100px 650px at 58% 50%, rgba(21, 20, 18, 0.72) 0%, rgba(21, 20, 18, 0.90) 65%, rgba(21, 20, 18, 0.98) 100%) !important;
+}
+
+:root[data-theme="dark"] body.web-browser .welcome h1,
+:root[data-theme="dark"] .hero-greeting-title,
+[data-theme="dark"] .hero-greeting-title {
+  color: #f5f2ea !important;
+}
+
+:root[data-theme="dark"] .hero-eyebrow-pill,
+[data-theme="dark"] .hero-eyebrow-pill {
+  background: rgba(40, 36, 32, 0.75) !important;
+  color: #e5993e !important;
+  border-color: rgba(90, 80, 70, 0.5) !important;
+}
+
+:root[data-theme="dark"] body.web-browser .suggestions .feature-rich-card:nth-child(1),
+:root[data-theme="dark"] body.web-browser .suggestions .feature-rich-card:nth-child(2),
+:root[data-theme="dark"] body.web-browser .suggestions .feature-rich-card:nth-child(3) {
+  background: var(--chloe-card-bg) !important;
+  border-color: var(--chloe-card-border) !important;
+}
+
+:root[data-theme="dark"] body.web-browser .suggestions .feature-rich-card .feature-card-tag-pill {
+  background: var(--chloe-chip-bg) !important;
+  border-color: var(--chloe-chip-border) !important;
+  color: var(--chloe-chip-text) !important;
+}
+
+:root[data-theme="dark"] .feature-card-content h3,
+[data-theme="dark"] .feature-card-content h3 {
+  color: #f5f2ea !important;
+}
+
+:root[data-theme="dark"] .feature-card-content p,
+[data-theme="dark"] .feature-card-content p {
+  color: #a8a092 !important;
+}
+
+:root[data-theme="dark"] .feature-card-arrow-circle,
+[data-theme="dark"] .feature-card-arrow-circle {
+  background: rgba(50, 45, 38, 0.85) !important;
+  color: #e5993e !important;
+}
+
+:root[data-theme="dark"] .composer textarea,
+[data-theme="dark"] .composer textarea {
+  color: #f5f2ea !important;
+}
+
+:root[data-theme="dark"] body.web-browser #modelButton.composer-model,
+[data-theme="dark"] #modelButton.composer-model {
+  background: rgba(38, 34, 30, 0.9) !important;
+  border-color: rgba(90, 80, 70, 0.55) !important;
+}
+
+:root[data-theme="dark"] body.web-browser #modelButton b,
+[data-theme="dark"] #modelButton b {
+  color: #f5f2ea !important;
+}
+
+:root[data-theme="dark"] body.web-browser .send-button:disabled,
+[data-theme="dark"] .send-button:disabled {
+  background: rgba(45, 42, 38, 0.7) !important;
+  color: #635d54 !important;
+}
+
+:root[data-theme="dark"] body.web-browser .send-button:disabled svg,
+[data-theme="dark"] .send-button:disabled svg {
+  color: #635d54 !important;
+  stroke: #635d54 !important;
 }

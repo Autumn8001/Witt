@@ -130,7 +130,7 @@
   <link rel="stylesheet" href="/vault/ui-system.css?v=1">
   <link rel="stylesheet" href="/vault/chloe-autumn.css?v=3.5.0">
 </head>
-<body class="web-browser chloe-autumn-workspace">
+<body class="chloe-autumn-workspace">
   <div class="chloe-bg-layer" aria-hidden="true"></div>
   <div class="chloe-bg-mask" aria-hidden="true"></div>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -851,16 +851,5 @@
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
   <script src="/vault/customer-devices.js?v=3"></script>
   <script src="/vault/app-workspace-20260916-r3.js?v=3.2.7-remote-workspace"></script>
-  <script>
-    document.getElementById('historySearchToggle')?.addEventListener('click', () => {
-      const controls = document.querySelector('.history-controls');
-      if (controls) {
-        controls.classList.toggle('open');
-        if (controls.classList.contains('open')) {
-          document.getElementById('historySearch')?.focus();
-        }
-      }
-    });
-  </script>
 </body>
 </html>

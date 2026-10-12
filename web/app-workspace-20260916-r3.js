@@ -4846,23 +4846,61 @@
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && state.artifactOpen) closeArtifact();
+    if (event.key === "Escape") {
+      if (state.artifactOpen) {
+        closeArtifact();
+        return;
+      }
+      const historyControls = document.querySelector(".history-controls");
+      if (historyControls?.classList.contains("open")) {
+        event.preventDefault();
+        historyControls.classList.remove("open");
+        const toggleBtn = $("#historySearchToggle");
+        if (toggleBtn) {
+          toggleBtn.setAttribute("aria-expanded", "false");
+          toggleBtn.focus();
+        }
+        return;
+      }
+    }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-      event.preventDefault();
-      closeDrawer();
-      beginNewConversation();
+      const isModalOpen = document.querySelector(".workspace-overview.open, #settingsSheet.open");
+      if (!isModalOpen) {
+        event.preventDefault();
+        closeDrawer();
+        beginNewConversation();
+      }
     }
   });
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
   const shortcutHint = $("#newChatShortcutHint");
   if (shortcutHint) shortcutHint.textContent = isMac ? "⌘ K" : "Ctrl K";
-  $("#historySearchToggle")?.addEventListener("click", () => {
-    const searchInput = $("#historySearch");
-    if (searchInput) {
-      searchInput.focus();
-      searchInput.select();
-    }
-  });
+
+  const historySearchToggle = $("#historySearchToggle");
+  const historyControls = document.querySelector(".history-controls");
+  const historySearchInput = $("#historySearch");
+  if (historySearchInput) {
+    historySearchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        historyControls?.classList.remove("open");
+        historySearchToggle?.setAttribute("aria-expanded", "false");
+        historySearchToggle?.focus();
+      }
+    });
+  }
+  if (historySearchToggle && historyControls) {
+    historySearchToggle.setAttribute("aria-expanded", historyControls.classList.contains("open") ? "true" : "false");
+    historySearchToggle.addEventListener("click", () => {
+      const willOpen = !historyControls.classList.contains("open");
+      historyControls.classList.toggle("open", willOpen);
+      historySearchToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      if (willOpen && historySearchInput) {
+        historySearchInput.focus();
+        historySearchInput.select();
+      }
+    });
+  }
   $("#drawerNewChat").addEventListener("click", () => {
     closeDrawer();
     beginNewConversation();
@@ -5074,7 +5112,13 @@
     if (archiveId) openArchiveDialog(archiveId);
   });
   $(".suggestions").addEventListener("click", (event) => {
-    const btn = event.target.closest("button");
+    let btn = event.target.closest("button");
+    if (!btn) {
+      const card = event.target.closest(".feature-rich-card");
+      if (card && !event.target.closest(".feature-card-tags")) {
+        btn = card.querySelector(".feature-card-main-btn");
+      }
+    }
     if (!btn) return;
     const action = btn.dataset.action;
     if (action === "remote-workspace" && window.WittCustomerDevices?.open) {
@@ -5087,6 +5131,9 @@
       $("#messageInput").dispatchEvent(new Event("input"));
       $("#messageInput").focus();
     }
+  });
+  $("#idleTaskPromptStrip")?.addEventListener("click", () => {
+    $("#messageInput")?.focus();
   });
   $("#cancelArchive").addEventListener("click", closeArchiveDialog);
   $(".dialog-backdrop").addEventListener("click", closeArchiveDialog);

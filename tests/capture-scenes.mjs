@@ -126,12 +126,16 @@ async function setupPage(viewport, theme = "light", initialConversations = [], a
   }, { theme, activeId });
 
   await page.goto("https://wit.test/vault/index.html");
-  await page.evaluate(() => {
+  await page.evaluate(({ theme }) => {
     document.body.classList.add("web-browser");
+    if (theme) {
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.dataset.themeMode = theme;
+    }
     if (window.DropVault?.onAuthStatus) {
       window.DropVault.onAuthStatus(JSON.stringify({ authenticated: true, admin: true, principal: { admin: true, label: "管理员" }, clientMode: "browser" }));
     }
-  });
+  }, { theme });
   await page.waitForTimeout(800);
   return page;
 }
@@ -167,6 +171,13 @@ const defaultConversations = [
 {
   const page = await setupPage({ width: 1920, height: 1080 }, "light", defaultConversations);
   await page.screenshot({ path: `tests/${prefix}-1-desktop-1080p.png`, fullPage: false });
+  await page.close();
+}
+
+// 场景 1c：中窄屏桌面 1024 × 768，首页
+{
+  const page = await setupPage({ width: 1024, height: 768 }, "light", defaultConversations);
+  await page.screenshot({ path: `tests/${prefix}-1-desktop-1024x768.png`, fullPage: false });
   await page.close();
 }
 

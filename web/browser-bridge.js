@@ -2,7 +2,9 @@
   "use strict";
   if (window.WittNative || window.DropVaultAndroid) return;
 
-  document.body?.classList.add("web-browser");
+  const markWebBrowser = () => document.body?.classList.add("web-browser");
+  if (document.body) markWebBrowser();
+  else document.addEventListener("DOMContentLoaded", markWebBrowser);
 
   const API = "/vault-api/";
   const files = new Map();
