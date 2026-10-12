@@ -8,6 +8,7 @@ const { parseAntigravityEvent } = require("./event-parsers");
 const { ANTIGRAVITY_CAPABILITIES } = require("./capabilities");
 const { resolveBinary } = require("./runtime-binaries");
 const { RuntimeLogger } = require("./runtime-log");
+const { redactHarnessText, sanitizeHarnessContent } = require("./tool-content");
 
 const HARNESS_ID = "google-antigravity";
 const SUPPORTED_EFFORTS = new Set(["low", "medium", "high"]);
@@ -264,6 +265,50 @@ class AntigravityAdapter {
 
   async listTools() {
     return { ok: false, reason: "agy has no tool-listing subcommand in the documented flag set" };
+  }
+
+  formatToolCall(event, cwd) {
+    const tool = redactHarnessText(event.tool || "工具调用", 90);
+    const rawInput = event.input && typeof event.input === "object" ? event.input : {};
+    const command = [rawInput.command, rawInput.cmd, rawInput.shell_command, rawInput.script]
+      .find((value) => typeof value === "string" && value.trim());
+    const safeCommand = command ? redactHarnessText(command, 4000) : null;
+    const isCommand = Boolean(command) || /terminal|shell|command|exec/i.test(tool);
+    const isFile = /file|read|write|edit/i.test(tool);
+    const kind = isCommand ? "command" : isFile ? "file" : "tool";
+    const label = isCommand
+      ? `命令：${String(safeCommand || tool).replace(/\s+/g, " ").slice(0, 120)}`
+      : isFile
+      ? `操作文件：${String(rawInput.path || rawInput.file || tool).slice(0, 120)}`
+      : `调用工具：${tool}`;
+    const input = sanitizeHarnessContent(event.input || null);
+    return {
+      kind, label, status: "running",
+      hasDetails: true,
+      details: isCommand
+        ? { command: safeCommand || tool, cwd, input, output: "", exitCode: null }
+        : { tool, input, cwd },
+    };
+  }
+
+  formatToolUpdate(event, info = {}) {
+    const output = event.output;
+    const status = ["completed", "failed", "error"].includes(event.status)
+      ? (event.status === "error" ? "failed" : event.status) : "running";
+    const patch = {
+      kind: info.kind || "tool",
+      status,
+      hasDetails: true,
+    };
+    if (output !== undefined) {
+      const safeOutput = sanitizeHarnessContent(output);
+      const outputText = typeof safeOutput === "string" ? safeOutput : JSON.stringify(safeOutput);
+      patch.details = {
+        ...(info.details || {}),
+        output: String(outputText).slice(-8192),
+      };
+    }
+    return patch;
   }
 
   shutdownSession(sessionId) {

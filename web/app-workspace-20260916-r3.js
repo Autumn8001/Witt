@@ -2303,7 +2303,7 @@
 
   function renderActionDetail(entry) {
     const details = entry.details || {};
-    if (entry.kind === "command" || entry.kind === "tool") {
+    if (entry.kind === "command" || entry.kind === "tool" || entry.kind === "thought") {
       const status = entry.status === "completed" ? "已完成"
         : entry.status === "failed" ? "失败" : "执行中";
       const exitCode = Number.isInteger(details.exitCode) ? details.exitCode : null;
@@ -2313,12 +2313,13 @@
         exitCode !== null ? `退出码 ${exitCode}` : "",
         Number.isInteger(details.durationMs) ? `${(details.durationMs / 1000).toFixed(2)} 秒` : "",
       ].filter(Boolean).join(" · ");
-      $("#actionDetailTitle").textContent = entry.kind === "tool" ? "工具执行详情" : "命令执行详情";
+      $("#actionDetailTitle").textContent = entry.kind === "thought" ? "思考过程详情"
+        : entry.kind === "tool" ? "工具执行详情" : "命令执行详情";
       $("#actionDetailContent").innerHTML = `
-        <div class="detail-summary"><span>${entry.kind === "tool" ? "✦" : "⌘"}</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || details.workDir || "未提供工作目录")}</small></div></div>
-        ${detailBlock(entry.kind === "tool" ? "工具" : "完整命令", details.command || details.tool || entry.label, "command")}
+        <div class="detail-summary"><span>${entry.kind === "command" ? "⌘" : "✦"}</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || details.workDir || (entry.kind === "thought" ? "深度思考与分析" : "未提供工作目录"))}</small></div></div>
+        ${entry.kind === "thought" ? "" : detailBlock(entry.kind === "tool" ? "工具" : "完整命令", details.command || details.tool || entry.label, "command")}
         ${failure ? detailBlock("失败原因", failure, "failure") : ""}
-        ${detailBlock("执行输出", details.output || "该操作没有输出", "output")}`;
+        ${detailBlock(entry.kind === "thought" ? "思考内容" : "执行输出", details.thought || details.output || "该操作没有输出", "output")}`;
       return;
     }
 
@@ -2706,7 +2707,7 @@
     const fileCount = Number.isFinite(Number(entry.count)) && Number(entry.count) > 0
       ? `${Number(entry.count)} 个文件` : "";
     const subline = entry.kind === "file" ? fileCount
-      : entry.kind === "command" || entry.kind === "tool" ? meta : "";
+      : entry.kind === "command" || entry.kind === "tool" || entry.kind === "thought" ? meta : "";
     return `<${tag} ${entry.hasDetails ? 'type="button"' : ""} class="stream-action ${entry.kind || "tool"} ${entry.status || ""} ${entry.hasDetails ? "clickable" : ""}" ${detailAttributes}>
       <span>${icon}</span><div class="stream-action-copy"><p>${escapeHtml(entry.label || "正在处理")}</p>${subline ? `<small>${escapeHtml(subline)}</small>` : ""}</div>
       <div class="stream-tail"><i></i>${entry.hasDetails ? `<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>` : ""}</div>

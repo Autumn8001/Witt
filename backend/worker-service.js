@@ -411,6 +411,15 @@ class TurnInstance {
       logger: this.worker.logger,
     });
 
+    const conv0 = this.readConversation();
+    if (conv0) {
+      const assistant0 = conv0.messages?.find((m) => m.id === this.assistantMessageId);
+      if (assistant0) {
+        this.addActivity(assistant0, "thinking", "Gemini 正在准备与分析...", "running");
+        this.saveConversation(conv0);
+      }
+    }
+
     try {
       await this.adapter.startRuntime();
     } catch (err) {
@@ -453,15 +462,57 @@ class TurnInstance {
       }
 
       if (event.type === "text_delta") {
+        const thinkingEntry = assistant.stream?.find((e) => e.id === "harness-thinking");
+        if (thinkingEntry && thinkingEntry.status === "running") {
+          thinkingEntry.status = "completed";
+          thinkingEntry.label = "思考完成";
+          this.addActivity(assistant, "thinking", "思考完成", "completed");
+        }
         const entry = this.upsertStream(assistant, "harness-message",
           { kind: "message", phase: "final_answer", status: "running" });
         const safeText = redactHarnessText(event.text || "", 20000);
         entry.text = `${entry.text || ""}${safeText}`;
         this.emitEvent("text_delta", { text: safeText });
       } else if (event.type === "reasoning_delta") {
-        this.addActivity(assistant, "thinking", "正在推理", "running");
-        this.emitEvent("reasoning_delta", { text: event.text || "" });
+        const text = String(event.text || "");
+        if (text) {
+          const entry = this.upsertStream(assistant, "harness-thinking", {
+            kind: "thought",
+            label: "思考过程",
+            status: "running",
+            hasDetails: true,
+            details: { thought: "", output: "" },
+          });
+          const safeDelta = redactHarnessText(text, 20000);
+          const current = entry.details?.thought || entry.text || "";
+          const next = `${current}${safeDelta}`;
+          entry.details = { ...(entry.details || {}), thought: next, output: next };
+          entry.text = next;
+          const snippet = next.trim().split(/\r?\n/).filter(Boolean).at(-1) || "正在思考...";
+          entry.label = `思考：${snippet.slice(0, 48)}`;
+          this.addActivity(assistant, "thinking", entry.label, "running");
+          this.emitEvent("reasoning_delta", { text: safeDelta });
+        }
+      } else if (event.type === "tool_call") {
+        const presented = this.adapter.formatToolCall(event, this.workDir);
+        const safePresented = sanitizeHarnessContent(presented);
+        this.addActivity(assistant, safePresented.kind, safePresented.label, "running");
+        const callId = event.id || `tool-${event.stepIndex || Date.now()}`;
+        this.upsertStream(assistant, callId, safePresented);
+        this.emitEvent("tool_call", safePresented);
+        if (event.output !== undefined || ["completed", "failed", "error"].includes(event.status)) {
+          const patch = this.adapter.formatToolUpdate(event, safePresented);
+          this.upsertStream(assistant, callId, patch);
+          if (patch.status === "completed") {
+            this.addActivity(assistant, safePresented.kind, `${safePresented.label} (已完成)`, "completed");
+          }
+        }
       } else if (event.type === "result") {
+        const thinkingEntry = assistant.stream?.find((e) => e.id === "harness-thinking");
+        if (thinkingEntry && thinkingEntry.status === "running") {
+          thinkingEntry.status = "completed";
+          thinkingEntry.label = "思考完成";
+        }
         if (event.text) {
           const entry = this.upsertStream(assistant, "harness-message",
             { kind: "message", phase: "final_answer", status: "running" });
