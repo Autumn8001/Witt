@@ -6,7 +6,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 
 const { ConversationStore } = require("./sqlite-store");
-const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
+const { AntigravityAdapter, normalizeEffort } = require("./runtime/antigravity-adapter");
 const { GrokBuildAdapter } = require("./runtime/grok-build-adapter");
 const { RuntimeLogger } = require("./runtime/runtime-log");
 const { collectGitChanges } = require("./git-change-collector");
@@ -426,7 +426,7 @@ class TurnInstance {
       prompt: this.prompt,
       model: this.model,
       cwd: this.workDir,
-      effort: /-(high|medium|low|max)$/.test(this.model) ? null : (HARNESS_REASONING[this.reasoning] || "medium"),
+      effort: normalizeEffort(this.reasoning || "medium"),
       skipPermissions,
       ...(this.existingSession ? { conversationId: this.existingSession } : {}),
     });

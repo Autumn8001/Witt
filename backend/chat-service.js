@@ -8,7 +8,7 @@ const { ConversationStore } = require("./sqlite-store");
 const { workspaceOverview } = require("./workspace-overview");
 const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime/runtime-resolver");
 const { GrokBuildAdapter } = require("./runtime/grok-build-adapter");
-const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
+const { AntigravityAdapter, normalizeEffort } = require("./runtime/antigravity-adapter");
 const { describeBinary } = require("./runtime/runtime-binaries");
 const { RuntimeLogger } = require("./runtime/runtime-log");
 const { createGitChangeBaseline, collectGitChanges } = require("./git-change-collector");
@@ -1092,7 +1092,7 @@ class ChatService {
       if (this.modelBlockReason(id)) continue;
       models.push({
         id,
-        displayName: id.startsWith("gemini-") ? `Gemini ${id.replace(/^gemini-/, "").replace(/-/g, " ")}` : `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}`,
+        displayName: id.startsWith("gemini-") ? `Gemini ${id.replace(/^gemini-/, "").replace(/-(low|medium|high|max)$/, "").replace(/-/g, " ")}` : `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}`,
         isDefault: id === this.defaultModel,
         inputModalities: ["text", "image"],
         defaultReasoningEffort: "high",
@@ -3448,7 +3448,7 @@ class ChatService {
       prompt,
       model,
       cwd: workDir,
-      effort: /-(high|medium|low|max)$/.test(model) ? null : (HARNESS_REASONING[reasoning] || "medium"),
+      effort: normalizeEffort(reasoning || "medium"),
       skipPermissions,
       ...(existingSession ? { conversationId: existingSession } : {}),
     });

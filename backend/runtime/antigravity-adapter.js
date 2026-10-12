@@ -10,6 +10,16 @@ const { resolveBinary } = require("./runtime-binaries");
 const { RuntimeLogger } = require("./runtime-log");
 
 const HARNESS_ID = "google-antigravity";
+const SUPPORTED_EFFORTS = new Set(["low", "medium", "high"]);
+
+function normalizeEffort(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const effort = String(value);
+  if (!SUPPORTED_EFFORTS.has(effort)) {
+    throw new Error(`Unsupported Antigravity reasoning effort: ${effort}`);
+  }
+  return effort;
+}
 
 // The published agy build (1.2.14) is compiled with pclmul enabled and aborts with
 // SIGILL on CPUs without the PCLMULQDQ feature. QEMU's default vCPU has no pclmulqdq,
@@ -121,9 +131,15 @@ class AntigravityAdapter {
     if (params.prompt !== undefined) args.push("-p", String(params.prompt));
     args.push("--output-format", "stream-json");
     if (this.stdinSessions) args.push("--input-format", "stream-json");
-    const model = params.model || this.model;
+    let model = params.model || this.model;
+    const effort = normalizeEffort(params.effort !== undefined ? params.effort : this.effort);
+    // Antigravity CLI treats a Gemini model's embedded effort suffix and an
+    // explicit --effort as conflicting. Keep the stored/UI model ID intact,
+    // but pass the base Gemini model whenever this request selects an effort.
+    if (effort && model && /^gemini-/i.test(String(model))) {
+      model = String(model).replace(/-(?:low|medium|high|max)$/i, "");
+    }
     if (model) args.push("--model", String(model));
-    const effort = params.effort || this.effort;
     if (effort) args.push("--effort", String(effort));
     if (params.continueMostRecent) {
       args.push("--continue");
@@ -255,4 +271,4 @@ class AntigravityAdapter {
   }
 }
 
-module.exports = { AntigravityAdapter, hostHasPclmul, PCLMUL_MARKER };
+module.exports = { AntigravityAdapter, hostHasPclmul, PCLMUL_MARKER, normalizeEffort };
