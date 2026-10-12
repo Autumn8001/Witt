@@ -1,0 +1,1037 @@
+/* ==========================================================================
+   Chloe Autumn Theme · 1:1 动态复刻秋日工作台样式系统
+   Strict Rules: 零 Emoji，全矢量 SVG，高可读性，保留所有真实业务逻辑与事件
+   ========================================================================== */
+
+:root {
+  /* 基础主调与环境色 */
+  --chloe-canvas: #fbf8f2;
+  --chloe-canvas-warm: #f6f1e8;
+  --chloe-sidebar-bg: rgba(250, 246, 238, 0.88);
+  --chloe-card-bg: rgba(255, 255, 255, 0.84);
+  --chloe-card-bg-hover: rgba(255, 255, 255, 0.95);
+  --chloe-card-border: rgba(215, 203, 185, 0.48);
+  --chloe-card-border-hover: rgba(195, 148, 90, 0.55);
+
+  /* 主按钮与重点色（深橄榄秋褐与秋日琥珀金） */
+  --chloe-olive-primary: #4d533c;
+  --chloe-olive-hover: #3f4431;
+  --chloe-olive-active: #323627;
+  --chloe-gold-accent: #c88a3e;
+  --chloe-amber-accent: #b05c2a;
+
+  /* 文字系统与层级 */
+  --chloe-text-title: #1f1d1a;
+  --chloe-text-body: #524e47;
+  --chloe-text-muted: #8e897e;
+  --chloe-text-faint: #b4ae9f;
+
+  /* 辅助与标签色彩 */
+  --chloe-chip-bg: rgba(244, 238, 227, 0.76);
+  --chloe-chip-bg-hover: rgba(238, 230, 215, 0.95);
+  --chloe-chip-text: #5e5242;
+  --chloe-chip-border: rgba(215, 203, 185, 0.35);
+
+  /* 阴影体系（秋日暖光微散射） */
+  --chloe-shadow-card: 0 10px 30px rgba(68, 54, 38, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --chloe-shadow-card-hover: 0 14px 38px rgba(68, 54, 38, 0.09), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --chloe-shadow-composer: 0 16px 42px rgba(58, 44, 28, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --chloe-shadow-btn: 0 6px 18px rgba(77, 83, 60, 0.24);
+
+  /* 模糊滤镜 */
+  --chloe-glass-filter: blur(18px) saturate(115%);
+}
+
+/* ==========================================================================
+   1. 独立背景层与防眩光遮罩
+   ========================================================================== */
+.chloe-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-color: var(--chloe-canvas);
+  background-image: url('/vault/assets/autumn-bg.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.92;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.chloe-bg-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle at 65% 25%, rgba(251, 248, 242, 0.35) 0%, rgba(251, 248, 242, 0.78) 55%, rgba(251, 248, 242, 0.94) 100%);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   2. 全局基础结构与容器修正
+   ========================================================================== */
+body.web-browser {
+  background: var(--chloe-canvas) !important;
+  color: var(--chloe-text-body) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+  position: relative;
+}
+
+:root body.web-browser .app-shell {
+  background: transparent !important;
+  position: relative;
+  z-index: 2;
+}
+
+:root body.web-browser .chat-stage {
+  background: transparent !important;
+}
+
+/* ==========================================================================
+   3. 顶部导航栏（Top Nav Bar）
+   ========================================================================== */
+body.web-browser .compact-nav {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+}
+
+body.web-browser .compact-nav-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.compact-autumn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--chloe-gold-accent);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--chloe-card-border);
+  transition: all 0.2s ease;
+}
+
+.compact-autumn-badge:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(1.05);
+}
+
+/* ==========================================================================
+   4. 侧边栏（Sidebar）1:1 复刻
+   ========================================================================== */
+@media (min-width: 900px) {
+  body.web-browser .drawer {
+    background: transparent !important;
+    border-right: 1px solid var(--chloe-card-border) !important;
+  }
+
+  body.web-browser .drawer-panel {
+    background: var(--chloe-sidebar-bg) !important;
+    backdrop-filter: var(--chloe-glass-filter) !important;
+    -webkit-backdrop-filter: var(--chloe-glass-filter) !important;
+    border-right: 1px solid var(--chloe-card-border) !important;
+    box-shadow: 6px 0 24px rgba(68, 54, 38, 0.03) !important;
+    padding: 16px 14px 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+  }
+}
+
+/* 侧边栏品牌区域 Logo */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 8px;
+  margin-bottom: 2px;
+}
+
+.sidebar-brand-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sidebar-brand-left h2 {
+  margin: 0 !important;
+  font-family: "Newsreader", "Songti SC", serif, -apple-system !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--chloe-text-title) !important;
+}
+
+.sidebar-toggle-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--chloe-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--chloe-text-title);
+}
+
+/* 新建对话主按钮（深橄榄秋褐扎实胶囊 · 绝对高优先级） */
+:root body.web-browser .drawer-panel button.drawer-new,
+:root body.web-browser #drawerNewChat {
+  width: 100% !important;
+  min-height: 44px !important;
+  padding: 0 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-radius: 12px !important;
+  border: 0 !important;
+  background: var(--chloe-olive-primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(77, 83, 60, 0.25) !important;
+  cursor: pointer !important;
+  margin-bottom: 12px !important;
+  transition: all 0.18s ease !important;
+}
+
+:root body.web-browser .drawer-panel button.drawer-new:hover,
+:root body.web-browser #drawerNewChat:hover {
+  background: var(--chloe-olive-hover) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 22px rgba(77, 83, 60, 0.35) !important;
+}
+
+:root body.web-browser .drawer-panel button.drawer-new:active,
+:root body.web-browser #drawerNewChat:active {
+  background: var(--chloe-olive-active) !important;
+  transform: translateY(0) !important;
+}
+
+:root body.web-browser .drawer-panel button.drawer-new .drawer-new-copy {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+}
+
+:root body.web-browser .drawer-panel button.drawer-new .drawer-new-copy svg {
+  width: 17px !important;
+  height: 17px !important;
+  stroke: #ffffff !important;
+  stroke-width: 2.2 !important;
+}
+
+:root body.web-browser .drawer-panel button.drawer-new .drawer-new-shortcut {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 2px 7px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-size: 11px !important;
+  font-family: inherit !important;
+  font-weight: 550 !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* 侧边栏历史列表容器 */
+body.web-browser .drawer-history {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.web-browser .drawer-history-head {
+  padding: 8px 6px 4px !important;
+  color: var(--chloe-text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.drawer-history-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.conversation-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--chloe-text-muted);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-search-trigger {
+  border: 0;
+  background: transparent;
+  color: var(--chloe-text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.sidebar-search-trigger:hover {
+  color: var(--chloe-text-title);
+}
+
+.sidebar-search-trigger svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* 会话行（Conversation Row） */
+body.web-browser .conversation-row {
+  border-radius: 10px !important;
+  margin-bottom: 3px !important;
+  transition: all 0.15s ease !important;
+}
+
+body.web-browser .conversation-row:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+body.web-browser .conversation-row.active {
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 2px 8px rgba(68, 54, 38, 0.04) !important;
+}
+
+body.web-browser .conversation-open {
+  padding: 8px 10px !important;
+  gap: 8px !important;
+}
+
+.conversation-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--chloe-gold-accent);
+  flex-shrink: 0;
+}
+
+.conversation-icon-wrap svg {
+  width: 16px;
+  height: 16px;
+}
+
+body.web-browser .conversation-open strong {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--chloe-text-title) !important;
+}
+
+/* 侧边栏下部功能卡片 */
+body.web-browser .drawer-entry-card {
+  border-radius: 12px !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  padding: 8px 12px !important;
+  transition: all 0.15s ease !important;
+}
+
+body.web-browser .drawer-entry-card:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: var(--chloe-card-border-hover) !important;
+}
+
+body.web-browser .workspace-entry {
+  border-radius: 11px !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  color: var(--chloe-text-body) !important;
+  padding: 9px 12px !important;
+  font-size: 13px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  transition: all 0.15s ease !important;
+}
+
+body.web-browser .workspace-entry:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: var(--chloe-card-border-hover) !important;
+  color: var(--chloe-text-title) !important;
+}
+
+/* 侧栏底部 3 宫格 Dock 卡片 */
+body.web-browser .drawer-utilities {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 6px !important;
+  margin-top: 4px !important;
+}
+
+body.web-browser .drawer-tools .drawer-profile {
+  min-height: 60px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  padding: 7px 4px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 3px !important;
+  transition: all 0.15s ease !important;
+}
+
+body.web-browser .drawer-tools .drawer-profile:hover {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: var(--chloe-card-border-hover) !important;
+  transform: translateY(-1px) !important;
+}
+
+.drawer-profile-svg {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--chloe-olive-primary);
+}
+
+.drawer-profile-svg svg {
+  width: 18px;
+  height: 18px;
+}
+
+body.web-browser .drawer-tools .drawer-profile strong {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--chloe-text-title) !important;
+}
+
+body.web-browser .drawer-tools .drawer-profile small {
+  font-size: 9px !important;
+  color: var(--chloe-text-muted) !important;
+}
+
+/* 主题分段选择器（外观控制器） */
+body.web-browser .drawer-theme {
+  border-radius: 12px !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  padding: 6px 10px !important;
+}
+
+body.web-browser .drawer-theme > span {
+  color: var(--chloe-text-body) !important;
+  font-size: 12px !important;
+}
+
+body.web-browser .theme-options button {
+  border-radius: 7px !important;
+  color: var(--chloe-text-muted) !important;
+  font-size: 11px !important;
+  padding: 3px 6px !important;
+  transition: all 0.15s ease !important;
+}
+
+body.web-browser .theme-options button.active,
+body.web-browser .theme-options button:hover {
+  color: var(--chloe-text-title) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ==========================================================================
+   5. 中央舞台 Hero 与三张核心卡片（1:1 复刻）
+   ========================================================================== */
+:root body.web-browser .welcome {
+  max-width: 960px !important;
+  margin: 0 auto !important;
+  padding: 44px 18px 20px !important;
+  text-align: center !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-height: auto !important;
+}
+
+/* 顶部小胶囊徽标 */
+.hero-eyebrow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--chloe-card-border);
+  color: var(--chloe-amber-accent);
+  font-size: 12px;
+  font-weight: 550;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(68, 54, 38, 0.03);
+}
+
+.hero-eyebrow-pill svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 主大标："你好，我是 Chloe" */
+.hero-greeting-title {
+  margin: 0 0 12px !important;
+  font-size: clamp(32px, 3.8vw, 42px) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--chloe-text-title) !important;
+  line-height: 1.25 !important;
+}
+
+.hero-greeting-title span.chloe-brand-name {
+  font-family: "Newsreader", "Songti SC", serif, -apple-system;
+  font-weight: 600;
+  color: #2b2520;
+}
+
+/* 人文副标解释 */
+.hero-greeting-desc {
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+  color: var(--chloe-text-body) !important;
+  max-width: 680px !important;
+  margin: 0 auto 34px !important;
+}
+
+/* 三张核心功能卡片网格容器 */
+:root body.web-browser .suggestions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  width: 100% !important;
+  max-width: 960px !important;
+  margin: 0 auto 20px !important;
+}
+
+/* 功能卡片单体（Soft-Glass Card） */
+.feature-rich-card {
+  position: relative;
+  border-radius: 20px !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: var(--chloe-card-bg) !important;
+  backdrop-filter: var(--chloe-glass-filter) !important;
+  -webkit-backdrop-filter: var(--chloe-glass-filter) !important;
+  box-shadow: var(--chloe-shadow-card) !important;
+  padding: 20px 20px 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 220px !important;
+  text-align: left !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease !important;
+  cursor: pointer;
+}
+
+:root body.web-browser .feature-rich-card:hover {
+  transform: translateY(-3px) !important;
+  background: var(--chloe-card-bg-hover) !important;
+  border-color: var(--chloe-card-border-hover) !important;
+  box-shadow: var(--chloe-shadow-card-hover) !important;
+}
+
+/* 主体按钮：纯透明内容区，彻底消除 button 的默认边框背景 */
+:root body.web-browser .suggestions button.feature-card-main-btn {
+  width: 100% !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 卡片顶栏：图标与编号 */
+.feature-card-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  margin-bottom: 14px !important;
+  width: 100% !important;
+}
+
+.feature-card-badge {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--chloe-text-faint) !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* 卡片主体：标题与双行描述 */
+.feature-card-content {
+  flex: 1 !important;
+  width: 100% !important;
+}
+
+.feature-card-title-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 8px !important;
+}
+
+.feature-card-content h3 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--chloe-text-title) !important;
+  line-height: 1.3 !important;
+}
+
+.feature-card-arrow-circle {
+  display: grid !important;
+  place-items: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(244, 238, 227, 0.75) !important;
+  color: var(--chloe-text-body) !important;
+  transition: all 0.18s ease !important;
+  flex-shrink: 0 !important;
+}
+
+.feature-rich-card:hover .feature-card-arrow-circle {
+  background: var(--chloe-olive-primary) !important;
+  color: #ffffff !important;
+  transform: translateX(2px) !important;
+}
+
+.feature-card-content p {
+  margin: 0 0 16px !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  color: var(--chloe-text-body) !important;
+}
+
+/* 卡片底部 Tag 横排区域（确保水平排列） */
+.feature-card-tags {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 7px !important;
+  margin-top: auto !important;
+  width: 100% !important;
+}
+
+/* 标签小胶囊（彻底消除 suggestions button 带来的 100% 宽度与大方块） */
+:root body.web-browser .suggestions .feature-card-tags button.feature-card-tag-pill {
+  width: auto !important;
+  min-height: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 5px 11px !important;
+  margin: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(215, 203, 185, 0.45) !important;
+  background: rgba(244, 238, 227, 0.72) !important;
+  color: #554c42 !important;
+  font-size: 11px !important;
+  font-weight: 550 !important;
+  line-height: 1.2 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  flex: 0 0 auto !important;
+}
+
+:root body.web-browser .suggestions .feature-card-tags button.feature-card-tag-pill:hover {
+  background: rgba(238, 230, 215, 0.95) !important;
+  color: #24201c !important;
+  border-color: rgba(195, 148, 90, 0.5) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 任务状态胶囊指示条（Status Strip） */
+:root body.web-browser .task-status-strip:not([hidden]),
+.chloe-status-idle-strip {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  max-width: 960px !important;
+  min-height: 44px !important;
+  margin: 12px auto 26px !important;
+  padding: 8px 16px !important;
+  border-radius: 14px !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: var(--chloe-glass-filter) !important;
+  box-shadow: 0 4px 16px rgba(68, 54, 38, 0.03) !important;
+  font-size: 13px !important;
+  color: var(--chloe-text-body) !important;
+  box-sizing: border-box !important;
+}
+
+.status-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-strip-left strong {
+  font-weight: 650;
+  color: var(--chloe-text-title);
+}
+
+.status-strip-left span {
+  color: var(--chloe-text-muted);
+}
+
+.status-strip-arrow {
+  color: var(--chloe-text-muted);
+  display: grid;
+  place-items: center;
+}
+
+/* ==========================================================================
+   6. 底部输入区（Composer）1:1 复刻
+   ========================================================================== */
+:root body.web-browser .composer-wrap {
+  width: min(calc(100% - 32px), 880px) !important;
+  max-width: 880px !important;
+  margin: 0 auto !important;
+  padding: 10px 0 calc(16px + env(safe-area-inset-bottom)) !important;
+  background: transparent !important;
+}
+
+/* 输入卡片复合材质 */
+:root body.web-browser .composer {
+  min-height: 104px !important;
+  padding: 14px 16px 12px !important;
+  border-radius: 24px !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: var(--chloe-card-bg) !important;
+  backdrop-filter: var(--chloe-glass-filter) !important;
+  -webkit-backdrop-filter: var(--chloe-glass-filter) !important;
+  box-shadow: var(--chloe-shadow-composer) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  transition: all 0.2s ease !important;
+}
+
+:root body.web-browser .composer:focus-within {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(195, 148, 90, 0.6) !important;
+  box-shadow: 0 20px 48px rgba(58, 44, 28, 0.12), 0 0 0 3px rgba(200, 138, 62, 0.15) !important;
+}
+
+/* 文本域多行自适应 */
+:root body.web-browser .composer textarea {
+  width: 100% !important;
+  min-height: 46px !important;
+  max-height: 130px !important;
+  padding: 2px 4px 6px !important;
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+  color: var(--chloe-text-title) !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  resize: none !important;
+}
+
+:root body.web-browser .composer textarea::placeholder {
+  color: var(--chloe-text-muted) !important;
+}
+
+/* 工具栏底排排布 */
+:root body.web-browser .composer-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 40px !important;
+  margin-top: 6px !important;
+  gap: 8px !important;
+}
+
+.composer-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.composer-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 附件 + 按钮 */
+:root body.web-browser .attach-button {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  border: 1px solid var(--chloe-card-border) !important;
+  background: rgba(244, 238, 227, 0.6) !important;
+  color: var(--chloe-text-body) !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+:root body.web-browser .attach-button:hover {
+  background: rgba(244, 238, 227, 0.95) !important;
+  color: var(--chloe-text-title) !important;
+  transform: scale(1.04) !important;
+}
+
+/* 秋日模型与档位控制药丸（Pill Selector · 高优先级） */
+:root body.web-browser .composer-toolbar .composer-model,
+:root body.web-browser #modelButton.composer-model {
+  display: inline-flex !important;
+  width: auto !important;
+  max-width: none !important;
+  height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(215, 203, 185, 0.45) !important;
+  background: rgba(244, 238, 227, 0.78) !important;
+  color: var(--chloe-text-body) !important;
+  font-size: 12px !important;
+  font-weight: 550 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+:root body.web-browser .composer-toolbar .composer-model:hover,
+:root body.web-browser #modelButton.composer-model:hover {
+  background: rgba(238, 230, 215, 0.95) !important;
+  color: var(--chloe-text-title) !important;
+  border-color: var(--chloe-card-border-hover) !important;
+}
+
+:root body.web-browser #modelButton b {
+  display: inline-block !important;
+  max-width: 120px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--chloe-text-title) !important;
+}
+
+:root body.web-browser #modelButton .composer-env-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  background: rgba(77, 83, 60, 0.12) !important;
+  color: #4d533c !important;
+}
+
+:root body.web-browser #modelButton #reasoningLabel {
+  display: inline-block !important;
+  font-size: 11px !important;
+  color: var(--chloe-text-muted) !important;
+}
+
+:root body.web-browser #modelButton i {
+  display: inline-block !important;
+  width: 3px !important;
+  height: 3px !important;
+  border-radius: 50% !important;
+  background: var(--chloe-text-faint) !important;
+  margin: 0 1px !important;
+}
+
+:root body.web-browser #modelButton svg {
+  width: 13px !important;
+  height: 13px !important;
+  flex-shrink: 0 !important;
+}
+
+:root body.web-browser #modelButton .pill-chevron {
+  color: var(--chloe-text-muted) !important;
+  width: 10px !important;
+  height: 10px !important;
+  margin-left: 1px !important;
+}
+
+/* 麦克风按键 */
+:root body.web-browser .voice-button {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--chloe-text-muted) !important;
+  display: grid !important;
+  place-items: center !important;
+  transition: all 0.15s ease !important;
+}
+
+/* 发送按键（深橄榄秋褐圆形按键） */
+:root body.web-browser .send-button {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  border: 0 !important;
+  background: var(--chloe-olive-primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(77, 83, 60, 0.28) !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+
+:root body.web-browser .send-button:hover {
+  background: var(--chloe-olive-hover) !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 18px rgba(77, 83, 60, 0.38) !important;
+}
+
+:root body.web-browser .send-button svg {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 2.3 !important;
+}
+
+/* ==========================================================================
+   7. 移动端响应式适配（390px 视口无缝防挤压）
+   ========================================================================== */
+@media (max-width: 768px) {
+  :root body.web-browser .suggestions {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .feature-rich-card {
+    min-height: auto !important;
+    padding: 16px 14px !important;
+  }
+
+  .hero-greeting-title {
+    font-size: 26px !important;
+  }
+
+  .hero-greeting-desc {
+    font-size: 13px !important;
+    margin-bottom: 20px !important;
+  }
+
+  :root body.web-browser .composer-wrap {
+    width: 100% !important;
+    padding-inline: 12px !important;
+  }
+
+  :root body.web-browser .composer {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px 14px 10px !important;
+    min-height: 94px !important;
+    border-radius: 20px !important;
+  }
+
+  :root body.web-browser .composer textarea {
+    order: 1 !important;
+    width: 100% !important;
+    min-height: 38px !important;
+    max-height: 100px !important;
+    font-size: 14px !important;
+    padding: 2px 0 6px !important;
+  }
+
+  :root body.web-browser .composer-toolbar {
+    order: 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    min-height: 36px !important;
+    margin-top: 4px !important;
+  }
+
+  .composer-toolbar-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .composer-toolbar-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  :root body.web-browser .attach-button {
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0 !important;
+  }
+
+  :root body.web-browser .composer-toolbar .composer-model,
+  :root body.web-browser #modelButton.composer-model {
+    height: 30px !important;
+    max-width: 175px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+
+  :root body.web-browser #modelButton b {
+    max-width: 85px !important;
+    display: inline-block !important;
+  }
+
+  :root body.web-browser .voice-button {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  :root body.web-browser .send-button {
+    width: 34px !important;
+    height: 34px !important;
+  }
+}

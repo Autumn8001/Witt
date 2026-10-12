@@ -4847,6 +4847,21 @@
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.artifactOpen) closeArtifact();
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      closeDrawer();
+      beginNewConversation();
+    }
+  });
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+  const shortcutHint = $("#newChatShortcutHint");
+  if (shortcutHint) shortcutHint.textContent = isMac ? "⌘ K" : "Ctrl K";
+  $("#historySearchToggle")?.addEventListener("click", () => {
+    const searchInput = $("#historySearch");
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
   });
   $("#drawerNewChat").addEventListener("click", () => {
     closeDrawer();
