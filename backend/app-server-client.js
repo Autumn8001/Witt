@@ -3,6 +3,7 @@
 const { EventEmitter } = require("node:events");
 const { spawn } = require("node:child_process");
 const readline = require("node:readline");
+const crypto = require("node:crypto");
 
 class AppServerClient extends EventEmitter {
   constructor(options) {
@@ -13,6 +14,10 @@ class AppServerClient extends EventEmitter {
     this.codexHome = options.codexHome || "";
     this.configOverrides = Array.isArray(options.configOverrides)
       ? options.configOverrides.map(String) : [];
+    this.envOverrides = options.envOverrides && typeof options.envOverrides === "object"
+      ? Object.fromEntries(Object.entries(options.envOverrides).map(([key, value]) => [String(key), String(value)]))
+      : {};
+    this.spawnProcess = options.spawnProcess || spawn;
     this.child = null;
     this.pending = new Map();
     this.nextId = 1;
@@ -32,14 +37,21 @@ class AppServerClient extends EventEmitter {
 
   async startInternal() {
     this.closed = false;
+    const childEnv = { ...process.env };
+    // The service process may hold credentials for both account groups. A Codex
+    // child receives only its selected group's key, never the other pool's key.
+    delete childEnv.CHLOE_SUB2API_PLUS_KEY;
+    delete childEnv.CHLOE_SUB2API_FREE_KEY;
+    delete childEnv.CHLOE_SUB2API_KEY;
+    Object.assign(childEnv, this.envOverrides);
     const args = [
       ...this.configOverrides.flatMap((value) => ["-c", value]),
       "app-server", "--listen", "stdio://",
     ];
-    this.child = spawn(this.codexBin, args, {
+    this.child = this.spawnProcess(this.codexBin, args, {
       cwd: this.cwd,
       env: {
-        ...process.env,
+        ...childEnv,
         HOME: this.home,
         ...(this.codexHome ? { CODEX_HOME: this.codexHome } : {}),
       },
@@ -57,7 +69,7 @@ class AppServerClient extends EventEmitter {
     const lines = readline.createInterface({ input: this.child.stdout });
     lines.on("line", (line) => this.onLine(line));
     await this.request("initialize", {
-      clientInfo: { name: "witt", title: "Witt", version: "2.2.9" },
+      clientInfo: { name: "witt", title: "Chloe", version: "2.2.9" },
       capabilities: {
         experimentalApi: true,
         mcpServerOpenaiFormElicitation: true,
@@ -154,10 +166,15 @@ function sharedAppServer(options) {
   // A Codex app-server multiplexes notifications for every thread it owns. Do not share one
   // process across ChatService instances: listeners from different Witt users would otherwise
   // receive the same turn notifications and write them into each user's active conversation.
+  const secretIdentity = crypto.createHash("sha256")
+    .update(JSON.stringify(Object.entries(options.envOverrides || {}).sort(([a], [b]) => a.localeCompare(b))))
+    .digest("hex");
   const key = [
     options.clientScope || "global",
     options.codexHome || "default",
     JSON.stringify(options.configOverrides || []),
+    options.cacheIdentity || "",
+    secretIdentity,
   ].join(":");
   const current = sharedClients.get(key);
   if (current && !current.closed) return current;

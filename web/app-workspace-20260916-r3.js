@@ -15,7 +15,7 @@
   ]);
   const previousModel = localStorage.getItem("wit_model_preference") || localStorage.getItem("wit_model");
   const shouldMigrateModelPreference = !localStorage.getItem(MVP_MODEL_MIGRATION_KEY) &&
-    (!previousModel || LEGACY_DEFAULT_MODELS.has(previousModel) || previousModel.startsWith("gpt-"));
+    (!previousModel || LEGACY_DEFAULT_MODELS.has(previousModel));
   const savedModel = shouldMigrateModelPreference ? MVP_DEFAULT_MODEL : (previousModel || MVP_DEFAULT_MODEL);
   if (!localStorage.getItem(MVP_MODEL_MIGRATION_KEY)) {
     localStorage.setItem(MVP_MODEL_MIGRATION_KEY, "1");
@@ -630,6 +630,7 @@
     "gpt-6-astra": "Astra",
     "gpt-6-sol": "Sol",
     "gpt-6-luna": "Luna",
+    "gpt-6.1-sol": "GPT-6.1 Sol",
     "gpt-5.6-sol": "Sol",
     "gpt-5.6-terra": "Terra",
     "gpt-5.6-luna": "Luna",
@@ -639,10 +640,17 @@
     [MVP_DEFAULT_MODEL]: "Grok Build · 复杂任务",
     "gpt-6-astra": "旗舰智能 · 复杂任务",
     "gpt-6-sol": "专业编码 · 均衡推理",
-    "gpt-6-luna": "快速高效 · 日常任务",
+    "gpt-6.1-sol": "Plus 账号组额度 · 专业编码",
     "gpt-5.6-sol": "复杂任务 · 深度推理",
-    "gpt-5.6-terra": "日常工作 · 均衡全能",
-    "gpt-5.6-luna": "快速响应 · 轻量任务",
+    "gpt-5.6-terra": "Free 账号组额度 · 日常工作",
+    "gpt-5.6-luna": "Free 账号组额度 · 快速响应",
+    "gpt-6-luna": "Free 账号组额度 · 快速高效",
+  };
+
+  const sub2apiProfileNames = {
+    "codex-plus": "Sol · Plus 账号额度",
+    "codex-free": "Luna · Free 账号额度",
+    "codex-terra": "Terra · Free 账号额度",
   };
 
   const reasoningMeta = {
@@ -709,6 +717,10 @@
   function modelDisplayName(modelId) {
     const capability = (state.capabilities?.models || []).find((model) => model.id === modelId);
     return capability?.displayName || modelNames[modelId] || modelId;
+  }
+
+  function runtimeProfileDisplayName(profile) {
+    return sub2apiProfileNames[profile?.id] || profile?.name || profile?.id || "模型配置";
   }
 
   function renderReasoningControl() {
@@ -901,7 +913,11 @@
         const selectedModel = state.draftModel || state.model;
         const availableModels = serviceableModelIds();
         const capabilitiesKnown = Boolean(state.capabilities);
-        profileHost.innerHTML = state.runtimeProfiles.map((profile) => {
+        const hasSub2ApiRouting = state.runtimeProfiles.some((profile) => sub2apiProfileNames[profile?.id]);
+        const routingHelp = hasSub2ApiRouting
+          ? '<p class="runtime-routing-help">自动分配额度：GPT-6.1 Sol 使用 Plus；Luna、Terra 使用 Free。</p>'
+          : "";
+        profileHost.innerHTML = routingHelp + state.runtimeProfiles.map((profile) => {
           const selected = profile.model === selectedModel && (state.harness || "auto") === "auto";
           const runtimeUnavailable = capabilitiesKnown
             ? Boolean(profile.harness && runtime[profile.harness]?.available !== true)
@@ -910,9 +926,10 @@
             ? !availableModels.includes(profile.model)
             : profile.model !== MVP_DEFAULT_MODEL;
           const unavailable = remoteLocked || runtimeUnavailable || modelUnavailable;
+          const profileName = runtimeProfileDisplayName(profile);
           const label = remoteLocked
-            ? `${profile.name || profile.id}（已锁定）`
-            : (unavailable ? `${profile.name || profile.id}（暂不可用）` : (profile.name || profile.id));
+            ? `${profileName}（已锁定）`
+            : (unavailable ? `${profileName}（暂不可用）` : profileName);
           return `<button type="button" data-runtime-profile="${escapeHtml(profile.id)}" role="radio" aria-checked="${selected}" aria-disabled="${unavailable}" class="${selected ? "selected" : ""}${unavailable ? " unavailable" : ""}${remoteLocked ? " locked" : ""}"${unavailable ? " disabled" : ""}><span>${escapeHtml(label)}</span><small>${escapeHtml(modelDisplayName(profile.model))}</small></button>`;
         }).join("");
       }
@@ -5178,7 +5195,7 @@
       state.harness = "auto";
       applySettings({ closeSheet: false });
       renderRuntimeControls();
-      toast(`${selected.name || selected.id} · Auto`);
+      toast(`${runtimeProfileDisplayName(selected)} · 自动`);
     }
   });
   $("#forkConversationButton").addEventListener("click", () => {

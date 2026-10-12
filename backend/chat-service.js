@@ -12,6 +12,7 @@ const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
 const { describeBinary } = require("./runtime/runtime-binaries");
 const { RuntimeLogger } = require("./runtime/runtime-log");
 const { createGitChangeBaseline, collectGitChanges } = require("./git-change-collector");
+const { SUB2API_CODEX_MODELS, createSub2ApiRoute } = require("./sub2api-routing");
 
 const ID_PATTERN = /^[a-f0-9-]{36}$/;
 const DEEPSEEK_MODELS = new Set(["deepseek-v4-pro", "deepseek-v4-flash"]);
@@ -41,7 +42,7 @@ const LEGACY_KNOWN_MODELS = new Set([...PAUSED_RUNTIME_MODELS, ...RETIRED_UNVERI
 const BLOCK_REASON_CODES = new Set([PAUSED_RUNTIME_REASON, RETIRED_MODEL_REASON]);
 
 const ADMIN_MODELS = new Set([
-  "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+  "gpt-6-astra", "gpt-6-sol", "gpt-6.1-sol", "gpt-6-luna",
   "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", ...DEEPSEEK_MODELS,
   ...SELECTABLE_HARNESS_MODELS,
 ]);
@@ -179,6 +180,7 @@ class ChatService {
       ? options.allowedModels : ADMIN_MODELS;
     this.defaultModel = options.defaultModel || DEFAULT_HARNESS_MODEL;
     this.defaultProviderId = options.defaultProviderId || DEFAULT_PROVIDER_ID;
+    this.sub2api = options.sub2api || null;
     this.quotaExhausted = Boolean(options.quotaExhausted);
     this.codexProfiles = options.codexProfiles || {
       default: {
@@ -240,6 +242,11 @@ class ChatService {
   clientFor(profile, model = this.defaultModel) {
     const deepseek = DEEPSEEK_MODELS.has(model);
     const configOverrides = ["features.default_mode_request_user_input=true"];
+    let route = null;
+    if (this.sub2api && String(model).startsWith("gpt-")) {
+      route = createSub2ApiRoute({ model, sub2api: this.sub2api });
+      configOverrides.push(...route.configOverrides);
+    }
     if (deepseek) configOverrides.push(
       'model_provider="witt-deepseek"',
       'model_providers.witt-deepseek.name="DeepSeek through Witt"',
@@ -253,8 +260,12 @@ class ChatService {
       codexBin: this.codexBin,
       cwd: profile.workDir,
       home: "/home/ubuntu",
-      codexHome: profile.codexHome,
+      codexHome: route?.codexHome || profile.codexHome,
       configOverrides,
+      ...(route ? {
+        envOverrides: route.envOverrides,
+        cacheIdentity: route.cacheIdentity,
+      } : {}),
       clientScope: this.clientScope,
     });
     if (!this.boundClients.has(client)) {
@@ -287,6 +298,11 @@ class ChatService {
   // True only when the model may be chosen for a NEW turn. Legacy bindings are
   // intentionally excluded, so a paused runtime cannot be selected again.
   modelAllowed(model, profileId = this.defaultCodexProfile) {
+    if (this.sub2api && String(model || "").startsWith("gpt-")) {
+      const group = SUB2API_CODEX_MODELS[String(model)];
+      if (!group || !this.codexBinaryAvailable() ||
+          (group === "plus" ? !this.sub2api.plusKey : !this.sub2api.freeKey)) return false;
+    }
     if (DEEPSEEK_MODELS.has(model)) return this.deepseekEnabled &&
       (this.allowedModels === null || this.allowedModels.has(model));
     const dynamic = this.availableModels.get(profileId);
@@ -323,6 +339,7 @@ class ChatService {
     const stored = String(conversation?.model || "");
     if (!stored) return this.defaultModel;
     if (this.modelAllowed(stored, profileId)) return stored;
+    if (this.sub2api && stored.startsWith("gpt-")) return stored;
     if (LEGACY_KNOWN_MODELS.has(stored)) return stored;
     const dynamic = this.availableModels.get(profileId);
     if (dynamic && dynamic.has(stored)) return stored;
@@ -662,6 +679,7 @@ class ChatService {
       harnessLabel: (HARNESSES[conversation.harnessId] || HARNESSES[resolveHarness(conversation.model, "auto")]).displayName,
       // Reported from the stored value: a legacy provider binding is not rewritten.
       providerId: conversation.providerId || providerForModel(conversation.model),
+      accountGroup: this.sub2api ? SUB2API_CODEX_MODELS[String(conversation.model || "")] || null : null,
       model: this.displayModel(conversation, profile.id),
       modelBlockedReason: this.modelBlockReason(conversation.model),
       reasoning: conversation.reasoning || "medium",
@@ -985,12 +1003,21 @@ class ChatService {
     const now = new Date().toISOString();
     // A paused runtime is refused outright, for every role, before any fallback.
     const requestedModel = String(model == null || model === "" ? this.defaultModel : model);
+    if (this.sub2api && requestedModel.startsWith("gpt-")) {
+      // Never replace an unsupported or unconfigured gateway choice with a
+      // default that may consume a different account pool.
+      createSub2ApiRoute({ model: requestedModel, sub2api: this.sub2api });
+    }
     const blockReason = this.modelBlockReason(requestedModel);
     if (blockReason) {
       const error = new Error(`该模型不可用于新会话（${blockReason}）：${requestedModel}`);
       error.blockReason = blockReason;
       error.model = requestedModel;
       throw error;
+    }
+    if (this.sub2api && SUB2API_CODEX_MODELS[requestedModel] &&
+        !this.modelAllowed(requestedModel, profile.id)) {
+      throw new Error("该 Sub2API 模型当前未开放，未改用其他模型");
     }
     const resolvedModel = this.modelAllowed(requestedModel, profile.id)
       ? requestedModel : this.defaultModel;
@@ -1007,7 +1034,8 @@ class ChatService {
       // grok-* without the caller having to know about harnesses.
       harnessId: resolveHarness(resolvedModel, "auto"),
       // Explicit per-family mapping; an unknown model yields null, never a gateway.
-      providerId: providerForModel(resolvedModel),
+      providerId: this.sub2api && SUB2API_CODEX_MODELS[resolvedModel]
+        ? "sub2api" : providerForModel(resolvedModel),
       harnessSessionId: null,
       reasoning: ALLOWED_REASONING.has(reasoning) ? reasoning : "medium",
       accessMode: ALLOWED_ACCESS.has(accessMode) ? accessMode : "danger-full-access",
@@ -1082,6 +1110,43 @@ class ChatService {
     return models;
   }
 
+  sub2apiCodexCatalog() {
+    if (!this.sub2api || !this.codexBinaryAvailable()) return [];
+    return Object.entries(SUB2API_CODEX_MODELS).flatMap(([id, group]) => {
+      if (this.allowedModels !== null && !this.allowedModels.has(id)) return [];
+      if (group === "plus" ? !this.sub2api.plusKey : !this.sub2api.freeKey) return [];
+      return [{
+        id,
+        displayName: id.replace(/^gpt-/, "GPT-").replace(/(^|-)([a-z0-9])/g,
+          (_match, prefix, letter) => `${prefix}${letter.toUpperCase()}`),
+        isDefault: id === this.defaultModel,
+        inputModalities: ["text", "image"],
+        defaultReasoningEffort: "high",
+        reasoningEfforts: [
+          { id: "low", description: "快速" },
+          { id: "medium", description: "均衡" },
+          { id: "high", description: "深入" },
+        ],
+        supportsPersonality: false,
+        upgrade: null,
+        harness: "codex",
+        provider: "sub2api",
+        accountGroup: group,
+      }];
+    });
+  }
+
+  modelProviderIdentity(model) {
+    const id = String(model || "");
+    if (DEEPSEEK_MODELS.has(id)) return "deepseek";
+    if (this.sub2api && SUB2API_CODEX_MODELS[id]) return `sub2api-${SUB2API_CODEX_MODELS[id]}`;
+    return "codex";
+  }
+
+  codexBinaryAvailable() {
+    return Boolean(describeBinary("codex", { bin: this.codexBin })?.exists);
+  }
+
   // DeepSeek runs through Codex, so it is only offered when Codex is reachable.
   deepseekCatalog() {
     return [
@@ -1114,6 +1179,17 @@ class ChatService {
       mcpServers: [], collaborationModes: [], features: [],
     };
     try {
+      if (this.sub2api) {
+        const binaryAvailable = this.codexBinaryAvailable();
+        const configured = binaryAvailable && this.sub2apiCodexCatalog().length > 0;
+        return {
+          ...empty,
+          available: configured,
+          reason: configured ? null : binaryAvailable ? "authentication_required" : "executable_not_found",
+          configuration: configured ? "configured_not_model_verified" : null,
+          binaryAvailable,
+        };
+      }
       // A present CLI is not a usable Codex runtime without local authentication.
       // Check only for credential presence; never parse or log credential contents,
       // and avoid opening the app server (which may initiate provider requests).
@@ -1135,9 +1211,12 @@ class ChatService {
         ? settled[index].value : {};
       // The same availability policy applies to Codex-reported models: a paused or
       // retired model must not be advertised just because Codex listed it.
-      const models = (value(0).data || []).filter((model) => !model.hidden &&
-        this.isModelServable(model.id || model.model) &&
-        (this.allowedModels === null || this.allowedModels.has(String(model.id || model.model || ""))))
+      const models = (value(0).data || []).filter((model) => {
+        const id = String(model.id || model.model || "");
+        return !model.hidden && this.isModelServable(id) &&
+          (this.allowedModels === null || this.allowedModels.has(id)) &&
+          (!this.sub2api || !id.startsWith("gpt-") || this.modelAllowed(id, profile.id));
+      })
         .map((model) => ({
         id: String(model.id || model.model || ""),
         displayName: String(model.displayName || model.id || model.model || ""),
@@ -1195,6 +1274,7 @@ class ChatService {
         available: codex.available,
         status: codex.available ? "ready" : "unavailable",
         reason: codex.reason || null,
+        ...(codex.configuration ? { configuration: codex.configuration } : {}),
       },
       "grok-build": {
         available: Boolean(grok && grok.exists),
@@ -1233,7 +1313,7 @@ class ChatService {
     // Deduplicate by id: a model may be reported by Codex and also come from the
     // harness catalog. The harness entry wins, so the binding stays explicit.
     const merged = new Map();
-    for (const model of [...codex.models, ...deepseekModels, ...harnessModels]) {
+    for (const model of [...codex.models, ...this.sub2apiCodexCatalog(), ...deepseekModels, ...harnessModels]) {
       if (!model || !model.id || !this.isModelServable(model.id)) continue;
       merged.set(model.id, model);
     }
@@ -1656,6 +1736,21 @@ class ChatService {
       const requestedModel = body?.model == null
         ? this.displayModel(conversation, this.profileFor(conversation).id)
         : body.model;
+      if (this.sub2api && String(requestedModel).startsWith("gpt-")) {
+        try { createSub2ApiRoute({ model: requestedModel, sub2api: this.sub2api }); }
+        catch (routeError) {
+          const unsupported = routeError.code === "unsupported_sub2api_model_route";
+          this.sendJson(res, 400, {
+            error: unsupported ? "该 GPT 型号没有配置 Sub2API 分组路由" :
+              routeError.code === "sub2api_group_key_missing"
+                ? `Sub2API ${routeError.group} 分组凭据未配置`
+                : "Sub2API 路由配置不完整",
+            blockReason: routeError.code,
+            model: String(requestedModel),
+          });
+          return;
+        }
+      }
       // Selecting a paused runtime is refused explicitly, for every role, so the
       // client can show why instead of a generic validation error.
       if (body?.model != null) {
@@ -1721,9 +1816,11 @@ class ChatService {
         this.sendJson(res, 409, { error: "当前对话正在处理，完成后再切换" });
         return;
       }
-      const providerChanged = DEEPSEEK_MODELS.has(requestedModel) !==
-        DEEPSEEK_MODELS.has(conversation.model);
-      if (conversation.codexThreadId && providerChanged) {
+      const providerChanged = this.modelProviderIdentity(requestedModel) !==
+        this.modelProviderIdentity(conversation.model);
+      const legacyCodexThread = Boolean(conversation.codexThreadId && this.sub2api &&
+        SUB2API_CODEX_MODELS[requestedModel] && conversation.providerId !== "sub2api");
+      if (conversation.codexThreadId && (providerChanged || legacyCodexThread)) {
         conversation.codexThreadId = null;
         conversation.replayHistoryOnNextTurn = true;
       }
@@ -1758,6 +1855,8 @@ class ChatService {
         }
       }
       conversation.model = requestedModel;
+      conversation.providerId = this.sub2api && SUB2API_CODEX_MODELS[requestedModel]
+        ? "sub2api" : providerForModel(requestedModel);
       conversation.harnessId = nextHarness;
       conversation.reasoning = requestedReasoning;
       conversation.accessMode = requestedAccess;
@@ -2930,6 +3029,37 @@ class ChatService {
       setImmediate(() => this.runNext());
       return;
     }
+    if (this.sub2api && storedModel.startsWith("gpt-")) {
+      try { createSub2ApiRoute({ model: storedModel, sub2api: this.sub2api }); }
+      catch (routeError) {
+        const completedAt = new Date().toISOString();
+        user.status = "failed";
+        assistant.status = "failed";
+        assistant.completedAt = completedAt;
+        assistant.text = routeError.code === "unsupported_sub2api_model_route"
+          ? "该 GPT 模型没有配置 Sub2API 分组路由，本轮未启动。"
+          : routeError.code === "sub2api_group_key_missing"
+            ? `Sub2API ${routeError.group} 分组凭据未配置，本轮未启动。`
+            : "Sub2API 路由配置不完整，本轮未启动。";
+        assistant.activity = [{ type: "error", label: assistant.text, status: "failed" }];
+        conversation.updatedAt = completedAt;
+        this.writeConversation(conversation);
+        setImmediate(() => this.runNext());
+        return;
+      }
+      if (!this.modelAllowed(storedModel, this.profileFor(conversation).id)) {
+        const completedAt = new Date().toISOString();
+        user.status = "failed";
+        assistant.status = "failed";
+        assistant.completedAt = completedAt;
+        assistant.text = "当前账号或服务器环境未开放此 Sub2API 模型，本轮未启动。";
+        assistant.activity = [{ type: "error", label: assistant.text, status: "failed" }];
+        conversation.updatedAt = completedAt;
+        this.writeConversation(conversation);
+        setImmediate(() => this.runNext());
+        return;
+      }
+    }
     const model = this.modelAllowed(storedModel, this.profileFor(conversation).id)
       ? storedModel : this.defaultModel;
     const reasoning = ALLOWED_REASONING.has(conversation.reasoning) ? conversation.reasoning : "medium";
@@ -2958,6 +3088,15 @@ class ChatService {
       this.writeConversation(conversation);
       setImmediate(() => this.runNext());
       return;
+    }
+    if (this.sub2api && SUB2API_CODEX_MODELS[model] && conversation.codexThreadId &&
+        conversation.providerId !== "sub2api") {
+      // A pre-gateway Codex thread belongs to the old CODEX_HOME. Start a fresh
+      // gateway thread and replay this conversation's visible history instead.
+      conversation.codexThreadId = null;
+      conversation.replayHistoryOnNextTurn = true;
+      conversation.providerId = "sub2api";
+      this.writeConversation(conversation);
     }
     if (harnessId === "grok-build" || harnessId === "google-antigravity") {
       const workerAvail = this.workerClient ? await this.workerClient.isAvailable() : false;

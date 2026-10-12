@@ -36,6 +36,12 @@ const authDir = process.env.DROP_VAULT_AUTH_DIR || "/data/drop-vault/auth";
 const tokenFile = process.env.DROP_VAULT_TOKEN_FILE || "/home/ubuntu/.config/drop-vault/api-token";
 const codexBin = process.env.DROP_VAULT_CODEX_BIN || "/home/ubuntu/.local/bin/codex";
 const codexWorkDir = process.env.DROP_VAULT_CODEX_WORKDIR || "/home/ubuntu/Documents/Codex/2026-07-26-xlsb";
+const sub2api = process.env.CHLOE_SUB2API_ENABLED === "1" ? {
+  baseUrl: process.env.WITT_SUB2API_URL || "http://127.0.0.1:8080/v1",
+  plusKey: process.env.CHLOE_SUB2API_PLUS_KEY || "",
+  freeKey: process.env.CHLOE_SUB2API_FREE_KEY || "",
+  codexHomeRoot: process.env.CHLOE_SUB2API_CODEX_HOME || "/root/.witt/codex-sub2api",
+} : null;
 const codexProfiles = {
   default: {
     id: "default",
@@ -234,7 +240,12 @@ const harnessOptions = {
 const providerRegistry = new ProviderRegistry({
   file: process.env.WITT_PROVIDER_REGISTRY || path.join(authDir, "providers.json"),
 });
-const runtimeProfiles = new RuntimeProfileStore();
+const runtimeProfiles = new RuntimeProfileStore(sub2api ? [
+  { id: "codex-plus", name: "Sol · Plus 账号组", harness: "codex", provider: "sub2api", model: "gpt-6.1-sol", reasoning: "high" },
+  { id: "codex-free", name: "Luna · Free 账号组", harness: "codex", provider: "sub2api", model: "gpt-6-luna", reasoning: "high" },
+  { id: "codex-terra", name: "Terra · Free 账号组", harness: "codex", provider: "sub2api", model: "gpt-5.6-terra", reasoning: "high" },
+  { id: "gemini-fast", name: "Gemini", harness: "google-antigravity", provider: "google-antigravity", model: "gemini-3.8-flash-high", reasoning: "medium" },
+] : undefined);
 const cpaQuotaRoutes = createCpaQuotaRoutes({ service: new CpaQuotaService(), sendJson });
 
 // Seed the registry with the gateways that actually exist on this host. Values
@@ -295,6 +306,7 @@ const remoteWorkspaceService = new RemoteWorkspaceService({
 const workerClient = new WorkerClient();
 
 const chatService = new ChatService({
+  sub2api,
   chatDir,
   imageDir,
   dataDir,
@@ -365,6 +377,7 @@ function chatFor(principal) {
   if (userChatServices.has(principal.userId)) return userChatServices.get(principal.userId);
   const directory = userDirectory(principal.userId);
   const service = new ChatService({
+    sub2api,
     chatDir: path.join(directory, "chat"),
     imageDir: path.join(directory, "chat-images"),
     dataDir: path.join(directory, "files"),
