@@ -1742,10 +1742,11 @@
     const seed = String(item?.id || item?.title || "history");
     let hash = 0;
     for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-    return `<svg class="autumn-history-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${autumnHistoryIcons[hash % autumnHistoryIcons.length]}"></use></svg>`;
+    const icon = autumnHistoryIcons[hash % autumnHistoryIcons.length];
+    return `<svg class="autumn-history-icon autumn-history-${icon}" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${icon}"></use></svg>`;
   }
   function autumnPinnedIcon() {
-    return '<svg class="autumn-history-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
+    return '<svg class="autumn-history-icon autumn-history-leaf" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
   }
 
   function renderConversations() {

@@ -224,6 +224,11 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace #modelButton > .autumn-icon { width: 18px; height: 18px; color: var(--chloe-gold); }
 :root body.web-browser.chloe-autumn-workspace .conversation-mark { width: 28px !important; height: 28px !important; border-radius: 9px !important; }
 :root body.web-browser.chloe-autumn-workspace .conversation-mark .autumn-history-icon { width: 17px; height: 17px; }
+:root body.web-browser.chloe-autumn-workspace .autumn-history-icon { fill: currentColor; stroke: none; }
+:root body.web-browser.chloe-autumn-workspace .autumn-history-leaf { color: var(--chloe-brown); }
+:root body.web-browser.chloe-autumn-workspace .autumn-history-acorn { color: var(--chloe-rust); }
+:root body.web-browser.chloe-autumn-workspace .autumn-history-sprout { color: var(--chloe-olive); }
+:root body.web-browser.chloe-autumn-workspace .autumn-history-document-leaf { color: var(--chloe-brown); }
 :root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-mark { color: var(--chloe-olive) !important; background: color-mix(in srgb, var(--chloe-olive) 12%, transparent) !important; }
 .conversation-pin { display: inline-block; width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; color: var(--chloe-gold); }
 .conversation-pin .autumn-history-icon { width: 13px; height: 13px; }

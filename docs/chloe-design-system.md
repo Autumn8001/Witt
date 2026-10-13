@@ -48,8 +48,9 @@ IDs and are consumed with `<use>`. The current mapping is:
 - Composer model control: `leaf`
 - History rows: deterministic `leaf`, `acorn`, `sprout` or `document-leaf` based on the conversation ID; active and pinned states use the same family with olive or amber emphasis.
 
-All symbols use a 24px viewBox, rounded line ends and the shared autumn tokens.
-The mapping is deterministic and does not infer task type from conversation text.
+All symbols use a 24px viewBox, filled botanical silhouettes with restrained line
+details, and the shared autumn tokens. The mapping is deterministic and does not
+infer task type from conversation text.
 
 Sheets and their headers use `--surface` and `--shadow-lg`; inputs and selects use
 `--surface-solid`, `--line-strong` and the shared control radius. Selected options
