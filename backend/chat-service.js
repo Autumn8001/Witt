@@ -1348,6 +1348,8 @@ class ChatService {
         review: codex.available, plans: codex.available,
       },
       harnesses: Object.values(HARNESSES),
+      accessModes: [...this.allowedAccessModes],
+      defaultAccessMode: this.defaultAccessMode,
       defaultHarness: "auto",
       defaultModel: this.defaultModel,
       runtime: this.runtimeStatus(codex),
