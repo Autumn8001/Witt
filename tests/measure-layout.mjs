@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,49 +9,19 @@ const require = createRequire(path.join(root, "backend", "package.json"));
 const { chromium } = require("playwright");
 
 const html = readFileSync(path.join(root, "web", "index.html"), "utf8");
-const cssNames = [
-  "ui-system.css", "profile-overview.css", "component-interactions.css", "styles.css",
-  "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css",
-  "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css",
-  "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css",
-  "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css",
-  "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css",
-  "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css",
-  "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css",
-  "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css",
-  "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css",
-  "claude-app.css", "local-terminal.css", "customer-devices.css", "chloe-autumn.css"
-];
-const cssFiles = new Map(cssNames.map((name) => {
-  try { return [name, readFileSync(path.join(root, "web", name), "utf8")]; }
-  catch { return [name, ""]; }
-}));
-const js = readFileSync(path.join(root, "web", "app-workspace-20260916-r3.js"), "utf8");
-const profileOverviewJs = readFileSync(path.join(root, "web", "profile-overview.js"), "utf8");
-const customerDevicesJs = readFileSync(path.join(root, "web", "customer-devices.js"), "utf8");
-const browserBridgeJs = readFileSync(path.join(root, "web", "browser-bridge.js"), "utf8");
-
-const autumnBg = readFileSync(path.join(root, "web", "assets", "autumn-bg.jpg"));
-
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1672, height: 941 }, deviceScaleFactor: 1 });
 
 await page.route("**/vault/**", async (route) => {
   const pathname = new URL(route.request().url()).pathname;
-  if (pathname.endsWith("autumn-bg.jpg")) {
-    return route.fulfill({ contentType: "image/jpeg", body: autumnBg });
-  }
-  if (pathname.endsWith(".css")) {
-    const name = pathname.split("/").pop().split("?")[0];
-    return route.fulfill({ contentType: "text/css", body: cssFiles.get(name) || "" });
-  }
-  if (pathname.endsWith("profile-overview.js")) return route.fulfill({ contentType: "application/javascript", body: profileOverviewJs });
-  if (pathname.endsWith("customer-devices.js")) return route.fulfill({ contentType: "application/javascript", body: customerDevicesJs });
-  if (pathname.endsWith("browser-bridge.js")) return route.fulfill({ contentType: "application/javascript", body: browserBridgeJs });
-  if (pathname.endsWith(".js")) return route.fulfill({ contentType: "application/javascript", body: js });
-  if (pathname.endsWith(".svg")) return route.fulfill({ contentType: "image/svg+xml", body: "<svg></svg>" });
-  if (pathname.endsWith(".jpg") || pathname.endsWith(".png")) return route.fulfill({ status: 200, body: "" });
-  return route.fulfill({ contentType: "text/html", body: html });
+  if (pathname.endsWith("/version.json")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ frontendSha: "abcdef0123456789abcdef0123456789abcdef01" }) });
+  const relative = (pathname === "/vault" || pathname === "/vault/" ? "index.html" : decodeURIComponent(pathname).replace(/^\/vault\//, "")).replaceAll("/", path.sep);
+  const webRoot = path.join(root, "web");
+  const file = path.resolve(webRoot, relative);
+  if (!file.startsWith(webRoot + path.sep) || !existsSync(file)) return route.fulfill({ status: 404, body: `Missing local UI asset: ${relative}` });
+  const ext = path.extname(file).toLowerCase();
+  const contentType = ({ ".html": "text/html", ".css": "text/css", ".js": "application/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf", ".json": "application/json" })[ext] || "application/octet-stream";
+  return route.fulfill({ contentType, body: readFileSync(file) });
 });
 
 await page.route("**/vault-api/auth/status", (route) => route.fulfill({
@@ -61,6 +31,12 @@ await page.route("**/vault-api/**", (route) => route.fulfill({ contentType: "app
 
 await page.goto("http://localhost:9999/vault/", { waitUntil: "networkidle" });
 await page.waitForTimeout(500);
+await page.evaluate(async () => {
+  await document.fonts.ready;
+  const image = new Image();
+  image.src = "/vault/assets/chloe-autumn-landscape.webp";
+  await image.decode();
+});
 
 const metrics = await page.evaluate(() => {
   const getBox = (sel) => {
@@ -120,7 +96,6 @@ const metrics = await page.evaluate(() => {
     heroTitle: getBox(".hero-greeting-title"),
     heroDesc: getBox(".hero-greeting-desc"),
     suggestions: getBox(".suggestions"),
-    firstCard: getBox(".feature-rich-card"),
     composer: getBox(".composer")
   };
 });
