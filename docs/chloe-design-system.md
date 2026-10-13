@@ -34,6 +34,23 @@ components inherit it without needing page-specific color sets.
 
 ## Components and States
 
+## Autumn Icon Set
+
+The reusable SVG symbols live in `web/index.html` under the `autumn-icon-*`
+IDs and are consumed with `<use>`. The current mapping is:
+
+- Hero label: `leaf`
+- Remote workspace: `monitor-leaf`
+- Project and service connections: `branch`
+- Model, Harness and server settings: `gear-leaf`
+- My usage: `sprout`
+- Device management: `monitor-leaf`
+- Composer model control: `leaf`
+- History rows: deterministic `leaf`, `acorn`, `sprout` or `document-leaf` based on the conversation ID; active and pinned states use the same family with olive or amber emphasis.
+
+All symbols use a 24px viewBox, rounded line ends and the shared autumn tokens.
+The mapping is deterministic and does not infer task type from conversation text.
+
 Sheets and their headers use `--surface` and `--shadow-lg`; inputs and selects use
 `--surface-solid`, `--line-strong` and the shared control radius. Selected options
 use the selection surface and olive edge. Tabs use the soft surface with a raised

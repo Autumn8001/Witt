@@ -213,3 +213,17 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   .chloe-bg-layer { transition: none; }
   .chloe-autumn-workspace .animate-blur-fade-up { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
 }
+
+/* Autumn icon set: one 24px grid, one quiet stroke, a small botanical accent. */
+.autumn-icon-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.autumn-icon { width: 22px; height: 22px; display: block; flex: none; fill: none; stroke: currentColor; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
+.autumn-icon-hero { width: 18px; height: 18px; color: var(--chloe-brown, var(--chloe-gold)); stroke-width: 1.45; }
+:root body.web-browser.chloe-autumn-workspace .workspace-entry-label .autumn-icon { width: 22px; height: 22px; color: var(--chloe-brown, var(--chloe-gold)); }
+:root body.web-browser.chloe-autumn-workspace .drawer-profile-svg .autumn-icon,
+:root body.web-browser.chloe-autumn-workspace .profile-monogram .autumn-icon { width: 27px; height: 27px; color: currentColor; }
+:root body.web-browser.chloe-autumn-workspace #modelButton > .autumn-icon { width: 18px; height: 18px; color: var(--chloe-gold); }
+:root body.web-browser.chloe-autumn-workspace .conversation-mark { width: 28px !important; height: 28px !important; border-radius: 9px !important; }
+:root body.web-browser.chloe-autumn-workspace .conversation-mark .autumn-history-icon { width: 17px; height: 17px; }
+:root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-mark { color: var(--chloe-olive) !important; background: color-mix(in srgb, var(--chloe-olive) 12%, transparent) !important; }
+.conversation-pin { display: inline-block; width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; color: var(--chloe-gold); }
+.conversation-pin .autumn-history-icon { width: 13px; height: 13px; }
