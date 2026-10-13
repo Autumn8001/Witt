@@ -42,43 +42,42 @@
   <link rel="stylesheet" href="/vault/usage-insight.css?v=2.1.12-usage1">
   <link rel="stylesheet" href="/vault/quota-spacing.css?v=2.1.12-quota7">
   <link rel="stylesheet" href="/vault/usage-ring-fit.css?v=2.1.12-usage2">
-  <link rel="stylesheet" href="/vault/auth-gate.css?v=2.2.7-admin-hide1">
-  <link rel="stylesheet" href="/vault/approval-card.css?v=2.3.0-user-input1">
+  <link rel="stylesheet" href="/vault/auth-gate.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/approval-card.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/conversation-type.css?v=2.2.0-type1">
   <link rel="stylesheet" href="/vault/night-theme.css?v=2.2.13-night2">
   <link rel="stylesheet" href="/vault/message-collapse.css?v=2.2.0-collapse1">
   <link rel="stylesheet" href="/vault/chat-overflow-fix.css?v=2.2.0-overflow1">
   <link rel="stylesheet" href="/vault/vendor/katex/katex.min.css?v=0.16.22">
   <link rel="stylesheet" href="/vault/formula-code.css?v=2.2.10-table1">
-  <link rel="stylesheet" href="/vault/codex-accounts.css?v=2.2.9-layout2">
+  <link rel="stylesheet" href="/vault/codex-accounts.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/performance.css?v=2.2.8-power1">
   <link rel="stylesheet" href="/vault/landscape.css?v=2.2.5-landscape3">
   <link rel="stylesheet" href="/vault/lumora-global.css?v=2.2.6-perf1">
-  <link rel="stylesheet" href="/vault/codex-model-picker.css?v=2.2.9-liquid1">
+  <link rel="stylesheet" href="/vault/codex-model-picker.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/chat-links.css?v=2.2.9-links1">
   <link rel="stylesheet" href="/vault/completed-turn.css?v=2.2.10-result1">
   <link rel="stylesheet" href="/vault/drawer-layout.css?v=2.2.11-drawer2">
-  <link rel="stylesheet" href="/vault/witt-next.css?v=3.2.5-tools-webui">
-  <link rel="stylesheet" href="/vault/artifact-preview.css?v=3.0.0">
-  <link rel="stylesheet" href="/vault/claude-app.css?v=1.0.0">
+  <link rel="stylesheet" href="/vault/witt-next.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/artifact-preview.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/claude-app.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/vendor/xterm/xterm.css?v=6.0.0">
   <link rel="stylesheet" href="/vault/local-terminal.css?v=2.2.16-terminal-workspace4">
-  <link rel="stylesheet" href="/vault/customer-devices.css?v=3">
+  <link rel="stylesheet" href="/vault/customer-devices.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/night-contrast.css?v=2.2.13-nightfix1">
-  <link rel="stylesheet" href="/vault/approval-dock.css?v=3.2.1-approval-pointerfix1">
-  <link rel="stylesheet" href="/vault/witt-white.css?v=3.0.18-modelrestore1">
+  <link rel="stylesheet" href="/vault/approval-dock.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/witt-white.css?v=4.1.0-autumn-system">
   <style id="workspace-critical-style">
 /* Semantic workspace layer. Legacy terminal/artifact/theme styles stay intact. */
-:root { --ws-ink: #243839; --ws-muted: #718181; --ws-line: rgba(42,68,68,.12); --ws-surface: rgba(255,255,255,.94); --ws-accent: #227b70; --ws-radius: 16px; }
-[data-theme="dark"] { --ws-ink: #e1edeb; --ws-muted: #a3b8b3; --ws-line: rgba(183,215,208,.18); --ws-surface: #17201f; --ws-accent: #79cabc; }
+:root { --ws-ink: var(--chloe-ink); --ws-muted: var(--chloe-muted); --ws-line: var(--chloe-line); --ws-surface: var(--chloe-surface); --ws-accent: var(--chloe-olive); --ws-radius: 16px; }
 .workspace-chat-title { flex: 1; min-width: 0; margin: 0 8px; font-size: 15px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ws-ink); }
 .task-status-strip { display: flex; align-items: center; gap: 9px; max-width: 900px; margin: calc(92px + env(safe-area-inset-top)) auto 22px; padding: 11px 14px; border: 1px solid var(--ws-line); border-radius: var(--ws-radius); color: var(--ws-ink); background: var(--ws-surface); font-size: 12px; }
 .task-status-strip:not([hidden]) ~ .messages { padding-top: 12px !important; }
 .task-status-strip[hidden], .history-load[hidden] { display: none; }
 .task-state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ws-accent); flex: none; }
 .task-origin { flex: 1; color: var(--ws-muted); line-height: 1.5; }
-.task-status-strip[data-state="awaiting_confirmation"], .task-status-strip[data-state="waiting_confirmation"] { border-color: #c79848; }
-.task-status-strip[data-state="failed"] .task-state-dot { background: #c45555; }
+.task-status-strip[data-state="awaiting_confirmation"], .task-status-strip[data-state="waiting_confirmation"] { border-color: var(--ui-warning); }
+.task-status-strip[data-state="failed"] .task-state-dot { background: var(--ui-error); }
 .task-status-strip button { border: none; background: transparent; color: var(--ws-accent); font: inherit; cursor: pointer; }
 .history-load { display: block; margin: 0 auto 24px; padding: 10px 20px; border: 1px solid var(--ws-line); border-radius: 999px; color: var(--ws-accent); background: var(--ws-surface); font: inherit; font-size: 12px; cursor: pointer; }
 .drawer-panel .drawer-history { display: flex; flex-direction: column; min-height: 0; }
@@ -125,10 +124,10 @@
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
   <link rel="stylesheet" href="/vault/browser-chatgpt.css?v=1.0.0">
-  <link rel="stylesheet" href="/vault/component-interactions.css?v=2-transcript-inset">
-  <link rel="stylesheet" href="/vault/profile-overview.css?v=4-profile-hierarchy">
-  <link rel="stylesheet" href="/vault/ui-system.css?v=1">
-  <link rel="stylesheet" href="/vault/chloe-autumn.css?v=4.0.0">
+  <link rel="stylesheet" href="/vault/component-interactions.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/profile-overview.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/ui-system.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/chloe-autumn.css?v=4.1.0-autumn-system">
 </head>
 <body class="chloe-autumn-workspace">
   <!-- Chloe autumn: supplied Figma is visual authority. Warm ivory sidebar,
@@ -375,8 +374,8 @@
             <span class="drawer-entry-text"><strong>远程开发工作区</strong><small>连接 Windows 电脑与受控项目</small></span>
             <svg class="drawer-entry-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
           </button>
-          <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
-          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet"><span>模型、Harness 与服务端设置</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+          <button class="workspace-entry" id="workspaceOverviewButton" type="button"><span class="workspace-entry-label"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M12 10v4"/></svg>项目与服务连接</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet"><span class="workspace-entry-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></svg>模型、Harness 与服务端设置</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
         <div class="drawer-section-group">
           <div class="drawer-utilities">

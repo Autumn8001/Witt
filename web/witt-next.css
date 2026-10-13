@@ -2501,32 +2501,30 @@ summary:focus-visible {
 .settings-panel .app-server-capabilities {
   margin-top: 18px;
   padding: 14px;
-  border-color: rgba(255, 255, 255, .1);
+  border-color: var(--chloe-line);
   border-radius: 21px;
-  color: #f5f7fc;
-  background:
-    radial-gradient(circle at 88% 0, rgba(77, 129, 255, .22), transparent 36%),
-    linear-gradient(145deg, #171c29, #0b1018 70%);
-  box-shadow: 0 16px 36px rgba(12, 19, 34, .18), inset 0 1px 0 rgba(255, 255, 255, .07);
+  color: var(--chloe-ink);
+  background: var(--chloe-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .settings-panel .app-server-heading h3,
 .settings-panel .app-server-metrics strong,
 .settings-panel .app-server-actions strong {
-  color: #f8faff;
+  color: var(--chloe-ink);
 }
 
 .settings-panel .app-server-actions button {
-  color: #f5f7fc;
-  background: rgba(255, 255, 255, .04);
-  border-color: rgba(255, 255, 255, .08);
+  color: var(--chloe-ink);
+  background: var(--chloe-soft);
+  border-color: var(--chloe-line);
 }
 
 .settings-panel .app-server-actions small,
 .settings-panel .app-server-metrics small,
 .settings-panel .app-server-sync,
 .settings-panel .app-server-sync small {
-  color: #8e9bb0;
+  color: var(--chloe-muted);
 }
 
 .settings-apply-bar {

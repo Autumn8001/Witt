@@ -1,21 +1,15 @@
 .codex-account-panel {
   max-width: 620px;
-  background:
-    radial-gradient(circle at 90% 8%, rgba(129, 92, 246, .13), transparent 34%),
-    radial-gradient(circle at 8% 62%, rgba(38, 193, 174, .12), transparent 34%),
-    var(--panel, #f8faff);
+  background: var(--chloe-surface);
 }
 
 .codex-account-intro {
   margin: -4px 2px 18px;
-  color: var(--muted, #8390a5);
+  color: var(--chloe-muted);
   font-size: 13px;
 }
 
-.codex-account-list {
-  display: grid;
-  gap: 12px;
-}
+.codex-account-list { display: grid; gap: 12px; }
 
 .codex-account-card {
   display: grid;
@@ -23,10 +17,10 @@
   gap: 13px;
   align-items: center;
   padding: 15px;
-  border: 1px solid rgba(133, 153, 184, .15);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, .72);
-  box-shadow: 0 12px 35px rgba(45, 65, 100, .07);
+  border: 1px solid var(--chloe-line);
+  border-radius: 8px;
+  background: var(--chloe-canvas);
+  box-shadow: var(--chloe-shadow);
 }
 
 .codex-account-card > .codex-account-avatar {
@@ -34,63 +28,43 @@
   width: 48px;
   height: 48px;
   place-items: center;
-  border-radius: 17px;
-  color: #fff;
+  border-radius: 10px;
+  color: var(--chloe-canvas);
   font-weight: 750;
-  background: linear-gradient(145deg, #1b5472, #19a99b);
+  background: var(--chloe-olive);
 }
 
-.codex-account-card.xuanyu > .codex-account-avatar {
-  background: linear-gradient(145deg, #7c3aed, #2d87e7);
-}
-
-.codex-account-identity {
-  min-width: 0;
-}
-
-.codex-account-card strong,
-.codex-account-card small {
-  display: block;
-}
-
-.codex-account-card strong {
-  color: var(--ink, #132138);
-  font-size: 15px;
-}
-
-.codex-account-card small {
-  overflow: hidden;
-  margin-top: 4px;
-  color: var(--muted, #8390a5);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.codex-account-card.xuanyu > .codex-account-avatar { background: var(--chloe-gold); }
+.codex-account-identity { min-width: 0; }
+.codex-account-card strong, .codex-account-card small { display: block; }
+.codex-account-card strong { color: var(--chloe-ink); font-size: 15px; }
+.codex-account-card small { overflow: hidden; margin-top: 4px; color: var(--chloe-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 .codex-account-card button,
 .codex-login-flow button {
   border: 0;
-  border-radius: 14px;
+  border-radius: 7px;
   font: 650 12px/1 system-ui, sans-serif;
+  cursor: pointer;
 }
 
 .codex-account-card button {
   min-width: 0;
   min-height: 40px;
   padding: 0 15px;
-  color: #fff;
-  background: linear-gradient(135deg, #7c3aed, #287ee6);
-  box-shadow: 0 7px 20px rgba(96, 71, 225, .25);
+  color: var(--chloe-canvas);
+  background: var(--chloe-olive);
   white-space: nowrap;
   writing-mode: horizontal-tb;
   transition: transform .18s ease, filter .18s ease, opacity .18s ease;
 }
-
+.codex-account-card button:hover:not(:disabled), .codex-login-flow button:hover:not(:disabled) { filter: brightness(1.06); }
 .codex-account-card button:active { transform: scale(.975); }
+.codex-account-card button:disabled, .codex-login-flow button:disabled { opacity: .62; cursor: wait; }
 
 .codex-account-card button.new-chat {
-  color: #176d64;
-  background: rgba(42, 190, 167, .12);
+  color: var(--chloe-olive);
+  background: color-mix(in srgb, var(--chloe-olive) 12%, var(--chloe-surface));
   box-shadow: none;
 }
 
@@ -102,141 +76,66 @@
   gap: 8px;
   margin-top: 2px;
   padding-top: 12px;
-  border-top: 1px solid rgba(133, 153, 184, .13);
+  border-top: 1px solid var(--chloe-line);
 }
 
 .codex-account-card button.relogin {
-  color: #6842bf;
-  background: rgba(124, 58, 237, .1);
+  color: var(--chloe-gold);
+  background: color-mix(in srgb, var(--chloe-gold) 12%, var(--chloe-surface));
   box-shadow: none;
 }
-
-.codex-account-card button.login {
-  color: #fff;
-  background: linear-gradient(135deg, #7654ec, #3181ec);
-}
-
-@media (max-width: 430px) {
-  .codex-account-card { grid-template-columns: 44px minmax(0, 1fr); }
-  .codex-account-card > .codex-account-avatar { width: 44px; height: 44px; border-radius: 15px; }
-  .codex-account-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .codex-account-actions > :only-child { grid-column: 1 / -1; }
-}
+.codex-account-card button.login { color: var(--chloe-canvas); background: var(--chloe-olive); }
 
 .codex-login-flow {
   margin-top: 14px;
-  padding: 19px;
-  border: 1px solid rgba(129, 92, 246, .2);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, .78);
-  box-shadow: 0 18px 50px rgba(82, 56, 176, .12);
+  padding: 18px;
+  border: 1px solid var(--chloe-line);
+  border-radius: 8px;
+  background: var(--chloe-canvas);
+  box-shadow: var(--chloe-shadow);
 }
-
-.codex-login-flow[hidden] {
-  display: none;
-}
-
-.codex-login-flow > strong,
-.codex-login-flow > p,
-.codex-login-flow > small {
-  display: block;
-}
-
-.codex-login-kicker {
-  color: #7253d8;
-  font: 750 9px/1 system-ui, sans-serif;
-  letter-spacing: .16em;
-}
-
-.codex-login-flow > strong {
-  margin-top: 9px;
-  color: var(--ink, #132138);
-}
-
-.codex-login-flow > p,
-.codex-login-flow > small {
-  color: var(--muted, #8390a5);
-  font: 400 11px/1.6 system-ui, sans-serif;
-}
+.codex-login-flow[hidden] { display: none; }
+.codex-login-flow > strong, .codex-login-flow > p, .codex-login-flow > small { display: block; }
+.codex-login-kicker { color: var(--chloe-gold); font: 750 10px/1.4 system-ui, sans-serif; }
+.codex-login-flow > strong { margin-top: 9px; color: var(--chloe-ink); }
+.codex-login-flow > p, .codex-login-flow > small { color: var(--chloe-muted); font: 400 12px/1.6 system-ui, sans-serif; }
 
 .codex-device-code {
   display: flex;
   width: 100%;
+  min-width: 0;
   margin: 15px 0;
-  padding: 15px;
+  padding: 12px;
   align-items: center;
   justify-content: space-between;
-  color: #3d2b79;
-  background: rgba(120, 86, 218, .09);
+  gap: 12px;
+  border: 1px solid var(--chloe-line);
+  border-radius: 7px;
+  color: var(--chloe-ink);
+  background: var(--chloe-soft);
 }
+.codex-device-code code { min-width: 0; overflow-wrap: anywhere; font-size: 18px; font-weight: 800; }
+.codex-device-code small { flex: none; color: var(--chloe-muted); font-size: 10px; }
 
-.codex-device-code code {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
+.codex-login-flow > div { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 11px; }
+.codex-login-flow > div button { min-height: 42px; padding: 0 16px; color: var(--chloe-ink); background: var(--chloe-soft); }
+.codex-login-flow > div .codex-login-primary { flex: 1; color: var(--chloe-canvas); background: var(--chloe-olive); }
 
-.codex-device-code small {
-  color: #8068c6;
-  font-size: 10px;
-}
-
-.codex-login-flow > div {
-  display: flex;
-  gap: 9px;
-  margin-bottom: 11px;
-}
-
-.codex-login-flow > div button {
-  min-height: 42px;
-  padding: 0 16px;
-  color: #647086;
-  background: rgba(117, 132, 158, .1);
-}
-
-.codex-login-flow > div .codex-login-primary {
-  flex: 1;
-  color: #fff;
-  background: linear-gradient(135deg, #7c3aed, #2387e8);
-  box-shadow: 0 8px 24px rgba(90, 72, 220, .25);
-}
-
-:root[data-theme="dark"] .codex-account-panel {
-  --panel: #0d1626;
-}
-
-:root[data-theme="dark"] .codex-account-card,
-:root[data-theme="dark"] .codex-login-flow {
-  background: rgba(20, 31, 50, .82);
-}
-
-:root[data-theme="dark"] .codex-account-actions {
-  border-top-color: rgba(255, 255, 255, .09);
+@media (max-width: 430px) {
+  .codex-account-card { grid-template-columns: 44px minmax(0, 1fr); }
+  .codex-account-card > .codex-account-avatar { width: 44px; height: 44px; }
+  .codex-account-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .codex-account-actions > :only-child { grid-column: 1 / -1; }
+  .codex-account-card button { padding-inline: 10px; }
 }
 
 @media (min-width: 520px) {
   .codex-account-card { grid-template-columns: 48px minmax(0, 1fr) auto; }
-  .codex-account-actions {
-    grid-column: auto;
-    display: flex;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
+  .codex-account-actions { grid-column: auto; display: flex; margin: 0; padding: 0; border: 0; }
 }
 
 @media (orientation: landscape) and (max-height: 600px) {
-  .codex-account-panel {
-    max-width: 680px;
-    padding-top: 20px;
-  }
-
-  .codex-account-list {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .codex-login-flow {
-    margin-top: 10px;
-    padding: 14px 17px;
-  }
+  .codex-account-panel { max-width: 680px; padding-top: 20px; }
+  .codex-account-list { grid-template-columns: 1fr 1fr; }
+  .codex-login-flow { margin-top: 10px; padding: 14px 17px; }
 }

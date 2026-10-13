@@ -4,40 +4,13 @@
    All product sheets, protocol state, terminal and artifact styles remain owned
    by their existing components. */
 :root {
-  --chloe-canvas: #fbf8f2;
-  --chloe-surface: rgba(255, 252, 247, .96);
-  --chloe-sidebar: #faf5ec;
-  --chloe-ink: #1f211f;
-  --chloe-body: #4f554f;
-  --chloe-muted: #62655e;
-  --chloe-olive: #505b3c;
-  --chloe-olive-hover: #414c30;
-  --chloe-gold: #ac651f;
-  --chloe-line: #ddd5c7;
-  --chloe-selection: #eee8dc;
-  --chloe-soft: #f5efe3;
   --chloe-sidebar-width: 370px;
   --chloe-composer-width: 944px;
-  --chloe-shadow: 0 12px 32px rgba(76, 57, 30, .13), 0 2px 5px rgba(76, 57, 30, .08);
-}
-:root[data-theme="dark"] {
-  --chloe-canvas: #1c1e18;
-  --chloe-surface: rgba(36, 38, 30, .97);
-  --chloe-sidebar: #24261e;
-  --chloe-ink: #f5f2ea;
-  --chloe-body: #dedbcf;
-  --chloe-muted: #b7b7a6;
-  --chloe-olive: #abb88c;
-  --chloe-olive-hover: #bfcca0;
-  --chloe-gold: #dcac6d;
-  --chloe-line: #535548;
-  --chloe-selection: #373c2e;
-  --chloe-soft: #35392c;
 }
 :root body.web-browser.chloe-autumn-workspace {
   color: var(--chloe-body) !important;
   background: var(--chloe-canvas) !important;
-  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif !important;
+  font-family: var(--ui-font-sans) !important;
   --web-text: var(--chloe-ink);
   --web-muted: var(--chloe-muted);
   --web-canvas: var(--chloe-surface);
@@ -47,10 +20,13 @@
   --workbench-max-width: var(--chloe-composer-width);
 }
 /* Landscape belongs to the main stage; sidebar and crop share one width. */
-.chloe-bg-layer { position: fixed; inset: 0 0 0 var(--chloe-sidebar-width); z-index: 0; pointer-events: none; background: var(--chloe-canvas) url('/vault/assets/autumn-landscape.jpg') center / cover no-repeat; }
-.chloe-bg-mask { position: fixed; inset: 0 0 0 var(--chloe-sidebar-width); z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(255,250,239,.42), rgba(255,250,239,.14) 36%, transparent 58%); }
+.chloe-bg-layer { position: fixed; inset: 0 0 0 var(--chloe-sidebar-width); z-index: 0; pointer-events: none; background-color: var(--chloe-canvas); background-image: url('/vault/assets/chloe-autumn-landscape.webp'), linear-gradient(180deg, #fbf8f2, #eee0bb 58%, #ddd3b7); background-position: right center; background-size: cover; background-repeat: no-repeat; transition: opacity .24s ease; }
+.chloe-bg-mask { position: fixed; inset: 0 0 0 var(--chloe-sidebar-width); z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(255,250,239,.1), transparent 40%); }
 :root[data-theme="dark"] .chloe-bg-layer { filter: brightness(.36) saturate(.7); }
 :root[data-theme="dark"] .chloe-bg-mask { background: linear-gradient(180deg, rgba(28,30,24,.5), transparent 65%); }
+/* The welcome landscape recedes when real messages or task state take over. */
+body:has(#welcome[hidden]) .chloe-bg-layer { opacity: .08; }
+body:has(#welcome[hidden]) .chloe-bg-mask { opacity: 0; }
 body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .app-shell { position: relative; z-index: 2; background: transparent !important; border: 0 !important; }
 :root body.web-browser.chloe-autumn-workspace .chat-stage { background: transparent !important; padding-inline: 32px !important; }
@@ -61,7 +37,7 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 /* One composition, with the lake providing the space formerly filled by cards. */
 :root body.web-browser.chloe-autumn-workspace .welcome {
   width: 100% !important; max-width: 1040px !important; min-height: 0 !important;
-  margin: 0 auto !important; padding: clamp(80px, 15vh, 160px) 0 40px !important;
+  margin: 0 auto !important; padding: clamp(36px, 5vh, 60px) 0 40px !important;
   display: flex !important; flex-direction: column !important; align-items: center !important;
   justify-content: flex-start !important; text-align: center !important;
 }
@@ -108,7 +84,9 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-entry-card .profile-monogram { width: 46px !important; height: 46px !important; color: var(--chloe-gold) !important; background: var(--chloe-soft) !important; border-radius: 12px !important; }
 :root body.web-browser.chloe-autumn-workspace .drawer-entry-text strong { font-size: 16px !important; color: var(--chloe-ink) !important; }
 :root body.web-browser.chloe-autumn-workspace .drawer-entry-text small { font-size: 12px !important; color: var(--chloe-muted) !important; margin-top: 4px; }
-:root body.web-browser.chloe-autumn-workspace .workspace-entry { display: flex !important; align-items: center !important; justify-content: space-between; min-height: 48px; margin: 0 !important; padding: 12px 14px !important; border: 0 !important; border-radius: 12px !important; color: var(--chloe-ink) !important; background: rgba(255,252,247,.45) !important; font-size: 15px !important; }
+:root body.web-browser.chloe-autumn-workspace .workspace-entry { display: flex !important; align-items: center !important; justify-content: space-between; min-height: 48px; margin: 0 !important; padding: 12px 14px !important; border: 0 !important; border-radius: 12px !important; color: var(--chloe-ink) !important; background: color-mix(in srgb, var(--chloe-surface) 45%, transparent) !important; font-size: 15px !important; }
+.workspace-entry-label { display: inline-flex; align-items: center; gap: 12px; text-align: left; }
+.workspace-entry-label svg { width: 24px !important; height: 24px !important; }
 .workspace-entry svg, .drawer-entry-arrow { width: 18px !important; height: 18px !important; color: var(--chloe-gold) !important; flex: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-utilities { display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)) !important; gap: 10px !important; }
 :root body.web-browser.chloe-autumn-workspace .drawer-tools .drawer-profile { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 7px !important; padding: 12px 4px !important; min-height: 100px !important; border-radius: 16px !important; border: 0 !important; background: var(--chloe-surface) !important; text-align: center; }
@@ -130,7 +108,7 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 /* Composer remains a single real model/environment/runtime selector. */
 :root body.web-browser.chloe-autumn-workspace .composer-wrap { width: min(calc(100% - 96px), var(--chloe-composer-width)) !important; max-width: var(--chloe-composer-width) !important; margin: 0 auto !important; padding: 12px 0 40px !important; background: transparent !important; backdrop-filter: none !important; }
 :root body.web-browser.chloe-autumn-workspace .composer-wrap::before { display: none !important; }
-:root body.web-browser.chloe-autumn-workspace .composer { display: flex !important; flex-direction: column !important; width: 100% !important; max-width: none !important; min-height: 132px !important; padding: 18px 18px 12px !important; background: var(--chloe-surface) !important; border: 1px solid #727b5e !important; border-radius: 23px !important; box-shadow: var(--chloe-shadow) !important; backdrop-filter: none !important; }
+:root body.web-browser.chloe-autumn-workspace .composer { display: flex !important; flex-direction: column !important; width: 100% !important; max-width: none !important; min-height: 132px !important; padding: 18px 18px 12px !important; background: var(--chloe-surface) !important; border: 1px solid color-mix(in srgb, var(--chloe-olive) 65%, var(--chloe-line)) !important; border-radius: 23px !important; box-shadow: var(--chloe-shadow) !important; backdrop-filter: none !important; }
 :root body.web-browser.chloe-autumn-workspace .composer:focus-within { border-color: var(--chloe-olive) !important; box-shadow: 0 14px 34px rgba(76,57,30,.16) !important; }
 :root body.web-browser.chloe-autumn-workspace .composer textarea { order: 1; width: 100% !important; min-height: 40px !important; max-height: 160px !important; padding: 0 10px 8px !important; color: var(--chloe-ink) !important; font-size: 17px !important; line-height: 1.6 !important; background: transparent !important; resize: none; }
 :root body.web-browser.chloe-autumn-workspace .composer textarea::placeholder { color: var(--chloe-muted) !important; }
@@ -157,6 +135,8 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace :is(.workspace-entry,.drawer-profile,.conversation-row,.drawer-entry-card):hover { background: var(--chloe-selection) !important; }
 :root body.web-browser.chloe-autumn-workspace [hidden] { display: none !important; }
 @media (min-width: 1000px) {
+  :root body.web-browser.chloe-autumn-workspace .artifact-workspace { left: var(--chloe-sidebar-width); }
+  :root body.web-browser.chloe-autumn-workspace.sidebar-collapsed .artifact-workspace { left: 0; }
   :root body.web-browser.chloe-autumn-workspace .app-shell { width: calc(100% - var(--chloe-sidebar-width)) !important; margin-left: var(--chloe-sidebar-width) !important; max-width: none !important; }
   :root body.web-browser.chloe-autumn-workspace .drawer { inset: 0 auto 0 0 !important; width: var(--chloe-sidebar-width) !important; visibility: visible !important; pointer-events: auto !important; }
   :root body.web-browser.chloe-autumn-workspace .drawer-panel { width: var(--chloe-sidebar-width) !important; transform: none !important; }
@@ -165,6 +145,13 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   :root body.web-browser.chloe-autumn-workspace.sidebar-collapsed .app-shell { width: 100% !important; margin-left: 0 !important; }
   body.sidebar-collapsed :is(.chloe-bg-layer,.chloe-bg-mask) { left: 0; }
   :root body.web-browser.chloe-autumn-workspace:not(.sidebar-collapsed) .compact-menu-button { visibility: hidden; }
+}
+@media (min-width: 1600px) {
+  :root body.web-browser.chloe-autumn-workspace.artifact-open .app-shell { width: calc((100% - var(--chloe-sidebar-width)) / 2) !important; }
+  :root body.web-browser.chloe-autumn-workspace .artifact-workspace { left: calc(var(--chloe-sidebar-width) + (100% - var(--chloe-sidebar-width)) / 2); }
+  :root body.web-browser.chloe-autumn-workspace.artifact-open .composer-wrap { width: calc(100% - 32px) !important; }
+  :root body.web-browser.chloe-autumn-workspace.sidebar-collapsed.artifact-open .app-shell { width: 50% !important; }
+  :root body.web-browser.chloe-autumn-workspace.sidebar-collapsed .artifact-workspace { left: 50%; }
 }
 @media (min-width: 1000px) and (max-width: 1399px) {
   :root { --chloe-sidebar-width: 300px; }
@@ -196,11 +183,11 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   :root body.web-browser.chloe-autumn-workspace .drawer-backdrop { display: block !important; }
 }
 @media (max-width: 600px) {
-  .chloe-bg-layer { background-position: 62% center; }
+  .chloe-bg-layer { background-position: 88% center; }
   :root body.web-browser.chloe-autumn-workspace .compact-nav { min-height: 64px !important; padding: 10px 12px !important; }
   :root body.web-browser.chloe-autumn-workspace .compact-nav-actions { gap: 4px !important; }
   :root body.web-browser.chloe-autumn-workspace .chat-stage { padding-inline: 20px !important; }
-  :root body.web-browser.chloe-autumn-workspace .welcome { padding-top: clamp(70px,14vh,130px) !important; }
+  :root body.web-browser.chloe-autumn-workspace .welcome { padding-top: clamp(56px,9vh,90px) !important; }
   .hero-eyebrow-pill { font-size: 13px; gap: 7px; margin-bottom: 16px; }
   :root body.web-browser.chloe-autumn-workspace .welcome h1 { font-size: clamp(30px,8vw,42px) !important; letter-spacing: -.03em !important; }
   :root body.web-browser.chloe-autumn-workspace .welcome > p { font-size: 14px !important; max-width: 320px !important; }
@@ -210,8 +197,8 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   :root body.web-browser.chloe-autumn-workspace .composer-toolbar { gap: 6px; }
   .composer-toolbar-left { gap: 6px; }
   .composer-toolbar-right { gap: 6px; }
-  :root body.web-browser.chloe-autumn-workspace :is(.attach-button,.voice-button,.send-button) { width: 38px !important; height: 38px !important; }
-  :root body.web-browser.chloe-autumn-workspace #modelButton { gap: 5px !important; padding: 0 8px !important; min-height: 38px !important; max-width: 100%; }
+  :root body.web-browser.chloe-autumn-workspace :is(.attach-button,.voice-button,.send-button) { width: 44px !important; height: 44px !important; }
+  :root body.web-browser.chloe-autumn-workspace #modelButton { gap: 5px !important; padding: 0 8px !important; min-height: 44px !important; max-width: 100%; }
   :root body.web-browser.chloe-autumn-workspace #modelButton :is(b,.composer-env-pill,#reasoningLabel) { font-size: 11px !important; }
   :root body.web-browser.chloe-autumn-workspace #modelButton b { max-width: 110px !important; }
   :root body.web-browser.chloe-autumn-workspace #modelButton #reasoningLabel { display: none !important; }
@@ -223,5 +210,6 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   :root body.web-browser.chloe-autumn-workspace .welcome { padding-top: 28px !important; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .chloe-bg-layer { transition: none; }
   .chloe-autumn-workspace .animate-blur-fade-up { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
 }

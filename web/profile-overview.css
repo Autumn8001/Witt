@@ -35,7 +35,7 @@
 .model-quota-card li div { display: grid; gap: 4px; }
 .model-quota-card li small { color: var(--muted); font-size: 12px; }
 .quota-reset-at { width: 100%; }
-#modelQuotaOverview[data-state="stale"] .model-quota-status { color: #a36a22; }
+#modelQuotaOverview[data-state="stale"] .model-quota-status { color: var(--ui-warning); }
 .profile-extensions { border-top: 1px solid var(--line); padding-top: 20px; }
 .profile-extension-list { display: grid; gap: 0; }
 .profile-extension-list article { display: flex; align-items: center; gap: 12px; padding: 16px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
@@ -48,8 +48,7 @@
 @media (prefers-reduced-motion: reduce) { .model-quota-meter i { transition: none; } }
 
 /* Operate mode: quiet surfaces, readable metadata and explicit service states. */
-.profile-sheet { --profile-muted: #59635e; }
-:root[data-theme="dark"] .profile-sheet { --profile-muted: #b7c1bb; }
+.profile-sheet { --profile-muted: var(--chloe-muted); }
 .profile-sheet ::selection { color: var(--ink); background: var(--ui-focus-halo); }
 .profile-panel { scrollbar-color: var(--line) transparent; scrollbar-width: thin; }
 .profile-sheet .profile-hero { margin: 8px 0 24px !important; padding: 4px 0 16px; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; }
@@ -57,7 +56,7 @@
 .profile-sheet .profile-hero strong { font-size: 14px; color: var(--ink); }
 .profile-sheet .profile-hero small { font-size: 12px; color: var(--profile-muted); }
 .profile-sheet .profile-hero > span { padding: 0; border-radius: 0; background: transparent !important; color: var(--profile-muted) !important; font-size: 12px; font-weight: 500; }
-.profile-sheet .profile-hero > span[data-state="connected"] { color: var(--ui-focus) !important; }
+.profile-sheet .profile-hero > span[data-state="connected"] { color: var(--ui-success) !important; }
 .model-quota-card + .model-quota-card { border-left: 1px solid var(--line); }
 .model-quota-card header { flex-direction: column; align-items: flex-start; gap: 5px; }
 .model-quota-value { min-height: 0; margin: 16px 0 12px; align-content: flex-end; }
@@ -66,8 +65,7 @@
 .profile-extension-badge { padding: 4px 0 4px 8px; border: 0; border-radius: 0; text-align: right; }
 .profile-extension-list article:first-child { border-top: 0; }
 .model-quota-status { line-height: 1.6; }
-#modelQuotaOverview[data-state="stale"] .model-quota-status { color: #875415; }
-:root[data-theme="dark"] #modelQuotaOverview[data-state="stale"] .model-quota-status { color: #f0c17b; }
+#modelQuotaOverview[data-state="stale"] .model-quota-status { color: var(--ui-warning); }
 .model-quota-card summary { min-height: 44px; display: list-item; align-content: center; border-radius: 6px; }
 @media (hover: hover) and (pointer: fine) {
   .profile-sheet :is([data-refresh-quota], [data-extension-settings], .model-quota-card summary):hover { background: var(--ui-hover-surface); border-color: var(--ui-focus); }
@@ -125,7 +123,7 @@
 .quota-information [data-quota-note] { margin-top: 0; }
 .quota-information [data-quota-updated] { margin-bottom: 12px; }
 .profile-sheet .profile-extension-badge { padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; line-height: 1.5; }
-.profile-sheet .profile-extension-badge[data-state="enabled"] { color: var(--ui-focus); border-color: var(--ui-focus); background: var(--surface-solid); }
+.profile-sheet .profile-extension-badge[data-state="enabled"] { color: var(--ui-success); border-color: var(--ui-success); background: var(--surface-solid); }
 .profile-extension-badge[data-state="partial"] { color: var(--ink); background: var(--ui-hover-surface); }
 @media (max-width: 600px) {
   .profile-sheet .profile-hero { margin: 0 0 16px !important; padding-bottom: 12px; }

@@ -1,7 +1,77 @@
-/* Shared product typography. Loaded last to reconcile legacy page overrides.
+/* Shared product tokens and typography, loaded after base and legacy page CSS.
    !important is limited to properties already locked by earlier theme files.
    Terminal metrics, math rendering and embedded Artifact content stay independent. */
 :root {
+  color-scheme: light;
+  --chloe-canvas: #fbf8f2;
+  --chloe-surface: rgba(255, 252, 247, .96);
+  --chloe-sidebar: #faf5ec;
+  --chloe-elevated: #fffdf9;
+  --chloe-ink: #1f211f;
+  --chloe-body: #4f554f;
+  --chloe-muted: #62655e;
+  --chloe-olive: #505b3c;
+  --chloe-olive-hover: #414c30;
+  --chloe-gold: #ac651f;
+  --chloe-line: #ddd5c7;
+  --chloe-selection: #eee8dc;
+  --chloe-soft: #f5efe3;
+  --chloe-shadow: 0 12px 32px rgba(76, 57, 30, .13), 0 2px 5px rgba(76, 57, 30, .08);
+  --ui-success: #347253;
+  --ui-success-soft: #e5f0e8;
+  --ui-warning: #9a5a12;
+  --ui-warning-soft: #f7ecd9;
+  --ui-error: #a23f36;
+  --ui-error-soft: #f8e7e3;
+  --ui-info: #286b72;
+  --ui-info-soft: #e4f0ef;
+  --chloe-success: var(--ui-success);
+  --chloe-warning: var(--ui-warning);
+  --chloe-error: var(--ui-error);
+  --chloe-success-soft: var(--ui-success-soft);
+  --chloe-warning-soft: var(--ui-warning-soft);
+  --chloe-error-soft: var(--ui-error-soft);
+  --success: var(--ui-success);
+  --warning: var(--ui-warning);
+  --error: var(--ui-error);
+  --bg: var(--chloe-canvas);
+  --bg-deep: var(--chloe-canvas);
+  --surface: var(--chloe-surface);
+  --surface-solid: var(--chloe-elevated);
+  --surface-raised: var(--chloe-elevated);
+  --surface-soft: var(--chloe-soft);
+  --ink: var(--chloe-ink);
+  --ink-soft: var(--chloe-body);
+  --muted: var(--chloe-muted);
+  --faint: #817e73;
+  --line: var(--chloe-line);
+  --line-strong: #c9bda8;
+  --accent: var(--chloe-olive);
+  --accent-2: var(--chloe-olive-hover);
+  --mint: #65765a;
+  --shadow-sm: 0 1px 3px rgba(62, 53, 39, .08);
+  --shadow-md: 0 8px 24px rgba(62, 53, 39, .11);
+  --shadow-lg: 0 20px 52px rgba(62, 53, 39, .16);
+  --ui-focus: var(--chloe-olive);
+  --ui-focus-halo: rgba(80, 91, 60, .2);
+  --ui-backdrop: rgba(57, 48, 34, .34);
+  --ui-hover-surface: #f2ecdf;
+  --ui-pressed-surface: #e8deca;
+  --ui-disabled-opacity: .52;
+  --ui-disabled-surface: #eee9df;
+  --ui-disabled-ink: #77766f;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-radius-sm: 6px;
+  --ui-radius-control: 10px;
+  --ui-radius-panel: 14px;
+  --ui-radius-sheet: 18px;
+  --ui-ring-width: 2px;
+  --ui-ring-offset: 3px;
   --ui-type-meta: .75rem;
   --ui-type-help: .8125rem;
   --ui-type-control: .875rem;
@@ -9,10 +79,93 @@
   --ui-type-card: 1rem;
   --ui-type-section: 1.125rem;
   --ui-type-page: 1.5rem;
-  --ui-readable-muted: #59635e;
+  --ui-font-sans: "Inter", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --ui-font-code: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --ui-readable-muted: var(--chloe-muted);
+  --ws-ink: var(--chloe-ink);
+  --ws-muted: var(--chloe-muted);
+  --ws-line: var(--chloe-line);
+  --ws-surface: var(--chloe-surface);
+  --ws-accent: var(--chloe-olive);
 }
-:root[data-theme="dark"] { --ui-readable-muted: #b7c1bb; }
-:root[data-theme="colorful"] { --ui-readable-muted: #59635e; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --chloe-canvas: #1c1e18;
+  --chloe-surface: rgba(36, 38, 30, .97);
+  --chloe-sidebar: #24261e;
+  --chloe-elevated: #292b22;
+  --chloe-ink: #f5f2ea;
+  --chloe-body: #dedbcf;
+  --chloe-muted: #b7b7a6;
+  --chloe-olive: #abb88c;
+  --chloe-olive-hover: #bfcca0;
+  --chloe-gold: #dcac6d;
+  --chloe-line: #535548;
+  --chloe-selection: #373c2e;
+  --chloe-soft: #35392c;
+  --chloe-shadow: 0 12px 32px rgba(0, 0, 0, .32), 0 2px 5px rgba(0, 0, 0, .2);
+  --ui-success: #8fc6a0;
+  --ui-success-soft: #263a2c;
+  --ui-warning: #e7b66e;
+  --ui-warning-soft: #40331e;
+  --ui-error: #e59b91;
+  --ui-error-soft: #422b28;
+  --ui-info: #89c5c8;
+  --ui-info-soft: #263a3b;
+  --success: var(--ui-success);
+  --warning: var(--ui-warning);
+  --error: var(--ui-error);
+  --bg: var(--chloe-canvas);
+  --bg-deep: var(--chloe-canvas);
+  --surface: var(--chloe-surface);
+  --surface-solid: var(--chloe-elevated);
+  --surface-raised: #303228;
+  --surface-soft: var(--chloe-soft);
+  --ink: var(--chloe-ink);
+  --ink-soft: var(--chloe-body);
+  --muted: var(--chloe-muted);
+  --faint: #999b8b;
+  --line: var(--chloe-line);
+  --line-strong: #707363;
+  --accent: var(--chloe-olive);
+  --accent-2: var(--chloe-olive-hover);
+  --mint: #a2b794;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .2);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .28);
+  --shadow-lg: 0 20px 52px rgba(0, 0, 0, .4);
+  --ui-focus: var(--chloe-olive);
+  --ui-focus-halo: rgba(171, 184, 140, .22);
+  --ui-backdrop: rgba(0, 0, 0, .5);
+  --ui-hover-surface: #363b2e;
+  --ui-pressed-surface: #414735;
+  --ui-disabled-opacity: .56;
+  --ui-disabled-surface: #34362e;
+  --ui-disabled-ink: #aaa99b;
+  --ui-readable-muted: var(--chloe-muted);
+  --ws-ink: var(--chloe-ink);
+  --ws-muted: var(--chloe-muted);
+  --ws-line: var(--chloe-line);
+  --ws-surface: var(--chloe-surface);
+  --ws-accent: var(--chloe-olive);
+}
+/* Product text uses one sans stack; code keeps a dedicated monospace stack. */
+:root body, :root :is(button, input, select, textarea) {
+  font-family: var(--ui-font-sans) !important;
+}
+:root :is(code, pre, kbd, samp) {
+  font-family: var(--ui-font-code) !important;
+}
+/* Native shells share the real two-group toolbar introduced in index.html. */
+:root body:not(.web-browser) .composer {
+  display: flex !important; flex-direction: column !important; border-radius: 18px !important;
+}
+:root body:not(.web-browser) .composer textarea { order: 1 !important; width: 100%; }
+:root body:not(.web-browser) .composer-toolbar {
+  display: flex !important; order: 2; width: 100%; gap: 6px;
+}
+:root body:not(.web-browser) .composer-toolbar-left { flex: 1; min-width: 0; gap: 6px; }
+:root body:not(.web-browser) #modelButton { flex: 1; min-width: 0; max-width: 100% !important; overflow: hidden; }
+:root body:not(.web-browser) :is(.attach-button, .voice-button, .send-button) { position: static !important; }
 /* Sheets and forms share a hierarchy, not a single flattened text size. */
 .sheet-panel .sheet-head h2, .workspace-panel > header h2 {
   font-size: var(--ui-type-page) !important; line-height: 1.3 !important; letter-spacing: -.025em;
@@ -83,15 +236,15 @@
 :root .settings-panel :is(.reasoning-description, .reasoning-note) { font-size: var(--ui-type-help) !important; line-height: 1.65; color: var(--ui-readable-muted) !important; overflow-wrap: anywhere; }
 :root .save-settings span { font-size: var(--ui-type-body) !important; }
 :root .save-settings i { font-size: var(--ui-type-meta) !important; }
-/* Server Center metrics use the sheet palette; the runtime panel stays dark. */
+/* Server Center and runtime metrics share the sheet palette. */
 :root #serverCenterStatus .app-server-metrics { gap: 8px; }
 :root #serverCenterStatus .app-server-metrics > div { padding: 12px 8px; background: var(--ui-hover-surface); border: 1px solid var(--line); border-radius: 10px; }
 :root #serverCenterStatus .app-server-metrics strong { color: var(--ink) !important; font-size: var(--ui-type-section) !important; line-height: 1.3; }
 :root #serverCenterStatus .app-server-metrics small { color: var(--ui-readable-muted) !important; font-size: var(--ui-type-meta) !important; white-space: normal; line-height: 1.5; }
-:root .app-server-capabilities .app-server-metrics strong { color: #f8fafc !important; font-size: 1.5rem !important; line-height: 1.3; }
-:root .app-server-capabilities :is(.app-server-metrics small, .app-server-sync, .app-server-sync small, .app-server-heading > div > span, .app-server-live) { font-size: var(--ui-type-meta) !important; color: #c7d0d6 !important; white-space: normal; line-height: 1.5; }
-:root .app-server-actions strong { font-size: var(--ui-type-control) !important; color: #f8fafc !important; line-height: 1.4; }
-:root .app-server-actions small { font-size: var(--ui-type-meta) !important; color: #c7d0d6 !important; line-height: 1.5; white-space: normal; }
+:root .app-server-capabilities .app-server-metrics strong { color: var(--chloe-ink) !important; font-size: 1.5rem !important; line-height: 1.3; }
+:root .app-server-capabilities :is(.app-server-metrics small, .app-server-sync, .app-server-sync small, .app-server-heading > div > span, .app-server-live) { font-size: var(--ui-type-meta) !important; color: var(--chloe-muted) !important; white-space: normal; line-height: 1.5; }
+:root .app-server-actions strong { font-size: var(--ui-type-control) !important; color: var(--chloe-ink) !important; line-height: 1.4; }
+:root .app-server-actions small { font-size: var(--ui-type-meta) !important; color: var(--chloe-muted) !important; line-height: 1.5; white-space: normal; }
 :root .app-server-actions button { min-height: 72px; }
 :root .open-webui-entry strong { font-size: var(--ui-type-control) !important; }
 :root .open-webui-entry small { font-size: var(--ui-type-meta) !important; line-height: 1.5; }
@@ -168,8 +321,8 @@
 :root .inline-image > span { flex-wrap: wrap; gap: 4px 8px; padding: 8px; }
 :root .workspace-section strong { font-size: var(--ui-type-card) !important; }
 :root .workspace-section :is(code, article > span), :root .workspace-checked { font-size: var(--ui-type-meta) !important; line-height: 1.6; overflow-wrap: anywhere; }
-:root[data-theme="dark"] .artifact-workspace :is(.artifact-view-tabs button, .artifact-version span, .artifact-tool, .artifact-version button, .artifact-back, .artifact-switch) { color: #c7d0d6 !important; }
-:root[data-theme="dark"] .artifact-workspace .artifact-view-tabs button.active { color: #f8fafc !important; }
+:root[data-theme="dark"] .artifact-workspace :is(.artifact-view-tabs button, .artifact-version span, .artifact-tool, .artifact-version button, .artifact-back, .artifact-switch) { color: var(--chloe-muted) !important; }
+:root[data-theme="dark"] .artifact-workspace .artifact-view-tabs button.active { color: var(--chloe-ink) !important; }
 :root .model-options em { font-size: var(--ui-type-meta) !important; line-height: 1.4; color: var(--ui-readable-muted) !important; }
 :root .reasoning-stops strong, :root .reasoning-stops small { font-size: var(--ui-type-meta) !important; line-height: 1.4; color: var(--ui-readable-muted); }
 :root .reasoning-stops .selected strong { color: var(--ink); font-weight: 650; }
@@ -395,16 +548,16 @@
 /* Remote Workspace Locking Banners */
 :root .quick-locked-banner {
   padding: 9px 11px; margin-bottom: 10px;
-  border: 1px solid rgba(22, 140, 165, .25); border-radius: 12px;
-  background: color-mix(in srgb, #168ca5 8%, var(--surface-solid));
+  border: 1px solid color-mix(in srgb, var(--ui-info) 35%, var(--line)); border-radius: 12px;
+  background: color-mix(in srgb, var(--ui-info) 8%, var(--surface-solid));
 }
 :root .quick-locked-head,
 :root .settings-locked-head {
   display: flex; align-items: center; gap: 6px;
-  color: #11687c; font-size: var(--ui-type-help); font-weight: 700;
+  color: var(--ui-info); font-size: var(--ui-type-help); font-weight: 700;
 }
 :root[data-theme="dark"] .quick-locked-head,
-:root[data-theme="dark"] .settings-locked-head { color: #6ed5e8; }
+:root[data-theme="dark"] .settings-locked-head { color: var(--ui-info); }
 :root .quick-locked-head svg,
 :root .settings-locked-head svg {
   width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0;
@@ -420,15 +573,15 @@
 :root .quick-locked-tags span,
 :root .settings-locked-tags span {
   font-size: var(--ui-type-meta); padding: 2px 6px; border-radius: 5px;
-  background: color-mix(in srgb, #168ca5 12%, transparent); color: var(--ink);
+  background: color-mix(in srgb, var(--ui-info) 12%, transparent); color: var(--ink);
 }
 :root .quick-locked-tags b,
 :root .settings-locked-tags b { font-weight: 600; }
 
 :root .settings-locked-banner {
   margin: 4px 0 16px; padding: 12px 14px;
-  border: 1px solid rgba(22, 140, 165, .3); border-radius: 14px;
-  background: color-mix(in srgb, #168ca5 9%, var(--surface-solid));
+  border: 1px solid color-mix(in srgb, var(--ui-info) 38%, var(--line)); border-radius: 14px;
+  background: color-mix(in srgb, var(--ui-info) 9%, var(--surface-solid));
 }
 
 /* Locked control styles */
@@ -462,4 +615,145 @@
 /* Settings Sheet Mobile Safe Padding & Scrolling (Clear of fixed bottom bar) */
 :root .settings-panel .settings-scroll {
   padding-bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Shared component surfaces and controls use semantic tokens across pages. */
+:root :is(.sheet-panel, .settings-panel, .delivery-panel, .project-panel,
+  .profile-panel, .codex-account-panel, .workspace-panel) {
+  color: var(--ink) !important;
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+:root :is(.sheet-panel, .settings-panel, .delivery-panel, .project-panel,
+  .profile-panel, .codex-account-panel, .workspace-panel) button:not(.icon-button) {
+  min-height: 44px;
+  border-radius: var(--ui-radius-control);
+}
+:root :is(.send-button, .save-settings, .drawer-new, .auth-gate-card button,
+  .customer-start-workspace, .development-workflow-confirm button,
+  .development-workflow-launch, [data-workflow-prepare-commit],
+  [data-workflow-prepare-deploy]):not(:disabled):not([aria-disabled="true"]) {
+  color: var(--chloe-canvas) !important;
+  background: var(--chloe-olive) !important;
+  border-color: var(--chloe-olive) !important;
+}
+:root :is(.send-button, .save-settings, .drawer-new, .auth-gate-card button,
+  .customer-start-workspace, .development-workflow-confirm button,
+  .development-workflow-launch, [data-workflow-prepare-commit],
+  [data-workflow-prepare-deploy]):not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--chloe-olive-hover) !important;
+  border-color: var(--chloe-olive-hover) !important;
+}
+:root button.danger:not(:disabled), :root [data-tone="error"] button:not(:disabled) {
+  color: var(--ui-error) !important;
+}
+:root :is(.sheet-head, .workspace-panel > header) {
+  color: var(--ink) !important;
+  background: linear-gradient(var(--surface) 78%, transparent) !important;
+}
+:root :is(.sheet-panel, .settings-panel, .delivery-panel, .project-panel,
+  .profile-panel, .codex-account-panel, .workspace-panel) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  min-height: 44px;
+  color: var(--ink) !important;
+  background: var(--surface-solid) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--ui-radius-control) !important;
+}
+:root :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):disabled,
+:root :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea)[aria-disabled="true"] {
+  color: var(--ui-disabled-ink) !important;
+  background: var(--ui-disabled-surface) !important;
+  cursor: not-allowed;
+}
+:root input[type="checkbox"], :root input[type="radio"] {
+  accent-color: var(--chloe-olive);
+}
+:root :is(.model-options, .reasoning-options, .access-options,
+  .project-options, .quick-model-options, .quick-reasoning-options,
+  #runtimeProfileOptions) > button,
+:root .codex-account-card, :root .delivery-file {
+  color: var(--ink) !important;
+  background: var(--surface-solid) !important;
+  border-color: var(--line) !important;
+  border-radius: var(--ui-radius-panel) !important;
+}
+:root :is(.model-options, .reasoning-options, .access-options,
+  .project-options, .quick-model-options, .quick-reasoning-options,
+  #runtimeProfileOptions) > button:is(.selected, [aria-selected="true"], [aria-checked="true"]) {
+  color: var(--ink) !important;
+  background: var(--chloe-selection) !important;
+  border-color: var(--chloe-olive) !important;
+}
+:root :is([role="tablist"], .artifact-view-tabs, .theme-options) {
+  color: var(--ink) !important;
+  background: var(--chloe-soft) !important;
+  border-radius: var(--ui-radius-control);
+}
+:root :is([role="tab"], .artifact-view-tabs button, .theme-options button) {
+  min-height: 44px;
+  color: var(--chloe-body) !important;
+  border-radius: var(--ui-radius-control);
+}
+:root :is([role="tab"][aria-selected="true"], .artifact-view-tabs button.active,
+  .theme-options button.active) {
+  color: var(--chloe-ink) !important;
+  background: var(--surface-solid) !important;
+  box-shadow: var(--shadow-sm);
+}
+:root :is(.chat-more-menu, .attachment-menu, .quick-model-menu) {
+  color: var(--ink) !important;
+  background: var(--surface-solid) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--ui-radius-panel) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+:root :is(.chat-more-item, .attachment-menu button):not(:disabled) {
+  min-height: 44px;
+  color: var(--ink) !important;
+}
+:root .toast {
+  color: var(--chloe-canvas) !important;
+  background: var(--chloe-ink) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+:root .toast:is(.success, [data-tone="success"], [data-status="success"]) {
+  color: var(--ui-success) !important;
+  background: var(--ui-success-soft) !important;
+  border-color: color-mix(in srgb, var(--ui-success) 38%, var(--line)) !important;
+}
+:root .toast:is(.warning, [data-tone="warning"], [data-status="warning"]) {
+  color: var(--ui-warning) !important;
+  background: var(--ui-warning-soft) !important;
+  border-color: color-mix(in srgb, var(--ui-warning) 38%, var(--line)) !important;
+}
+:root .toast:is(.error, .danger, [data-tone="error"], [data-status="error"]) {
+  color: var(--ui-error) !important;
+  background: var(--ui-error-soft) !important;
+  border-color: color-mix(in srgb, var(--ui-error) 38%, var(--line)) !important;
+}
+:root :is(.status-success, [data-status="success"]) { color: var(--ui-success); }
+:root :is(.status-warning, [data-status="warning"]) { color: var(--ui-warning); }
+:root :is(.status-error, [data-status="error"]) { color: var(--ui-error); }
+:root :is(button, input, select, textarea, [role="tab"]):focus-visible {
+  outline: var(--ui-ring-width) solid var(--ui-focus) !important;
+  outline-offset: var(--ui-ring-offset) !important;
+}
+:root :is(button, input, select, textarea, [role="tab"]):disabled,
+:root :is(button, input, select, textarea, [role="tab"])[aria-disabled="true"] {
+  color: var(--ui-disabled-ink) !important;
+  background-color: var(--ui-disabled-surface) !important;
+  border-color: var(--line) !important;
+  cursor: not-allowed !important;
+  opacity: var(--ui-disabled-opacity) !important;
+  box-shadow: none !important;
+}
+:root [hidden] { display: none !important; }
+
+@media (pointer: coarse) {
+  :root :is(.sheet-panel button, .settings-panel button, .workspace-panel button,
+    [role="tab"], .chat-more-item, .attachment-menu button) {
+    min-height: 44px;
+  }
 }

@@ -2,18 +2,7 @@
 :root {
   --ui-motion-fast: 140ms;
   --ui-motion-ease: cubic-bezier(.2, .7, .2, 1);
-  --ui-hover-surface: #f3f4f4;
-  --ui-pressed-surface: #e9ebeb;
-  --ui-focus: #227b70;
-  --ui-focus-halo: rgba(34, 123, 112, .15);
-  --ui-hover-shadow: 0 3px 9px rgba(20, 35, 33, .10);
-}
-:root[data-theme="dark"] {
-  --ui-hover-surface: #363b38;
-  --ui-pressed-surface: #404743;
-  --ui-focus: #91dbcc;
-  --ui-focus-halo: rgba(145, 219, 204, .18);
-  --ui-hover-shadow: 0 3px 12px rgba(0, 0, 0, .24);
+  --ui-hover-shadow: var(--shadow-md);
 }
 
 /* No permanent compositing layers or pointer-driven effects. */
