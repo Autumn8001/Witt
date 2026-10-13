@@ -27,7 +27,7 @@
     }
   }
   const savedReasoning = localStorage.getItem("wit_reasoning_preference") || localStorage.getItem("wit_reasoning") || "medium";
-  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "danger-full-access";
+  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "workspace-write";
   const state = {
     conversations: [],
     activeId: localStorage.getItem("wit_active_conversation") || null,
@@ -721,8 +721,11 @@
       : preferred;
     state.model = model;
     state.preferredModel = model;
-    state.reasoning = state.preferredReasoning || "high";
-    state.accessMode = state.preferredAccessMode || "danger-full-access";
+    state.reasoning = state.preferredReasoning || (model.startsWith("gemini-") ? "medium" : "high");
+    const accessModes = Array.isArray(state.capabilities?.accessModes)
+      ? state.capabilities.accessModes : ["read-only", "workspace-write", "danger-full-access"];
+    const preferredAccess = state.preferredAccessMode || state.capabilities?.defaultAccessMode;
+    state.accessMode = accessModes.includes(preferredAccess) ? preferredAccess : accessModes[0] || "read-only";
     state.draftModel = model;
     state.draftReasoning = state.reasoning;
     state.draftAccessMode = state.accessMode;
@@ -3765,6 +3768,16 @@
     },
     onCapabilities(json) {
       state.capabilities = JSON.parse(json);
+      const accessModes = Array.isArray(state.capabilities.accessModes)
+        ? state.capabilities.accessModes : ["read-only", "workspace-write", "danger-full-access"];
+      if (!accessModes.includes(state.preferredAccessMode)) {
+        state.preferredAccessMode = state.capabilities.defaultAccessMode || accessModes[0] || "read-only";
+        state.accessMode = state.preferredAccessMode;
+        try {
+          localStorage.setItem("wit_access", state.accessMode);
+          localStorage.setItem("wit_access_preference", state.accessMode);
+        } catch {}
+      }
       renderCapabilities();
       reconcileModelPreference();
       renderRuntimeControls();

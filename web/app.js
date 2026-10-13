@@ -9,7 +9,7 @@
   const CODEX_PROFILE_IDS = ["default", "xuanyu", "account4", "account5"];
   const savedModel = localStorage.getItem("wit_model_preference") || localStorage.getItem("wit_model") || "gpt-5.6-sol";
   const savedReasoning = localStorage.getItem("wit_reasoning_preference") || localStorage.getItem("wit_reasoning") || "medium";
-  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "danger-full-access";
+  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "workspace-write";
   const state = {
     conversations: [],
     activeId: localStorage.getItem("wit_active_conversation") || null,

@@ -92,6 +92,12 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-tools .drawer-profile { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 7px !important; padding: 12px 4px !important; min-height: 100px !important; border-radius: 16px !important; border: 0 !important; background: var(--chloe-surface) !important; text-align: center; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile-svg { color: var(--chloe-gold) !important; display: grid; place-items: center; width: 30px; height: 30px; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile-svg svg { width: 28px; height: 28px; color: var(--chloe-gold) !important; }
+:root body.web-browser.chloe-autumn-workspace #profileButton .drawer-profile-svg { color: var(--chloe-brown) !important; }
+:root body.web-browser.chloe-autumn-workspace #adminSettingsButton .drawer-profile-svg { color: var(--chloe-amber) !important; }
+:root body.web-browser.chloe-autumn-workspace #codexAccountsButton .drawer-profile-svg { color: var(--chloe-rust) !important; }
+:root body.web-browser.chloe-autumn-workspace #profileButton .drawer-profile-svg svg { color: var(--chloe-brown) !important; }
+:root body.web-browser.chloe-autumn-workspace #adminSettingsButton .drawer-profile-svg svg { color: var(--chloe-amber) !important; }
+:root body.web-browser.chloe-autumn-workspace #codexAccountsButton .drawer-profile-svg svg { color: var(--chloe-rust) !important; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile strong { font-size: 14px !important; color: var(--chloe-ink) !important; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile small { display: block; font-size: 11px !important; color: var(--chloe-muted) !important; margin-top: 3px; }
 :root body.web-browser.chloe-autumn-workspace .drawer-theme { display: flex !important; align-items: center; padding: 0 8px !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; gap: 10px; }
@@ -201,7 +207,8 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   :root body.web-browser.chloe-autumn-workspace #modelButton { gap: 5px !important; padding: 0 8px !important; min-height: 44px !important; max-width: 100%; }
   :root body.web-browser.chloe-autumn-workspace #modelButton :is(b,.composer-env-pill,#reasoningLabel) { font-size: 11px !important; }
   :root body.web-browser.chloe-autumn-workspace #modelButton b { max-width: 110px !important; }
-  :root body.web-browser.chloe-autumn-workspace #modelButton #reasoningLabel { display: none !important; }
+  :root body.web-browser.chloe-autumn-workspace #modelButton #reasoningLabel,
+  :root body.web-browser.chloe-autumn-workspace #modelButton .composer-reasoning-icon { display: none !important; }
   :root body.web-browser.chloe-autumn-workspace #modelButton i { display: none !important; }
   :root body.web-browser.chloe-autumn-workspace .composer-hint { text-align: center; font-size: 10px !important; }
 }
@@ -222,6 +229,8 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile-svg .autumn-icon,
 :root body.web-browser.chloe-autumn-workspace .profile-monogram .autumn-icon { width: 27px; height: 27px; color: currentColor; }
 :root body.web-browser.chloe-autumn-workspace #modelButton > .autumn-icon { width: 18px; height: 18px; color: var(--chloe-gold); }
+:root body.web-browser.chloe-autumn-workspace #modelButton .composer-env-icon { width: 17px; height: 17px; color: var(--chloe-olive); }
+:root body.web-browser.chloe-autumn-workspace #modelButton .composer-reasoning-icon { width: 16px; height: 16px; color: var(--chloe-amber); }
 :root body.web-browser.chloe-autumn-workspace .conversation-mark { width: 28px !important; height: 28px !important; border-radius: 9px !important; }
 :root body.web-browser.chloe-autumn-workspace .conversation-mark .autumn-history-icon { width: 17px; height: 17px; }
 :root body.web-browser.chloe-autumn-workspace .autumn-history-icon { fill: currentColor; stroke: none; }
