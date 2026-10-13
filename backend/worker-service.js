@@ -112,6 +112,8 @@ class TurnInstance {
     this.interruptRequested = false;
     this.startedAt = new Date().toISOString();
     this.completedAt = null;
+    this.persistTimer = null;
+    this.pendingPersist = false;
 
     // Direct SQLite store instance for writing
     this.store = worker.getStore(this.chatDir);
@@ -123,7 +125,8 @@ class TurnInstance {
     this.events.push(payload);
     // Keep max 2000 events in memory
     if (this.events.length > 2000) this.events.shift();
-    this.worker.persistTurn(this);
+    if (type === "reasoning_delta") this.deferPersist();
+    else this.worker.persistTurn(this);
 
     const chunk = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
     for (const res of this.subscribers) {
@@ -137,6 +140,18 @@ class TurnInstance {
         this.subscribers.delete(res);
       }
     }
+  }
+
+  deferPersist() {
+    this.pendingPersist = true;
+    if (this.persistTimer || this.completedAt) return;
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      if (!this.pendingPersist || this.completedAt) return;
+      this.pendingPersist = false;
+      this.worker.persistTurn(this);
+    }, 150);
+    this.persistTimer.unref?.();
   }
 
   readConversation() {
@@ -241,6 +256,9 @@ class TurnInstance {
 
   finish(status, errorReason = "") {
     if (this.completedAt) return; // Already finished
+    if (this.persistTimer) clearTimeout(this.persistTimer);
+    this.persistTimer = null;
+    this.pendingPersist = false;
     this.status = status;
     this.completedAt = new Date().toISOString();
     if (errorReason) {

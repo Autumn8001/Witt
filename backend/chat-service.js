@@ -1112,7 +1112,7 @@ class ChatService {
         displayName: id.startsWith("gemini-") ? `Gemini ${id.replace(/^gemini-/, "").replace(/-(low|medium|high|max)$/, "").replace(/-/g, " ")}` : `Grok ${id.replace(/^grok-/, "").replace(/-/g, " ")}`,
         isDefault: id === this.defaultModel,
         inputModalities: ["text", "image"],
-        defaultReasoningEffort: "high",
+        defaultReasoningEffort: id.startsWith("gemini-") ? "medium" : "high",
         reasoningEfforts: [
           { id: "low", description: "快速" },
           { id: "medium", description: "均衡" },
