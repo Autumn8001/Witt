@@ -178,6 +178,14 @@ class ChatService {
     this.readJsonBody = options.readJsonBody;
     this.allowedModels = Object.hasOwn(options, "allowedModels")
       ? options.allowedModels : ADMIN_MODELS;
+    this.allowedAccessModes = new Set(
+      Array.isArray(options.allowedAccessModes) && options.allowedAccessModes.length
+        ? options.allowedAccessModes.filter((mode) => ALLOWED_ACCESS.has(mode))
+        : ALLOWED_ACCESS);
+    if (!this.allowedAccessModes.size) this.allowedAccessModes.add("read-only");
+    this.defaultAccessMode = this.allowedAccessModes.has(options.defaultAccessMode)
+      ? options.defaultAccessMode
+      : this.allowedAccessModes.has("workspace-write") ? "workspace-write" : "read-only";
     this.defaultModel = options.defaultModel || DEFAULT_HARNESS_MODEL;
     this.defaultProviderId = options.defaultProviderId || DEFAULT_PROVIDER_ID;
     this.sub2api = options.sub2api || null;
@@ -991,8 +999,12 @@ class ChatService {
     return Boolean(this.codexProfiles[requested]) && this.allowedCodexProfiles.has(requested);
   }
 
+  accessModeAllowed(accessMode) {
+    return this.allowedAccessModes.has(String(accessMode || ""));
+  }
+
   createConversation(title = "新对话", model = this.defaultModel, reasoning = "medium",
-      accessMode = "danger-full-access", workDir = "", codexProfile = null) {
+      accessMode = null, workDir = "", codexProfile = null) {
     const requestedProfile = codexProfile == null || codexProfile === ""
       ? this.defaultCodexProfile : String(codexProfile);
     if (!this.allowedCodexProfiles.has(requestedProfile)) {
@@ -1021,6 +1033,11 @@ class ChatService {
     }
     const resolvedModel = this.modelAllowed(requestedModel, profile.id)
       ? requestedModel : this.defaultModel;
+    const requestedAccess = accessMode == null || accessMode === ""
+      ? this.defaultAccessMode : String(accessMode);
+    if (!this.accessModeAllowed(requestedAccess)) {
+      throw new Error("该用户不能使用这个访问权限");
+    }
     const conversation = {
       id: crypto.randomUUID(),
       title: String(title || "新对话").trim().slice(0, 60) || "新对话",
@@ -1038,7 +1055,7 @@ class ChatService {
         ? "sub2api" : providerForModel(resolvedModel),
       harnessSessionId: null,
       reasoning: ALLOWED_REASONING.has(reasoning) ? reasoning : "medium",
-      accessMode: ALLOWED_ACCESS.has(accessMode) ? accessMode : "danger-full-access",
+      accessMode: requestedAccess,
       workDir: this.normalizeWorkDir(requestedWorkDir),
       messages: [],
     };
@@ -1769,11 +1786,11 @@ class ChatService {
         : body.reasoning;
       const requestedAccess = body?.accessMode == null
         ? (ALLOWED_ACCESS.has(conversation.accessMode)
-          ? conversation.accessMode : "danger-full-access")
+          ? conversation.accessMode : this.defaultAccessMode)
         : body.accessMode;
       if (!this.modelAllowed(requestedModel, this.profileFor(conversation).id) ||
           !ALLOWED_REASONING.has(requestedReasoning) ||
-          !ALLOWED_ACCESS.has(requestedAccess)) {
+          !this.accessModeAllowed(requestedAccess)) {
         this.sendJson(res, 400, { error: "模型、智能程度或访问权限不可用" });
         return;
       }

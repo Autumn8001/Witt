@@ -7,7 +7,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { AuthService } = require("./auth-service");
 const {
-  ChatService, NON_ADMIN_MODELS, servePublicArtifactPreview, servePublicArtifactSource,
+  ChatService, ALLOWED_ACCESS, NON_ADMIN_MODELS, servePublicArtifactPreview, servePublicArtifactSource,
 } = require("./chat-service");
 const { CodexAccountService } = require("./codex-account-service");
 const { CpaQuotaService } = require("./cpa-quota");
@@ -387,6 +387,10 @@ function chatFor(principal) {
     sendJson,
     readJsonBody,
     allowedModels: principal.admin || principal.unrestrictedModels ? null : NON_ADMIN_MODELS,
+    allowedAccessModes: principal.admin
+      ? [...ALLOWED_ACCESS]
+      : ["read-only", "workspace-write"],
+    defaultAccessMode: principal.admin ? "danger-full-access" : "workspace-write",
     // New sessions start on the verified production harness (Grok via CPA).
     // Existing sessions keep whatever they already have stored.
     defaultModel: "grok-4.7-high",
