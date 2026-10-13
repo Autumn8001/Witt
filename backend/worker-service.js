@@ -493,6 +493,16 @@ class TurnInstance {
           this.addActivity(assistant, "thinking", entry.label, "running");
           this.emitEvent("reasoning_delta", { text: safeDelta });
         }
+      } else if (event.type === "plan") {
+        const entries = Array.isArray(event.entries) ? sanitizeHarnessContent(event.entries) : [];
+        const plan = this.upsertStream(assistant, "harness-plan", {
+          kind: "plan", label: "执行计划", status: "running", hasDetails: true,
+          details: { entries },
+        });
+        plan.details = { ...(plan.details || {}), entries };
+        plan.label = entries.length ? `执行计划 · ${entries.length} 步` : "执行计划";
+        this.addActivity(assistant, "plan", plan.label, "running");
+        this.emitEvent("plan", { entries });
       } else if (event.type === "tool_call") {
         const presented = this.adapter.formatToolCall(event, this.workDir);
         const safePresented = sanitizeHarnessContent(presented);
@@ -500,13 +510,24 @@ class TurnInstance {
         const callId = event.id || `tool-${event.stepIndex || Date.now()}`;
         this.upsertStream(assistant, callId, safePresented);
         this.emitEvent("tool_call", safePresented);
-        if (event.output !== undefined || ["completed", "failed", "error"].includes(event.status)) {
+        if (event.output !== undefined || ["completed", "failed", "error", "cancelled"].includes(event.status)) {
           const patch = this.adapter.formatToolUpdate(event, safePresented);
           this.upsertStream(assistant, callId, patch);
           if (patch.status === "completed") {
             this.addActivity(assistant, safePresented.kind, `${safePresented.label} (已完成)`, "completed");
           }
         }
+      } else if (event.type === "tool_call_update") {
+        const callId = event.id || `tool-${event.stepIndex || Date.now()}`;
+        const existing = assistant.stream?.find((entry) => entry.id === callId) || {
+          kind: "tool", label: `调用工具：${event.tool || "工具调用"}`, details: {},
+        };
+        const patch = this.adapter.formatToolUpdate(event, existing);
+        this.upsertStream(assistant, callId, patch);
+        this.addActivity(assistant, patch.kind || "tool", patch.status === "completed"
+          ? `${existing.label}（已完成）` : `${existing.label}（${patch.status === "failed" ? "失败" : "执行中"}）`,
+        patch.status);
+        this.emitEvent("tool_call_update", { id: callId, ...patch });
       } else if (event.type === "result") {
         const thinkingEntry = assistant.stream?.find((e) => e.id === "harness-thinking");
         if (thinkingEntry && thinkingEntry.status === "running") {
@@ -517,6 +538,11 @@ class TurnInstance {
           const entry = this.upsertStream(assistant, "harness-message",
             { kind: "message", phase: "final_answer", status: "running" });
           entry.text = redactHarnessText(event.text, 20000);
+        }
+        if (event.error) {
+          this.error = redactHarnessText(event.error, 300);
+          this.addActivity(assistant, "error", `Gemini：${this.error}`, "failed");
+          this.emitEvent("error", { error: this.error });
         }
       } else if (event.type === "error") {
         this.error = redactHarnessText(event.error || "运行失败", 200);

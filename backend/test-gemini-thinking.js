@@ -28,6 +28,31 @@ test("parseAntigravityEvent parses reasoning_delta and tool_call", () => {
   assert.deepEqual(stepTool.input, { command: "git status" });
 });
 
+test("Antigravity parser preserves plans and separates tool updates", () => {
+  const plan = parseAntigravityEvent({
+    type: "step_update",
+    step: { conversationId: "c-2", steps: [{ title: "读取项目", status: "completed" }] },
+  });
+  assert.equal(plan.type, "plan");
+  assert.equal(plan.entries[0].title, "读取项目");
+
+  const update = parseAntigravityEvent({
+    type: "step_update",
+    step: { toolCall: { call_id: "call_2", name: "exec", status: "completed", result: "ok" } },
+  });
+  assert.equal(update.type, "tool_call_update");
+  assert.equal(update.id, "call_2");
+  assert.equal(update.output, "ok");
+});
+
+test("Antigravity parser treats non-success result status as a failure", () => {
+  const result = parseAntigravityEvent({
+    type: "result", result: { status: "FAILED", response: "", error: "tool failed" },
+  });
+  assert.equal(result.type, "result");
+  assert.equal(result.error, "tool failed");
+});
+
 test("AntigravityAdapter formats commands, file operations and custom tools", () => {
   const adapter = new AntigravityAdapter({ bin: "agy" });
 

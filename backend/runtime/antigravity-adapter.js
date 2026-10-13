@@ -293,8 +293,8 @@ class AntigravityAdapter {
 
   formatToolUpdate(event, info = {}) {
     const output = event.output;
-    const status = ["completed", "failed", "error"].includes(event.status)
-      ? (event.status === "error" ? "failed" : event.status) : "running";
+    const status = ["completed", "failed", "error", "cancelled"].includes(event.status)
+      ? (["error", "cancelled"].includes(event.status) ? "failed" : event.status) : "running";
     const patch = {
       kind: info.kind || "tool",
       status,

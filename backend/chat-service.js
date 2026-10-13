@@ -3495,9 +3495,40 @@ class ChatService {
           { kind: "message", phase: "final_answer", status: "running" });
         entry.text = `${entry.text || ""}${event.text || ""}`;
       } else if (event.type === "reasoning_delta") {
-        if (!current.reasoningNoted) {
-          current.reasoningNoted = true;
-          this.addActivity(liveAssistant, "thinking", "reasoning", "running");
+        const text = String(event.text || "");
+        if (text) {
+          const entry = this.upsertStream(liveAssistant, "harness-thinking", {
+            kind: "thought", label: "思考过程", status: "running", hasDetails: true,
+            details: { thought: "", output: "" },
+          });
+          const safeDelta = redactHarnessText(text, 20000);
+          const currentThought = entry.details?.thought || entry.text || "";
+          const nextThought = `${currentThought}${safeDelta}`;
+          entry.details = { ...(entry.details || {}), thought: nextThought, output: nextThought };
+          entry.text = nextThought;
+          entry.label = `思考：${nextThought.trim().split(/\r?\n/).filter(Boolean).at(-1)?.slice(0, 48) || "正在思考..."}`;
+          this.addActivity(liveAssistant, "thinking", entry.label, "running");
+        }
+      } else if (event.type === "plan") {
+        const entries = Array.isArray(event.entries) ? sanitizeHarnessContent(event.entries) : [];
+        const plan = this.upsertStream(liveAssistant, "harness-plan", {
+          kind: "plan", label: entries.length ? `执行计划 · ${entries.length} 步` : "执行计划",
+          status: "running", hasDetails: true, details: { entries },
+        });
+        plan.details = { ...(plan.details || {}), entries };
+        this.addActivity(liveAssistant, "plan", plan.label, "running");
+      } else if (event.type === "tool_call" || event.type === "tool_call_update") {
+        const callId = event.id || `tool-${event.stepIndex || Date.now()}`;
+        const existing = liveAssistant.stream?.find((entry) => entry.id === callId);
+        if (event.type === "tool_call") {
+          const presented = sanitizeHarnessContent(adapter.formatToolCall(event, workDir));
+          this.upsertStream(liveAssistant, callId, presented);
+          this.addActivity(liveAssistant, presented.kind, presented.label, "running");
+        } else if (existing) {
+          const patch = adapter.formatToolUpdate(event, existing);
+          this.upsertStream(liveAssistant, callId, patch);
+          this.addActivity(liveAssistant, patch.kind || existing.kind, existing.label,
+            patch.status || "running");
         }
       } else if (event.type === "result") {
         if (event.text) {
@@ -3505,6 +3536,7 @@ class ChatService {
             { kind: "message", phase: "final_answer", status: "running" });
           entry.text = event.text;
         }
+        if (event.error) current.harnessEventError = redactHarnessText(event.error, 300);
         current.harnessUsage = event.usage || null;
       } else if (event.type === "error") {
         current.harnessEventError = String(event.error || "run_error").slice(0, 200);
