@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-hidden="true">
+<defs>
+  <linearGradient id="gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
+
+ <path d="M21 17 L10 31 L21 43 M43 17 L54 31 L43 43 M38 14 L27 48" fill="none" stroke="#405337" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M48 36 C55 29 61 34 59 40 C56 47 51 50 45 48 C41 45 42 40 48 36Z" fill="url(#orange)" stroke="#8D4E23" stroke-width="1.1"/>
+ <path d="M47 47 L56 37" stroke="#FFE4A0" stroke-width="1.2"/>
+
+</svg>
