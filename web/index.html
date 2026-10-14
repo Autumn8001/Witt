@@ -136,116 +136,199 @@
   <div class="chloe-bg-layer" aria-hidden="true"></div>
   <div class="chloe-bg-mask" aria-hidden="true"></div>
   <svg class="autumn-icon-defs" aria-hidden="true" focusable="false"><defs>
-      <!-- 1. 枫叶/橡木叶：单片带齿红棕色秋叶，亮金主侧脉（模型图标） -->
-      <symbol id="autumn-icon-leaf" viewBox="0 0 24 24" fill="none">
-        <path d="M19 4.5c-3.5.5-6.5 2.8-8 6.5-1.5 3.5-.8 6.5.8 8 3.5-1.5 6.5-4.5 7.5-8 .8-2.5.5-5-.3-6.5Z" fill="#b45826" stroke="#753512" stroke-width="1.1" stroke-linejoin="round"/>
-        <path d="M11 19c-1.5 1.5-2.5 2.5-3.5 3" stroke="#6b3111" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M11.5 18.5c2.5-3 5.5-6.5 7.5-14" stroke="#fae1a0" stroke-width="1.1" stroke-linecap="round" opacity="0.85"/>
-        <path d="M13.5 14.5c1 .5 2 .8 3 .5M15.5 11c1 .4 1.8.6 2.5.3M12.5 17c.8.3 1.5.5 2.2.2" stroke="#fae1a0" stroke-width="0.9" stroke-linecap="round" opacity="0.75"/>
-      </symbol>
+      <symbol id="autumn-icon-leaf" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
 
-      <!-- 2. 橡果：饱满圆润小橡果，深棕坚果帽与小果蒂（历史项图标） -->
-      <symbol id="autumn-icon-acorn" viewBox="0 0 24 24" fill="none">
-        <path d="M13.5 3.5c-.8 1.2-.2 2.2 1 2.5" stroke="#5d2c12" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M6 9c0-1.8 2.7-3.2 6-3.2s6 1.4 6 3.2c0 .8-.6 1.5-1.4 2-1.1.7-2.8 1.2-4.6 1.2s-3.5-.5-4.6-1.2C6.6 10.5 6 9.8 6 9Z" fill="#753514" stroke="#4a1f0a" stroke-width="1.1"/>
-        <path d="M7.5 10.5c.3 4.2 2.2 7.8 4.5 9 2.3-1.2 4.2-4.8 4.5-9" fill="#c87e2b" stroke="#6e310d" stroke-width="1.2" stroke-linejoin="round"/>
-        <path d="M9.5 12.5c.2 2 1.2 3.8 2.5 4.5" stroke="#fae1a0" stroke-width="1" stroke-linecap="round" opacity="0.75"/>
-      </symbol>
+ <path d="M11 57 C17 48 21 45 29 38" fill="none" stroke="#684025" stroke-width="2.6" stroke-linecap="round"/>
+ <path d="M18 45 C13 36 21 25 32 19 C42 13 51 12 57 6 C59 25 56 36 48 43 C39 52 27 53 18 45Z" fill="url(#leaf-rust)" stroke="#8A4B21" stroke-width="1.35" stroke-linejoin="round"/>
+ <path d="M19 46 C32 35 45 22 54 10" fill="none" stroke="#653E21" stroke-width="1.75" stroke-linecap="round"/>
+ <path d="M30 37 L25 29 M37 31 L37 20 M42 26 L51 29 M34 34 L45 38 M26 42 L20 38" fill="none" stroke="#FBE3A0" stroke-opacity=".78" stroke-width="1.1" stroke-linecap="round"/>
+ <path d="M25 42 Q29 28 43 20" fill="none" stroke="#FFD88E" stroke-width="1.4" stroke-opacity=".36"/>
 
-      <!-- 3. 双色小嫩芽：一瓣秋绿，一瓣秋金（服务商胶囊与历史项） -->
-      <symbol id="autumn-icon-sprout" viewBox="0 0 24 24" fill="none">
-        <path d="M12 21.5v-6.5" stroke="#61723b" stroke-width="2" stroke-linecap="round"/>
-        <path d="M12 15c-3.8 0-6.2-2.2-6.2-5.5 3.8 0 6.2 2.2 6.2 5.5Z" fill="#586e37" stroke="#3b4c22" stroke-width="1.1" stroke-linejoin="round"/>
-        <path d="M12 15c3.8 0 6.2-2.8 6.2-6.5-3.8 0-6.2 2.8-6.2 6.5Z" fill="#c97e29" stroke="#784110" stroke-width="1.1" stroke-linejoin="round"/>
-      </symbol>
+</symbol>
+      <symbol id="autumn-icon-acorn" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="acorn-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="acorn-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="acorn-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="acorn-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="acorn-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="acorn-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="acorn-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="acorn-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
 
-      <!-- 4. 代码文档：白底右上角折角配横线（历史项图标） -->
-      <symbol id="autumn-icon-document-leaf" viewBox="0 0 24 24" fill="none">
-        <path d="M6 4h8l5 5v11a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 20V5.5A1.5 1.5 0 0 1 6 4Z" fill="#ffffff" stroke="#5a3d24" stroke-width="1.5" stroke-linejoin="round"/>
-        <path d="M14 4v5h5" fill="#f4ebd9" stroke="#5a3d24" stroke-width="1.3" stroke-linejoin="round"/>
-        <path d="M8 12.5h6M8 15.5h4.5M8 18.5h6.5" stroke="#a0632d" stroke-width="1.3" stroke-linecap="round"/>
-      </symbol>
+ <path d="M31 15 C30 10 34 7 38 8" fill="none" stroke="#6B4327" stroke-width="3" stroke-linecap="round"/>
+ <path d="M21 27 C21 22 25 19 32 19 C39 19 44 22 44 27 L45 38 C45 48 38 56 31 57 C24 55 18 48 19 39Z" fill="url(#acorn-acorn)" stroke="#8B451F" stroke-width="1.65"/>
+ <path d="M23 35 C23 43 27 49 31 51" fill="none" stroke="#FFE09B" stroke-width="2.4" opacity=".6" stroke-linecap="round"/>
+ <path d="M13 28 C17 17 25 15 32 15 C42 15 49 20 51 28 L48 33 Q32 37 16 32Z" fill="#9C4620" stroke="#783719" stroke-width="1.5"/>
+ <path d="M18 26 Q32 19 46 27 M18 30 Q32 25 48 30" stroke="#C87939" stroke-width="1.15" fill="none" opacity=".95"/>
+ <path d="M22 22 L25 29 M30 20 L32 30 M39 21 L39 30" stroke="#D89B55" stroke-width="1.3" opacity=".7" stroke-linecap="round"/>
 
-      <!-- 5. 远程开发工作区屏幕：带小立柱底座与右下角秋叶 -->
-      <symbol id="autumn-icon-monitor-leaf" viewBox="0 0 24 24" fill="none">
-        <rect x="3.5" y="4.5" width="17" height="12" rx="2" fill="#faf6ed" stroke="#5c381c" stroke-width="1.6"/>
-        <path d="M9 20h6M12 16.5v3.5" stroke="#5c381c" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M16 9.5c1.5-1 3.5-.5 4.2.8.7 1.3 0 3-1.5 3.8-1.5.7-3.2 0-3.8-1.5-.4-1.1.2-2.3 1.1-3.1Z" fill="#bc5823" stroke="#68290c" stroke-width="1" stroke-linejoin="round"/>
-        <path d="M16 11.5l3.5-1.5" stroke="#fce3a6" stroke-width="0.8" stroke-linecap="round"/>
-      </symbol>
+</symbol>
+      <symbol id="autumn-icon-sprout" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="sprout-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="sprout-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="sprout-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="sprout-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="sprout-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="sprout-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="sprout-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="sprout-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
 
-      <!-- 6. 舒展三叶秋枝：侧栏卡片“项目与服务连接”高清还原 -->
-      <symbol id="autumn-icon-branch" viewBox="0 0 24 24" fill="none">
-        <!-- 主枝干从底部向上轻微展开 -->
-        <path d="M9 20.5c1.5-4 2.8-7 3.2-11.5" stroke="#613317" stroke-width="2" stroke-linecap="round"/>
-        <!-- 顶部正中直立小叶 -->
-        <path d="M12 4.5c1.8 1.8 1.8 4.2 0 6-1.8-1.8-1.8-4.2 0-6Z" fill="#843e18" stroke="#54230b" stroke-width="1" stroke-linejoin="round"/>
-        <!-- 左侧斜出小叶 -->
-        <path d="M7 11.5c2.2 0 3.8 1.8 3.5 4-2.2 0-3.8-1.8-3.5-4Z" fill="#753515" stroke="#481c07" stroke-width="1" stroke-linejoin="round"/>
-        <!-- 右侧斜出小叶 -->
-        <path d="M17 11.5c-2.2 0-3.8 1.8-3.5 4 2.2 0 3.8-1.8 3.5-4Z" fill="#88421b" stroke="#56240d" stroke-width="1" stroke-linejoin="round"/>
-        <!-- 叶片微主脉光影 -->
-        <path d="M12 6.5v3M8.5 13.5l1.5 1M15.5 13.5l-1.5 1" stroke="#fab978" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
-      </symbol>
+ <path d="M31 58 C29 49 31 44 32 35 Q31 28 29 23" fill="none" stroke="#633E24" stroke-width="2.8" stroke-linecap="round"/>
+ <path d="M31 44 Q21 35 15 31 M32 35 Q40 30 48 24" fill="none" stroke="#714424" stroke-width="2" stroke-linecap="round"/>
+ <path d="M13 19 C20 17 28 22 30 32 C26 39 18 38 13 33 C8 27 9 22 13 19Z" fill="url(#sprout-olive)" stroke="#4A4F30" stroke-width="1.25"/>
+ <path d="M12 20 C20 23 24 29 29 34" fill="none" stroke="#E5CA87" stroke-width="1.2" stroke-opacity=".8"/>
+ <path d="M51 13 C51 25 49 33 42 36 C37 37 34 35 32 32 C33 21 41 13 51 13Z" fill="url(#sprout-orange)" stroke="#8D4D21" stroke-width="1.3"/>
+ <path d="M34 32 C40 28 47 21 50 15" fill="none" stroke="#FFE1A1" stroke-opacity=".8" stroke-width="1.3"/>
+ <path d="M27 40 C23 37 18 38 16 44 C21 47 26 46 30 44" fill="url(#sprout-gold)" stroke="#98632B" stroke-width=".9"/>
 
-      <!-- 7. 圆角六齿花朵齿轮：侧栏卡片“模型、Harness 与服务端设置”高清还原 -->
-      <symbol id="autumn-icon-gear-leaf" viewBox="0 0 24 24" fill="none">
-        <!-- 6 个极其圆润花瓣齿牙组成的温润机械花轮 -->
-        <path d="M12 2.8c.8 0 1.5.6 1.7 1.4l.2 1a6.8 6.8 0 0 1 2.2 1.3l.9-.4a1.8 1.8 0 0 1 2.2.6l1 1.7a1.8 1.8 0 0 1-.4 2.3l-.8.7c.2.8.2 1.6 0 2.4l.8.7c.7.6.9 1.6.4 2.3l-1 1.7a1.8 1.8 0 0 1-2.2.6l-.9-.4a6.8 6.8 0 0 1-2.2 1.3l-.2 1a1.8 1.8 0 0 1-1.7 1.4h-2a1.8 1.8 0 0 1-1.7-1.4l-.2-1a6.8 6.8 0 0 1-2.2-1.3l-.9.4a1.8 1.8 0 0 1-2.2-.6l-1-1.7a1.8 1.8 0 0 1 .4-2.3l.8-.7a6.8 6.8 0 0 1 0-2.4l-.8-.7a1.8 1.8 0 0 1-.4-2.3l1-1.7a1.8 1.8 0 0 1 2.2-.6l.9.4a6.8 6.8 0 0 1 2.2-1.3l.2-1c.2-.8.9-1.4 1.7-1.4h2Z" fill="#6a3518" stroke="#481f0a" stroke-width="1.2" stroke-linejoin="round"/>
-        <!-- 中心圆孔 -->
-        <circle cx="12" cy="12" r="3.2" fill="#faf6ed" stroke="#481f0a" stroke-width="1.2"/>
-      </symbol>
+</symbol>
+      <symbol id="autumn-icon-document-leaf" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="document-leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="document-leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="document-leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="document-leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="document-leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="document-leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="document-leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="document-leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
 
-      <!-- 8. 麦穗小木屋：侧栏底部“我的/用量与额度”高清还原 -->
-      <symbol id="autumn-icon-home-usage" viewBox="0 0 24 24" fill="none">
-        <!-- 实心深暖红棕色五边形小屋轮廓 -->
-        <path d="M12 3.2 3.8 10a1 1 0 0 0-.3.7V20a1 1 0 0 0 1 1h15a1 1 0 0 0 1-1v-9.3a1 1 0 0 0-.3-.7L12 3.2Z" fill="#753516" stroke="#4c2009" stroke-width="1.2" stroke-linejoin="round"/>
-        <!-- 烟囱细节 -->
-        <path d="M16 5.5v3l2.5 2v-5h-2.5Z" fill="#753516"/>
-        <!-- 正中心镂空/反白金黄三叉麦穗图案 -->
-        <path d="M12 9v9" stroke="#f6dc9c" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M12 11.5c-1.5-1-3-.6-3.2.8.8 1.2 2.2 1 3.2-.8ZM12 11.5c1.5-1 3-.6 3.2.8-.8 1.2-2.2 1-3.2-.8Z" fill="#f6dc9c"/>
-        <path d="M12 14.5c-1.5-1-3-.6-3.2.8.8 1.2 2.2 1 3.2-.8ZM12 14.5c1.5-1 3-.6 3.2.8-.8 1.2-2.2 1-3.2-.8Z" fill="#f6dc9c"/>
-      </symbol>
+ <path d="M15 7 H39 L49 17 V55 H15 Q12 55 12 51 V11 Q12 7 15 7Z" fill="url(#document-leaf-cream)" stroke="#4E553B" stroke-width="3.1" stroke-linejoin="round"/>
+ <path d="M39 8 V18 H49" fill="#EFD7A8" stroke="#596045" stroke-width="2.5" stroke-linejoin="round"/>
+ <path d="M20 29 H33 M20 35 H29 M20 42 H36" stroke="#B67739" stroke-width="2.6" stroke-linecap="round"/>
+ <path d="M38 47 C33 42 35 35 41 32 C46 30 50 31 53 28 C55 38 51 46 43 48Z" fill="url(#document-leaf-orange)" stroke="#8F4F21" stroke-width="1.1"/>
+ <path d="M39 47 L51 31" fill="none" stroke="#F8CE85" stroke-width="1.1" opacity=".8"/>
 
-      <!-- 9. 扇形银杏大树：侧栏底部“设备管理”高清还原 -->
-      <symbol id="autumn-icon-tree" viewBox="0 0 24 24" fill="none">
-        <!-- 挺拔垂直深棕树干 -->
-        <path d="M12 21v-7.5" stroke="#5d2e12" stroke-width="2.2" stroke-linecap="round"/>
-        <!-- 地面两段深色横线草皮/地平线 -->
-        <path d="M6 21h4M14 21h4" stroke="#5d2e12" stroke-width="1.8" stroke-linecap="round"/>
-        <!-- 优雅三瓣扇面起伏的琥珀金黄大树冠 -->
-        <path d="M12 4.2c-2.4-1.2-5.5-.5-6.5 1.8-1 2.2-.2 4.8 1.2 6.2 1.5 1.5 3.5 2 5.3 2s3.8-.5 5.3-2c1.4-1.4 2.2-4 1.2-6.2-1-2.3-4.1-3-6.5-1.8Z" fill="#cf8222" stroke="#713909" stroke-width="1.2" stroke-linejoin="round"/>
-        <!-- 内部扇形发散纹路微光 -->
-        <path d="M12 14c-1.2-2.8-2.6-5.5-3.8-7.5M12 14c1.2-2.8 2.6-5.5 3.8-7.5M12 14V6" stroke="#fce5a8" stroke-width="0.9" stroke-linecap="round" opacity="0.8"/>
-      </symbol>
+</symbol>
+      <symbol id="autumn-icon-monitor-leaf" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="monitor-leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="monitor-leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="monitor-leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="monitor-leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="monitor-leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="monitor-leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="monitor-leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="monitor-leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
 
-      <!-- 10. 圆形实心头像徽标：侧栏底部“账号”高清还原 -->
-      <symbol id="autumn-icon-user-badge" viewBox="0 0 24 24" fill="none">
-        <!-- 饱满实心深红棕圆形外底 -->
-        <circle cx="12" cy="12" r="10" fill="#843c16"/>
-        <!-- 内部纯净反白极简头像小圆头 -->
-        <circle cx="12" cy="9.2" r="3" fill="#faf6ed"/>
-        <!-- 内部纯净反白半圆拱形身躯 -->
-        <path d="M6.6 18c.8-3 2.8-4.5 5.4-4.5s4.6 1.5 5.4 4.5" fill="#faf6ed"/>
-      </symbol>
+ <rect x="7" y="13" width="50" height="34" rx="5" fill="url(#monitor-leaf-cream)" stroke="#4B4F37" stroke-width="3.5"/>
+ <path d="M24 54 H40 M32 47 V53" stroke="#55503A" stroke-width="3.5" stroke-linecap="round"/>
+ <path d="M17 24 L23 30 L17 36 M26 36 H36" stroke="#6A6843" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M41 18 C47 14 53 17 52 24 C51 30 46 33 40 32 C36 29 36 22 41 18Z" fill="url(#monitor-leaf-rust)" stroke="#925324" stroke-width=".9"/>
+ <path d="M40 31 L49 20" stroke="#F9D58D" opacity=".72" stroke-width="1.1" stroke-linecap="round"/>
 
-      <!-- 11. 实心秋金闪电：速率/思考程度高清还原 -->
-      <symbol id="autumn-icon-lightning" viewBox="0 0 24 24" fill="none">
-        <path d="M13.5 2.5 6 12.5h5.5L9.5 21.5l8.5-10.5h-5.5Z" fill="#cf7f22" stroke="#753d0a" stroke-width="1.2" stroke-linejoin="round"/>
-      </symbol>
+</symbol>
+      <symbol id="autumn-icon-branch" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="branch-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="branch-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="branch-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="branch-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="branch-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="branch-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="branch-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="branch-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
 
-      <!-- 12. 状态条小树苗圆形微标（用于“尚未开始”） -->
-      <symbol id="autumn-icon-tree-mini" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10.5" fill="#4d6134"/>
-        <path d="M12 17v-4" stroke="#f6edd8" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M12 7c-2.4 0-4 1.8-4 4 0 1.5 1 2.8 2.5 3h3c1.5-.2 2.5-1.5 2.5-3 0-2.2-1.6-4-4-4Z" fill="#edd9aa"/>
-      </symbol>
+ <path d="M19 13 V39 Q19 44 25 44 H40" fill="none" stroke="#A2622B" stroke-width="4" stroke-linecap="round"/>
+ <circle cx="19" cy="11" r="5" fill="url(#branch-rust)" stroke="#754221" stroke-width="1.6"/>
+ <circle cx="43" cy="44" r="5" fill="url(#branch-gold)" stroke="#754221" stroke-width="1.6"/>
+ <path d="M26 27 C28 19 35 18 38 20 C38 27 34 31 28 32Z" fill="url(#branch-olive)" stroke="#4C5A35" stroke-width="1"/>
+ <path d="M27 31 L37 21" stroke="#D9C288" stroke-width="1.1"/>
 
-      <!-- 13. 兼容别名 -->
-      <symbol id="autumn-icon-model-feather" viewBox="0 0 24 24" fill="none">
-        <use href="#autumn-icon-leaf"/>
-      </symbol>
+</symbol>
+      <symbol id="autumn-icon-gear-leaf" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="gear-leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="gear-leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="gear-leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="gear-leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="gear-leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="gear-leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="gear-leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="gear-leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
+
+ <path d="M27 7 H37 L39 14 L45 16 L51 13 L57 22 L52 27 L53 34 L59 38 L54 48 L47 46 L42 50 L42 57 H22 L22 50 L17 46 L10 48 L5 39 L11 34 L11 27 L6 22 L12 13 L19 16 L25 14Z" fill="url(#gear-leaf-rust)" stroke="#743C24" stroke-width="1.65" stroke-linejoin="round"/>
+ <circle cx="32" cy="32" r="11" fill="url(#gear-leaf-cream)" stroke="#8B4927" stroke-width="2"/>
+ <circle cx="32" cy="32" r="4" fill="#A96E37"/>
+ <path d="M20 19 L25 16 M43 18 L46 19 M45 45 L42 49" stroke="#FFE0A5" stroke-width="1.3" stroke-linecap="round" opacity=".75"/>
+
+</symbol>
+      <symbol id="autumn-icon-home-usage" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="home-usage-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="home-usage-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="home-usage-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="home-usage-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="home-usage-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="home-usage-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="home-usage-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="home-usage-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
+
+ <path d="M10 29 L32 10 L54 29 V54 H10Z" fill="url(#home-usage-rust)" stroke="#764420" stroke-width="2.4" stroke-linejoin="round"/>
+ <path d="M16 30 L32 16 L48 30" fill="none" stroke="#F6CD82" stroke-width="1.5" stroke-linecap="round"/>
+ <path d="M27 54 V37 H37 V54" fill="url(#home-usage-cream)" stroke="#FFF0CE" stroke-width=".7"/>
+ <path d="M43 34 C46 31 50 32 51 35 C51 40 47 43 43 41 C41 40 41 37 43 34Z" fill="#E9BC65"/>
+
+</symbol>
+      <symbol id="autumn-icon-tree" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="tree-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="tree-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="tree-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="tree-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="tree-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="tree-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="tree-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="tree-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
+
+ <path d="M31 55 C31 43 31 38 31 31" stroke="#504C2B" stroke-width="3" stroke-linecap="round" fill="none"/>
+ <path d="M30 33 C22 35 15 30 16 24 C9 21 13 13 20 14 C20 7 28 6 31 12 C35 5 43 8 43 14 C51 10 56 17 51 23 C57 28 50 34 44 32 C38 36 33 33 30 33Z" fill="url(#tree-gold)" stroke="#98602D" stroke-width="1.4"/>
+ <path d="M31 32 L20 15 M31 32 L25 11 M31 32 L32 12 M31 32 L43 13 M31 32 L49 20" stroke="#98602D" stroke-width="1.2" opacity=".65" fill="none"/>
+ <path d="M18 24 C24 24 30 29 31 33" stroke="#FFE5A4" stroke-opacity=".7" stroke-width="1.1" fill="none"/>
+ <path d="M21 55 H42" stroke="#454F32" stroke-width="2.3" stroke-linecap="round"/>
+
+</symbol>
+      <symbol id="autumn-icon-user-badge" viewBox="0 0 64 64">
+<defs>
+  <linearGradient id="user-badge-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="user-badge-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="user-badge-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="user-badge-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="user-badge-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="user-badge-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="user-badge-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="user-badge-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
+
+ <circle cx="32" cy="32" r="25" fill="url(#user-badge-rust)" stroke="#904C2A" stroke-width="1.2"/>
+ <circle cx="32" cy="25" r="9" fill="#FFFAEC"/>
+ <path d="M16 48 C17 36 24 35 32 35 C40 35 47 38 48 48" fill="#FFF7E7"/>
+ <path d="M21 46 Q32 51 44 46" stroke="#EFD8B5" opacity=".9" stroke-width="1.1" fill="none"/>
+
+</symbol>
+      <symbol id="autumn-icon-lightning" viewBox="0 0 24 24"><path d="M13.5 2.5 6 12.5h5.5L9.5 21.5l8.5-10.5h-5.5Z" fill="#cf7f22" stroke="#753d0a" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+      <symbol id="autumn-icon-tree-mini" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#4d6134"/><path d="M12 17v-4" stroke="#f6edd8" stroke-width="1.8" stroke-linecap="round"/><path d="M12 7c-2.4 0-4 1.8-4 4 0 1.5 1 2.8 2.5 3h3c1.5-.2 2.5-1.5 2.5-3 0-2.2-1.6-4-4-4Z" fill="#edd9aa"/></symbol>
+      <symbol id="autumn-icon-model-feather" viewBox="0 0 64 64"><use href="#autumn-icon-leaf"/></symbol>
     </defs></svg>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="boot-screen" id="bootScreen" aria-label="Chloe 正在启动">

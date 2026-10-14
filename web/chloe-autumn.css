@@ -431,6 +431,16 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .workspace-entry-label .autumn-icon {
   color: var(--chloe-rust);
   filter: drop-shadow(0 1px 1px rgba(121, 73, 28, .12));
+  transform: scale(1.12);
+}
+:root body.web-browser.chloe-autumn-workspace .drawer-profile-svg .autumn-icon,
+:root body.web-browser.chloe-autumn-workspace .profile-monogram .autumn-icon {
+  transform: scale(1.18);
+  filter: drop-shadow(0 1px 1px rgba(121, 73, 28, .1));
+}
+:root body.web-browser.chloe-autumn-workspace .conversation-mark .autumn-history-icon {
+  transform: scale(1.08);
+  filter: drop-shadow(0 1px 1px rgba(121, 73, 28, .1));
 }
 :root body.web-browser.chloe-autumn-workspace .theme-options {
   border: 1px solid color-mix(in srgb, var(--chloe-gold) 18%, transparent);
