@@ -177,7 +177,9 @@
     // Running tasks and approvals can precede the first assistant message.
     strip.hidden = !state.activeId || (!state.busy && !approval && !state.active?.messages?.length && (!state.active?.taskStatus || state.active.taskStatus.state === "idle"));
     strip.dataset.state = status.state;
-    strip.innerHTML = `<span class="task-state-dot"></span><strong>${escapeHtml(status.label)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : ""}`;
+    const isIdle = status.state === "idle" || status.label === "准备就绪";
+    const displayLabel = isIdle ? "尚未开始" : status.label;
+    strip.innerHTML = `<span class="task-state-tree"><svg class="task-state-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree-mini"></use></svg></span><strong>${escapeHtml(displayLabel)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : '<svg class="task-strip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>'}`;
     strip.querySelector("#jumpToApproval")?.addEventListener("click", () => $("#approvalDock")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
     const older = $("#loadOlderMessages");
     older.hidden = !state.workspaceFeatures || !state.active?.hasMore;

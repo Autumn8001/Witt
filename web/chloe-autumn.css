@@ -86,12 +86,12 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-entry-text small { font-size: 12px !important; color: var(--chloe-muted) !important; margin-top: 4px; }
 :root body.web-browser.chloe-autumn-workspace .workspace-entry { display: flex !important; align-items: center !important; justify-content: space-between; min-height: 48px; margin: 0 !important; padding: 12px 14px !important; border: 0 !important; border-radius: 12px !important; color: var(--chloe-ink) !important; background: color-mix(in srgb, var(--chloe-surface) 45%, transparent) !important; font-size: 15px !important; }
 .workspace-entry-label { display: inline-flex; align-items: center; gap: 12px; text-align: left; }
-.workspace-entry-label svg { width: 28px !important; height: 28px !important; }
+.workspace-entry-label svg { width: 22px !important; height: 22px !important; }
 .workspace-entry svg, .drawer-entry-arrow { width: 18px !important; height: 18px !important; color: var(--chloe-gold) !important; flex: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-utilities { display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)) !important; gap: 10px !important; }
 :root body.web-browser.chloe-autumn-workspace .drawer-tools .drawer-profile { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 7px !important; padding: 12px 4px !important; min-height: 100px !important; border-radius: 16px !important; border: 0 !important; background: var(--chloe-surface) !important; text-align: center; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile-svg { color: var(--chloe-gold) !important; display: grid; place-items: center; width: 30px; height: 30px; }
-:root body.web-browser.chloe-autumn-workspace .drawer-profile-svg svg { width: 36px; height: 36px; color: var(--chloe-gold) !important; }
+:root body.web-browser.chloe-autumn-workspace .drawer-profile-svg svg { width: 26px; height: 26px; color: var(--chloe-gold) !important; }
 :root body.web-browser.chloe-autumn-workspace #profileButton .drawer-profile-svg { color: var(--chloe-brown) !important; }
 :root body.web-browser.chloe-autumn-workspace #adminSettingsButton .drawer-profile-svg { color: var(--chloe-amber) !important; }
 :root body.web-browser.chloe-autumn-workspace #codexAccountsButton .drawer-profile-svg { color: var(--chloe-rust) !important; }
@@ -122,17 +122,157 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 .composer-toolbar-left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
 .composer-toolbar-right { display: flex; align-items: center; gap: 12px; flex: none; }
 :root body.web-browser.chloe-autumn-workspace .attach-button { position: static !important; width: 48px !important; height: 48px !important; flex: none; color: var(--chloe-gold) !important; background: var(--chloe-soft) !important; border-radius: 50% !important; }
-:root body.web-browser.chloe-autumn-workspace #modelButton { display: inline-flex !important; align-items: center !important; gap: 13px !important; min-height: 44px !important; min-width: 0 !important; max-width: 100% !important; padding: 0 14px !important; background: var(--chloe-soft) !important; border: 0 !important; border-radius: 24px !important; color: var(--chloe-body) !important; box-shadow: none !important; white-space: nowrap; }
-:root body.web-browser.chloe-autumn-workspace #modelButton > svg:first-child { display: none !important; }
-:root body.web-browser.chloe-autumn-workspace #modelButton :is(b,.composer-env-pill,#reasoningLabel) { display: inline-block !important; visibility: visible !important; padding: 0 !important; border: 0 !important; background: transparent !important; font-size: 15px !important; color: var(--chloe-body) !important; }
-:root body.web-browser.chloe-autumn-workspace #modelButton b { font-weight: 600 !important; max-width: 220px !important; overflow: hidden; text-overflow: ellipsis; }
-:root body.web-browser.chloe-autumn-workspace #modelButton i { width: 1px !important; height: 20px !important; background: var(--chloe-line) !important; }
-:root body.web-browser.chloe-autumn-workspace #modelButton .pill-chevron { width: 14px; height: 14px; flex: none; }
+:root body.web-browser.chloe-autumn-workspace #modelButton {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 38px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  white-space: nowrap;
+}
+:root body.web-browser.chloe-autumn-workspace .model-pill-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 12px;
+  background: rgba(246, 241, 233, 0.85);
+  border: 1px solid rgba(195, 172, 140, 0.32);
+  color: var(--chloe-ink);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+:root body.web-browser.chloe-autumn-workspace .model-pill-segment:hover {
+  background: rgba(246, 241, 233, 1);
+  border-color: rgba(195, 172, 140, 0.55);
+}
+:root body.web-browser.chloe-autumn-workspace .model-pill-segment .autumn-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+:root body.web-browser.chloe-autumn-workspace .model-pill-segment :is(b,.composer-env-pill,#reasoningLabel) {
+  display: inline-block !important;
+  visibility: visible !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  font-size: 13.5px !important;
+  color: var(--chloe-ink) !important;
+  line-height: 1;
+}
+:root body.web-browser.chloe-autumn-workspace .model-pill-segment b {
+  font-weight: 600 !important;
+  max-width: 220px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root body.web-browser.chloe-autumn-workspace .model-pill-segment .pill-chevron {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  stroke: var(--chloe-muted);
+}
+/* 侧栏底部更新红点 */
+:root body.web-browser.chloe-autumn-workspace .update-link {
+  position: relative;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px;
+  cursor: pointer;
+}
+:root body.web-browser.chloe-autumn-workspace .update-badge-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #db4b2b;
+  box-shadow: 0 0 0 2px var(--chloe-sidebar);
+  margin-top: -6px;
+  margin-left: 2px;
+}
+/* 任务状态条秋日增强 */
+:root body.web-browser.chloe-autumn-workspace .task-status-strip {
+  max-width: 760px !important;
+  margin: 18px auto 26px !important;
+  padding: 10px 18px !important;
+  border-radius: 16px !important;
+  background: rgba(255, 252, 247, 0.92) !important;
+  border: 1px solid rgba(215, 195, 160, 0.45) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 4px 18px rgba(80, 60, 30, 0.04) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-size: 13px !important;
+}
+:root body.web-browser.chloe-autumn-workspace .task-state-tree {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+:root body.web-browser.chloe-autumn-workspace .task-state-tree svg {
+  width: 20px;
+  height: 20px;
+}
+:root body.web-browser.chloe-autumn-workspace .task-status-strip strong {
+  color: var(--chloe-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+:root body.web-browser.chloe-autumn-workspace .task-strip-arrow {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--chloe-muted);
+  stroke-width: 2;
+  margin-left: auto;
+  flex: none;
+}
 :root body.web-browser.chloe-autumn-workspace .voice-button { position: static !important; display: grid !important; place-items: center; width: 48px !important; height: 48px !important; border-radius: 50% !important; border: 1px solid var(--chloe-line) !important; color: var(--chloe-muted) !important; background: transparent !important; }
-:root body.web-browser.chloe-autumn-workspace .send-button { position: static !important; display: grid !important; place-items: center; width: 50px !important; height: 50px !important; border-radius: 50% !important; background: var(--chloe-olive) !important; color: var(--chloe-canvas) !important; border: 0 !important; box-shadow: 0 4px 8px rgba(61,70,43,.18) !important; }
-:root body.web-browser.chloe-autumn-workspace .send-button svg { color: inherit !important; stroke: currentColor !important; width: 26px; height: 26px; }
-:root body.web-browser.chloe-autumn-workspace .send-button:disabled { background: var(--chloe-selection) !important; color: var(--chloe-muted) !important; box-shadow: none !important; cursor: not-allowed; opacity: .75; }
-:root body.web-browser.chloe-autumn-workspace .send-button:hover:not(:disabled) { background: var(--chloe-olive-hover) !important; }
+:root body.web-browser.chloe-autumn-workspace .send-button,
+:root body.web-browser.chloe-autumn-workspace .send-button:disabled,
+:root body.web-browser.chloe-autumn-workspace .send-button:not(.working):not(.sending):not(.pausing):disabled {
+  position: static !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: #506636 !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: 0 3px 8px rgba(61, 70, 43, 0.25) !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  transition: all .16s ease !important;
+}
+:root body.web-browser.chloe-autumn-workspace .send-button svg,
+:root body.web-browser.chloe-autumn-workspace .send-button:disabled svg,
+:root body.web-browser.chloe-autumn-workspace .send-button:not(.working):not(.sending):not(.pausing):disabled svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none !important;
+  stroke-width: 2.4 !important;
+  width: 22px !important;
+  height: 22px !important;
+  display: block !important;
+}
+:root body.web-browser.chloe-autumn-workspace .send-button:hover:not(:disabled) {
+  background: var(--chloe-olive-hover) !important;
+  transform: scale(1.05) !important;
+}
 :root body.web-browser.chloe-autumn-workspace .composer-hint { margin: 8px 0 0 !important; font-size: 11px !important; color: var(--chloe-muted) !important; }
 :root body.web-browser.chloe-autumn-workspace .quick-model-menu:not(.open) { display: none !important; }
 :root body.web-browser.chloe-autumn-workspace .quick-model-menu.open { display: block !important; }
