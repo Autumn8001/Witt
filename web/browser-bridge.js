@@ -273,10 +273,11 @@
         "onCodexLoginCancelled", "onAdminError", "无法取消登录");
     },
 
-    pickFiles() {
+    pickFiles(accept = "") {
       const input = document.createElement("input");
       input.type = "file";
       input.multiple = true;
+      if (accept) input.accept = String(accept);
       input.onchange = () => {
         const selected = [...input.files].filter((file) => file.size <= 500 * 1024 * 1024)
           .map((file) => {

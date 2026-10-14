@@ -4952,7 +4952,9 @@
   });
   $("#attachPhotoButton").addEventListener("click", () => {
     setAttachmentMenu(false);
-    bridge()?.pickFiles?.();
+    // Keep the photo action focused on image inputs so desktop browsers and
+    // mobile pickers expose the right media source instead of a generic file list.
+    bridge()?.pickFiles?.("image/*");
   });
   $("#attachFileButton").addEventListener("click", () => {
     setAttachmentMenu(false);
