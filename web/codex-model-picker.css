@@ -12,7 +12,7 @@
 }
 
 .settings-section-head > small {
-  color: #8b96a8;
+  color: var(--chloe-muted);
   font-size: 7px;
   letter-spacing: .02em;
 }
@@ -65,16 +65,16 @@
 
 .reasoning-console {
   --reasoning-progress: 50%;
-  --rail-a: #788496;
-  --rail-b: #a8b0bc;
-  --rail-c: #d8dde4;
+  --rail-a: var(--chloe-olive);
+  --rail-b: var(--chloe-olive);
+  --rail-c: var(--chloe-gold);
   position: relative;
   padding: 13px 12px 11px;
   overflow: hidden;
-  border: 1px solid rgba(115, 128, 149, .17);
-  border-radius: 17px;
-  background: rgba(255, 255, 255, .78);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 12px 30px rgba(34, 48, 75, .055);
+  border: 1px solid var(--chloe-line);
+  border-radius: 8px;
+  background: var(--chloe-canvas);
+  box-shadow: var(--chloe-shadow);
   isolation: isolate;
 }
 
@@ -95,14 +95,14 @@
   box-shadow: 0 0 calc(4px + var(--reasoning-intensity, 0) * 2px) var(--rail-b);
 }
 
-.reasoning-readout strong { color: #182238; font-size: 10px; }
+.reasoning-readout strong { color: var(--chloe-ink); font-size: 12px; }
 
 .reasoning-readout code {
   padding: 3px 7px;
-  border: 1px solid rgba(117, 130, 151, .13);
-  border-radius: 99px;
-  color: #758195;
-  background: rgba(243, 246, 250, .9);
+  border: 1px solid var(--chloe-line);
+  border-radius: 5px;
+  color: var(--chloe-muted);
+  background: var(--chloe-soft);
   font: 600 6px/1.2 Inter, sans-serif;
   letter-spacing: .11em;
 }
@@ -188,7 +188,7 @@
   min-width: 0;
   padding: 0 1px;
   border: 0;
-  color: #929cad;
+  color: var(--chloe-muted);
   background: transparent;
   text-align: center;
 }
@@ -206,7 +206,7 @@
   transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
 }
 
-.reasoning-stops button.selected { color: #26334b; }
+.reasoning-stops button.selected { color: var(--chloe-ink); }
 
 .reasoning-stops button.selected::before {
   background: #fff;
@@ -224,16 +224,17 @@
 .reasoning-description {
   min-height: 25px;
   margin: 11px 1px 0;
-  color: #7f8a9b;
+  color: var(--chloe-muted);
   font-size: 7px;
   line-height: 1.55;
 }
 
-.reasoning-console[data-level="medium"] { --rail-a: #377cf3; --rail-b: #2baeea; --rail-c: #62d7dd; }
-.reasoning-console[data-level="high"] { --rail-a: #257df5; --rail-b: #6d5df6; --rail-c: #b75df0; }
-.reasoning-console[data-level="xhigh"] { --rail-a: #1fa8f6; --rail-b: #7454f6; --rail-c: #f04fa7; }
-.reasoning-console[data-level="max"] { --rail-a: #27d5d0; --rail-b: #7862ff; --rail-c: #ff5b91; }
-.reasoning-console[data-level="ultra"] { --rail-a: #22d3ee; --rail-b: #9b5cff; --rail-c: #ffc64a; }
+.reasoning-console[data-level="low"] { --rail-a: var(--chloe-muted); --rail-b: var(--chloe-muted); --rail-c: var(--chloe-olive); }
+.reasoning-console[data-level="medium"] { --rail-a: var(--chloe-olive); --rail-b: var(--chloe-olive); --rail-c: var(--chloe-gold); }
+.reasoning-console[data-level="high"],
+.reasoning-console[data-level="xhigh"],
+.reasoning-console[data-level="max"],
+.reasoning-console[data-level="ultra"] { --rail-a: var(--chloe-olive); --rail-b: var(--chloe-gold); --rail-c: var(--chloe-gold); }
 
 .reasoning-console[data-intensity="2"] .reasoning-rail-fill,
 .reasoning-console[data-intensity="3"] .reasoning-rail-fill,
@@ -267,50 +268,44 @@
 @keyframes reasoning-spectrum { to { background-position: -220% 0; } }
 @keyframes reasoning-glint { 0% { left: -35%; } 70%, 100% { left: 120%; } }
 
-.app-server-actions button {
-  border: 1px solid rgba(115, 128, 149, .17);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, .78);
-}
-
 html[data-theme-mode="colorful"] .settings-section-head > small,
-html[data-theme="dark"] .settings-section-head > small { color: rgba(255, 255, 255, .46); }
+html[data-theme="dark"] .settings-section-head > small { color: var(--chloe-muted); }
 
 html[data-theme-mode="colorful"] .reasoning-console,
 html[data-theme="dark"] .reasoning-console {
-  border-color: rgba(255, 255, 255, .12);
-  background: rgba(255, 255, 255, .055);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 16px 34px rgba(0, 0, 0, .18);
+  border-color: var(--chloe-line);
+  background: var(--chloe-surface);
+  box-shadow: var(--chloe-shadow);
 }
 
 html[data-theme-mode="colorful"] .reasoning-readout strong,
 html[data-theme="dark"] .reasoning-readout strong,
 html[data-theme-mode="colorful"] .reasoning-stops button.selected,
-html[data-theme="dark"] .reasoning-stops button.selected { color: #fff; }
+html[data-theme="dark"] .reasoning-stops button.selected { color: var(--chloe-ink); }
 
 html[data-theme-mode="colorful"] .reasoning-readout code,
 html[data-theme="dark"] .reasoning-readout code {
-  color: rgba(255, 255, 255, .62);
-  border-color: rgba(255, 255, 255, .1);
-  background: rgba(255, 255, 255, .07);
+  color: var(--chloe-muted);
+  border-color: var(--chloe-line);
+  background: var(--chloe-soft);
 }
 
 html[data-theme-mode="colorful"] .reasoning-description,
 html[data-theme="dark"] .reasoning-description,
 html[data-theme-mode="colorful"] .reasoning-stops button,
-html[data-theme="dark"] .reasoning-stops button { color: rgba(255, 255, 255, .48); }
+html[data-theme="dark"] .reasoning-stops button { color: var(--chloe-muted); }
 
 html[data-theme-mode="colorful"] .reasoning-stops button::before,
 html[data-theme="dark"] .reasoning-stops button::before {
-  border-color: rgba(255, 255, 255, .58);
-  background: rgba(255, 255, 255, .3);
+  border-color: var(--chloe-line);
+  background: var(--chloe-soft);
 }
 
 html[data-theme-mode="colorful"] .app-server-actions button,
 html[data-theme="dark"] .app-server-actions button {
-  color: #fff;
-  border-color: rgba(255, 255, 255, .11);
-  background: rgba(255, 255, 255, .045);
+  color: var(--chloe-ink);
+  border-color: var(--chloe-line);
+  background: var(--chloe-canvas);
 }
 
 /* Figma spec: compact model segments + substantial six-stage energy capsule. */
@@ -318,9 +313,9 @@ html[data-theme="dark"] .app-server-actions button {
   gap: 5px;
   margin: 0;
   padding: 5px;
-  border: 1px solid rgba(115, 128, 149, .18);
-  border-radius: 16px;
-  background: rgba(20, 25, 35, .055);
+  border: 1px solid var(--chloe-line);
+  border-radius: 8px;
+  background: var(--chloe-soft);
   scroll-padding-inline: 5px;
 }
 
@@ -338,9 +333,9 @@ html[data-theme="dark"] .app-server-actions button {
 }
 
 .model-options > button.selected {
-  color: #101521;
-  background: #eef2ff;
-  box-shadow: 0 4px 14px rgba(44, 64, 120, .12);
+  color: var(--chloe-ink);
+  background: color-mix(in srgb, var(--chloe-olive) 12%, var(--chloe-surface));
+  box-shadow: inset 0 0 0 1px var(--chloe-olive);
 }
 
 .model-options .model-glyph,
@@ -350,8 +345,9 @@ html[data-theme="dark"] .app-server-actions button {
 
 .reasoning-console {
   padding: 15px 14px 14px;
-  border-radius: 20px;
-  box-shadow: 0 15px 34px rgba(22, 29, 45, .08);
+  border-radius: 8px;
+  background: var(--chloe-surface);
+  box-shadow: var(--chloe-shadow);
 }
 
 .reasoning-readout { margin-bottom: 13px; }
@@ -367,8 +363,8 @@ html[data-theme="dark"] .app-server-actions button {
   overflow: hidden;
   border: 1px solid rgba(95, 107, 132, .3);
   border-radius: 15px;
-  background: #11151e;
-  box-shadow: inset 0 3px 7px rgba(0, 0, 0, .55), 0 1px 0 rgba(255, 255, 255, .06);
+  background: var(--chloe-soft);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--chloe-ink) 12%, transparent);
 }
 
 .reasoning-segment {
@@ -376,8 +372,8 @@ html[data-theme="dark"] .app-server-actions button {
   min-width: 0;
   border: 1px solid rgba(120, 131, 154, .22);
   border-radius: 11px;
-  background: #20242e;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
+  background: var(--chloe-canvas);
+  box-shadow: none;
   transition: transform .28s cubic-bezier(.2, .8, .2, 1), background .3s ease, box-shadow .3s ease;
 }
 
@@ -425,9 +421,9 @@ html[data-theme="dark"] .app-server-actions button {
 .reasoning-console[data-intensity="5"] .reasoning-segment.active { animation-duration: 1.35s; }
 
 html[data-theme-mode="colorful"] .model-options,
-html[data-theme="dark"] .model-options { background: rgba(255, 255, 255, .035); border-color: rgba(255, 255, 255, .1); }
+html[data-theme="dark"] .model-options { background: var(--chloe-soft); border-color: var(--chloe-line); }
 html[data-theme-mode="colorful"] .model-options > button.selected,
-html[data-theme="dark"] .model-options > button.selected { color: #111723; background: #eef2ff; }
+html[data-theme="dark"] .model-options > button.selected { color: var(--chloe-ink); background: color-mix(in srgb, var(--chloe-olive) 20%, var(--chloe-canvas)); }
 
 @media (prefers-reduced-motion: reduce) {
   .reasoning-rail-fill,
@@ -440,15 +436,10 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
   position: relative;
   height: 44px;
   overflow: hidden;
-  border: 1px solid rgba(119, 133, 158, .32);
+  border: 1px solid var(--chloe-line);
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 50% 0, rgba(255, 255, 255, .09), transparent 52%),
-    linear-gradient(180deg, #0b0e15, #181d28 52%, #0d1119);
-  box-shadow:
-    inset 0 4px 9px rgba(0, 0, 0, .72),
-    inset 0 -1px 0 rgba(255, 255, 255, .08),
-    0 7px 18px rgba(17, 26, 43, .14);
+  background: var(--chloe-soft);
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--chloe-ink) 16%, transparent);
   isolation: isolate;
   touch-action: manipulation;
 }
@@ -545,7 +536,7 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
 }
 
 .reasoning-liquid-hitbox button:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--chloe-olive);
   outline-offset: -5px;
   border-radius: 999px;
 }
@@ -598,13 +589,11 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
   margin-top: 17px;
   padding: 14px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 22px;
-  color: #f5f7fc;
-  background:
-    radial-gradient(circle at 88% 0, rgba(77, 129, 255, .2), transparent 35%),
-    linear-gradient(145deg, #141925, #0c1018 68%);
-  box-shadow: 0 18px 40px rgba(12, 19, 34, .2), inset 0 1px 0 rgba(255, 255, 255, .07);
+  border: 1px solid var(--chloe-line);
+  border-radius: 8px;
+  color: var(--chloe-ink);
+  background: var(--chloe-surface);
+  box-shadow: var(--chloe-shadow);
 }
 
 .app-server-heading {
@@ -617,7 +606,7 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
 .app-server-heading > div > span {
   display: block;
   margin-bottom: 2px;
-  color: #71809a;
+  color: var(--chloe-muted);
   font-size: 5px;
   font-weight: 700;
   letter-spacing: .18em;
@@ -625,7 +614,7 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
 
 .sheet-panel .app-server-heading h3 {
   margin: 0;
-  color: #fff;
+  color: var(--chloe-ink);
   font-size: 11px;
   letter-spacing: .02em;
 }
@@ -635,10 +624,10 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
   align-items: center;
   gap: 5px;
   padding: 4px 7px;
-  border: 1px solid rgba(70, 225, 159, .18);
-  border-radius: 999px;
-  color: #73e2ad;
-  background: rgba(52, 196, 130, .08);
+  border: 1px solid color-mix(in srgb, var(--ui-success) 28%, var(--chloe-line));
+  border-radius: 5px;
+  color: var(--ui-success);
+  background: color-mix(in srgb, var(--ui-success) 8%, var(--chloe-surface));
   font-size: 5px;
   font-weight: 700;
   letter-spacing: .12em;
@@ -649,19 +638,17 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #42db98;
-  box-shadow: 0 0 8px rgba(66, 219, 152, .9);
+  background: var(--ui-success);
 }
 
 .app-server-live.offline {
-  color: #ff9d9d;
-  border-color: rgba(255, 111, 111, .2);
-  background: rgba(255, 86, 86, .08);
+  color: var(--ui-error);
+  border-color: color-mix(in srgb, var(--ui-error) 28%, var(--chloe-line));
+  background: color-mix(in srgb, var(--ui-error) 8%, var(--chloe-surface));
 }
 
 .app-server-live.offline i {
-  background: #ff7070;
-  box-shadow: 0 0 8px rgba(255, 90, 90, .75);
+  background: var(--ui-error);
 }
 
 .app-server-status {
@@ -669,8 +656,8 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
   border: 0;
   border-radius: 17px;
   color: inherit;
-  background: rgba(255, 255, 255, .045);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  background: var(--chloe-canvas);
+  box-shadow: none;
 }
 
 .app-server-metrics {
@@ -682,15 +669,15 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
 .app-server-metrics > div {
   min-width: 0;
   padding: 0 6px;
-  border-right: 1px solid rgba(255, 255, 255, .08);
+  border-right: 1px solid var(--chloe-line);
 }
 
 .app-server-metrics > div:last-child { border-right: 0; }
 
 .app-server-metrics strong,
 .app-server-metrics small { display: block; }
-.app-server-metrics strong { color: #fff; font-size: 15px; line-height: 1; letter-spacing: -.04em; }
-.app-server-metrics small { margin-top: 5px; overflow: hidden; color: #8390a5; font-size: 5px; text-overflow: ellipsis; white-space: nowrap; }
+.app-server-metrics strong { color: var(--chloe-ink); font-size: 15px; line-height: 1; }
+.app-server-metrics small { margin-top: 5px; overflow: hidden; color: var(--chloe-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
 .app-server-sync {
   display: flex;
@@ -698,14 +685,14 @@ html[data-theme="dark"] .model-options > button.selected { color: #111723; backg
   justify-content: space-between;
   gap: 8px;
   padding: 7px 11px;
-  border-top: 1px solid rgba(255, 255, 255, .065);
-  color: #93a0b4;
-  font-size: 5px;
+  border-top: 1px solid var(--chloe-line);
+  color: var(--chloe-body);
+  font-size: 10px;
 }
 
 .app-server-sync span { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; }
 .app-server-sync span i { width: 4px; height: 4px; }
-.app-server-sync small { overflow: hidden; color: #617087; font-size: 5px; text-overflow: ellipsis; white-space: nowrap; }
+.app-server-sync small { overflow: hidden; color: var(--chloe-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
 .app-server-actions {
   display: grid;
@@ -723,17 +710,17 @@ html[data-theme="dark"] .app-server-actions button {
   grid-template-columns: 32px minmax(0, 1fr) 10px;
   align-items: center;
   gap: 9px;
-  border: 1px solid rgba(255, 255, 255, .075);
-  border-radius: 15px;
-  color: #f5f7fc;
-  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--chloe-line);
+  border-radius: 7px;
+  color: var(--chloe-ink);
+  background: var(--chloe-canvas);
   text-align: left;
   transition: background .2s ease, border-color .2s ease, transform .2s ease;
 }
 
 .app-server-actions button:not(:disabled):active {
-  border-color: rgba(107, 146, 255, .32);
-  background: rgba(82, 119, 225, .12);
+  border-color: var(--chloe-olive);
+  background: var(--chloe-soft);
   transform: scale(.985);
 }
 
@@ -742,10 +729,10 @@ html[data-theme="dark"] .app-server-actions button {
   height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(119, 151, 255, .16);
-  border-radius: 11px;
-  color: #8aa6ff;
-  background: linear-gradient(145deg, rgba(76, 116, 242, .18), rgba(103, 83, 218, .07));
+  border: 1px solid var(--chloe-line);
+  border-radius: 7px;
+  color: var(--chloe-olive);
+  background: color-mix(in srgb, var(--chloe-olive) 9%, var(--chloe-surface));
 }
 
 .app-server-action-icon svg {
@@ -761,9 +748,9 @@ html[data-theme="dark"] .app-server-actions button {
 .app-server-actions button > span:nth-child(2) { min-width: 0; }
 .app-server-actions strong,
 .app-server-actions small { display: block; }
-.app-server-actions strong { color: #f5f7fc; font-size: 8px; }
-.app-server-actions small { margin-top: 3px; overflow: hidden; color: #79869a; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
-.app-server-actions button > i { color: #667389; font-size: 14px; font-style: normal; }
+.app-server-actions strong { color: var(--chloe-ink); font-size: 12px; }
+.app-server-actions small { margin-top: 3px; overflow: hidden; color: var(--chloe-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.app-server-actions button > i { color: var(--chloe-muted); font-size: 14px; font-style: normal; }
 .app-server-actions button:disabled { opacity: .42; }
 
 @media (prefers-reduced-motion: reduce) {

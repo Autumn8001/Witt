@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-hidden="true">
+<defs>
+  <linearGradient id="gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
+  <linearGradient id="rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
+  <linearGradient id="orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
+  <linearGradient id="olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
+  <linearGradient id="oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
+  <linearGradient id="acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
+  <linearGradient id="cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
+  <linearGradient id="wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
+</defs>
+
+ <path d="M31 55 C31 43 31 38 31 31" stroke="#504C2B" stroke-width="3" stroke-linecap="round" fill="none"/>
+ <path d="M30 33 C22 35 15 30 16 24 C9 21 13 13 20 14 C20 7 28 6 31 12 C35 5 43 8 43 14 C51 10 56 17 51 23 C57 28 50 34 44 32 C38 36 33 33 30 33Z" fill="url(#gold)" stroke="#98602D" stroke-width="1.4"/>
+ <path d="M31 32 L20 15 M31 32 L25 11 M31 32 L32 12 M31 32 L43 13 M31 32 L49 20" stroke="#98602D" stroke-width="1.2" opacity=".65" fill="none"/>
+ <path d="M18 24 C24 24 30 29 31 33" stroke="#FFE5A4" stroke-opacity=".7" stroke-width="1.1" fill="none"/>
+ <path d="M21 55 H42" stroke="#454F32" stroke-width="2.3" stroke-linecap="round"/>
+
+</svg>

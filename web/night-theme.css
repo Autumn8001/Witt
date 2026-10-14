@@ -118,13 +118,6 @@
 :root[data-theme="dark"] .welcome-mark > i {
   box-shadow: 0 0 0 6px rgba(52, 204, 183, .09), 0 0 20px rgba(52, 204, 183, .22);
 }
-:root[data-theme="dark"] .suggestions button {
-  border-color: rgba(128, 158, 201, .11);
-  background: linear-gradient(135deg, rgba(20, 34, 54, .88), rgba(14, 27, 44, .82));
-  box-shadow: 0 16px 42px rgba(0, 0, 0, .17);
-}
-:root[data-theme="dark"] .suggestions button:active { background: #192940; }
-:root[data-theme="dark"] .suggestions small { color: #8291a9; }
 
 :root[data-theme="dark"] .stream-message.commentary { color: #bdc8da; }
 :root[data-theme="dark"] .assistant-text code,

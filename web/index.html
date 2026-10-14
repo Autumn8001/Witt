@@ -42,43 +42,42 @@
   <link rel="stylesheet" href="/vault/usage-insight.css?v=2.1.12-usage1">
   <link rel="stylesheet" href="/vault/quota-spacing.css?v=2.1.12-quota7">
   <link rel="stylesheet" href="/vault/usage-ring-fit.css?v=2.1.12-usage2">
-  <link rel="stylesheet" href="/vault/auth-gate.css?v=2.2.7-admin-hide1">
-  <link rel="stylesheet" href="/vault/approval-card.css?v=2.3.0-user-input1">
+  <link rel="stylesheet" href="/vault/auth-gate.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/approval-card.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/conversation-type.css?v=2.2.0-type1">
   <link rel="stylesheet" href="/vault/night-theme.css?v=2.2.13-night2">
   <link rel="stylesheet" href="/vault/message-collapse.css?v=2.2.0-collapse1">
   <link rel="stylesheet" href="/vault/chat-overflow-fix.css?v=2.2.0-overflow1">
   <link rel="stylesheet" href="/vault/vendor/katex/katex.min.css?v=0.16.22">
   <link rel="stylesheet" href="/vault/formula-code.css?v=2.2.10-table1">
-  <link rel="stylesheet" href="/vault/codex-accounts.css?v=2.2.9-layout2">
+  <link rel="stylesheet" href="/vault/codex-accounts.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/performance.css?v=2.2.8-power1">
   <link rel="stylesheet" href="/vault/landscape.css?v=2.2.5-landscape3">
   <link rel="stylesheet" href="/vault/lumora-global.css?v=2.2.6-perf1">
-  <link rel="stylesheet" href="/vault/codex-model-picker.css?v=2.2.9-liquid1">
+  <link rel="stylesheet" href="/vault/codex-model-picker.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/chat-links.css?v=2.2.9-links1">
   <link rel="stylesheet" href="/vault/completed-turn.css?v=2.2.10-result1">
   <link rel="stylesheet" href="/vault/drawer-layout.css?v=2.2.11-drawer2">
-  <link rel="stylesheet" href="/vault/witt-next.css?v=3.2.5-tools-webui">
-  <link rel="stylesheet" href="/vault/artifact-preview.css?v=3.0.0">
-  <link rel="stylesheet" href="/vault/claude-app.css?v=1.0.0">
+  <link rel="stylesheet" href="/vault/witt-next.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/artifact-preview.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/claude-app.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/vendor/xterm/xterm.css?v=6.0.0">
   <link rel="stylesheet" href="/vault/local-terminal.css?v=2.2.16-terminal-workspace4">
-  <link rel="stylesheet" href="/vault/customer-devices.css?v=3">
+  <link rel="stylesheet" href="/vault/customer-devices.css?v=4.1.0-autumn-system">
   <link rel="stylesheet" href="/vault/night-contrast.css?v=2.2.13-nightfix1">
-  <link rel="stylesheet" href="/vault/approval-dock.css?v=3.2.1-approval-pointerfix1">
-  <link rel="stylesheet" href="/vault/witt-white.css?v=3.0.18-modelrestore1">
+  <link rel="stylesheet" href="/vault/approval-dock.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/witt-white.css?v=4.1.0-autumn-system">
   <style id="workspace-critical-style">
 /* Semantic workspace layer. Legacy terminal/artifact/theme styles stay intact. */
-:root { --ws-ink: #243839; --ws-muted: #718181; --ws-line: rgba(42,68,68,.12); --ws-surface: rgba(255,255,255,.94); --ws-accent: #227b70; --ws-radius: 16px; }
-[data-theme="dark"] { --ws-ink: #e1edeb; --ws-muted: #a3b8b3; --ws-line: rgba(183,215,208,.18); --ws-surface: #17201f; --ws-accent: #79cabc; }
+:root { --ws-ink: var(--chloe-ink); --ws-muted: var(--chloe-muted); --ws-line: var(--chloe-line); --ws-surface: var(--chloe-surface); --ws-accent: var(--chloe-olive); --ws-radius: 16px; }
 .workspace-chat-title { flex: 1; min-width: 0; margin: 0 8px; font-size: 15px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ws-ink); }
 .task-status-strip { display: flex; align-items: center; gap: 9px; max-width: 900px; margin: calc(92px + env(safe-area-inset-top)) auto 22px; padding: 11px 14px; border: 1px solid var(--ws-line); border-radius: var(--ws-radius); color: var(--ws-ink); background: var(--ws-surface); font-size: 12px; }
 .task-status-strip:not([hidden]) ~ .messages { padding-top: 12px !important; }
 .task-status-strip[hidden], .history-load[hidden] { display: none; }
 .task-state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ws-accent); flex: none; }
 .task-origin { flex: 1; color: var(--ws-muted); line-height: 1.5; }
-.task-status-strip[data-state="awaiting_confirmation"], .task-status-strip[data-state="waiting_confirmation"] { border-color: #c79848; }
-.task-status-strip[data-state="failed"] .task-state-dot { background: #c45555; }
+.task-status-strip[data-state="awaiting_confirmation"], .task-status-strip[data-state="waiting_confirmation"] { border-color: var(--ui-warning); }
+.task-status-strip[data-state="failed"] .task-state-dot { background: var(--ui-error); }
 .task-status-strip button { border: none; background: transparent; color: var(--ws-accent); font: inherit; cursor: pointer; }
 .history-load { display: block; margin: 0 auto 24px; padding: 10px 20px; border: 1px solid var(--ws-line); border-radius: 999px; color: var(--ws-accent); background: var(--ws-surface); font: inherit; font-size: 12px; cursor: pointer; }
 .drawer-panel .drawer-history { display: flex; flex-direction: column; min-height: 0; }
@@ -125,14 +124,109 @@
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
   <link rel="stylesheet" href="/vault/browser-chatgpt.css?v=1.0.0">
-  <link rel="stylesheet" href="/vault/component-interactions.css?v=2-transcript-inset">
-  <link rel="stylesheet" href="/vault/profile-overview.css?v=4-profile-hierarchy">
-  <link rel="stylesheet" href="/vault/ui-system.css?v=1">
-  <link rel="stylesheet" href="/vault/chloe-autumn.css?v=3.5.0">
+  <link rel="stylesheet" href="/vault/component-interactions.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/profile-overview.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/ui-system.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/chloe-autumn.css?v=4.1.0-autumn-system">
 </head>
 <body class="chloe-autumn-workspace">
+  <!-- Chloe autumn: supplied Figma is visual authority. Warm ivory sidebar,
+       olive actions, botanical SVG branding, landscape-led welcome and floating
+       composer. Homepage shortcuts are removed; runtime task status is retained. -->
   <div class="chloe-bg-layer" aria-hidden="true"></div>
   <div class="chloe-bg-mask" aria-hidden="true"></div>
+  <svg class="autumn-icon-defs" aria-hidden="true" focusable="false"><defs>
+      <!-- 1. 枫叶：单片舒展红棕色秋枫叶，亮金主侧脉 -->
+      <symbol id="autumn-icon-leaf" viewBox="0 0 24 24" fill="none">
+        <path d="M18.5 4.5c-4.2 1-8.5 4.8-9.8 10-.5 2.2.4 4.2 2.3 4.8 4.8-1 8.5-5.2 9.5-9.6.5-2.8-.8-4.7-2-5.2Z" fill="#b85827" stroke="#7d3413" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M8.7 14.5c3-3 6.3-5.8 9.8-10" stroke="#fce3a6" stroke-width="1.1" stroke-linecap="round" opacity="0.85"/>
+        <path d="M12 11.2c1.2.6 2.4 1 3.8.8M14.5 8.2c1 .4 2 .8 3 .5" stroke="#fce3a6" stroke-width="0.9" stroke-linecap="round" opacity="0.75"/>
+      </symbol>
+
+      <!-- 2. 橡果：饱满圆润小橡果，深棕坚果帽 -->
+      <symbol id="autumn-icon-acorn" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3c-.5 1.5.2 2.5 1.5 2.8" stroke="#6b3f20" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M6.5 9c0-1.8 2.5-3.2 5.5-3.2s5.5 1.4 5.5 3.2c0 .8-.5 1.5-1.2 2-1 .7-2.6 1.2-4.3 1.2s-3.3-.5-4.3-1.2c-.7-.5-1.2-1.2-1.2-2Z" fill="#87431e" stroke="#5d2c12" stroke-width="1.1"/>
+        <path d="M7.8 10.5c.3 4 2.2 7.5 4.2 8.5 2-1 3.9-4.5 4.2-8.5" fill="#cf8232" stroke="#7e3b12" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M9.5 12c.2 2 1.2 3.8 2.5 4.5" stroke="#fae1a0" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
+      </symbol>
+
+      <!-- 3. 嫩芽：秋绿与焦糖双色嫩芽 -->
+      <symbol id="autumn-icon-sprout" viewBox="0 0 24 24" fill="none">
+        <path d="M7 19.5c2-4.5 5.2-7.5 9.5-10.5" stroke="#687848" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M16.5 9c-2.8 0-4.6 1.8-4.6 4.5 2.8 0 4.6-1.8 4.6-4.5Z" fill="#6d8343" stroke="#48582b" stroke-width="1.1" stroke-linejoin="round"/>
+        <path d="M10 13.5c-2.4 0-3.8 1.4-3.8 3.5 2.4 0 3.8-1.4 3.8-3.5Z" fill="#b8652b" stroke="#753912" stroke-width="1.1" stroke-linejoin="round"/>
+      </symbol>
+
+      <!-- 4. 代码文档：简约折角代码文档配迷你落叶 -->
+      <symbol id="autumn-icon-document-leaf" viewBox="0 0 24 24" fill="none">
+        <path d="M6 4.5h8l5 5V19a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 19V6A1.5 1.5 0 0 1 6 4.5Z" fill="#fdfbf7" stroke="#7d5f3d" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M14 4.5v5h5" fill="#f0e2ca" stroke="#7d5f3d" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M8 12h5M8 15h3.5" stroke="#b07238" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="15.5" cy="15.5" r="1.8" fill="#c45d27"/>
+      </symbol>
+
+      <!-- 5. 显示器：远程开发工作区屏幕 -->
+      <symbol id="autumn-icon-monitor-leaf" viewBox="0 0 24 24" fill="none">
+        <rect x="3.5" y="4.5" width="17" height="11.5" rx="2" fill="#faf6ed" stroke="#685438" stroke-width="1.6"/>
+        <path d="M9 19.5h6M12 16v3.5" stroke="#685438" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M7 8.5 9.5 10 7 11.5M11.5 11.5h3" stroke="#875b28" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M17.5 4c1-.8 2.2-.6 2.5 0s0 1.5-.8 1.8-1.7-.5-1.7-1.8Z" fill="#c4622b"/>
+      </symbol>
+
+      <!-- 6. 舒展双叶枝条（侧栏“项目与服务连接”） -->
+      <symbol id="autumn-icon-branch" viewBox="0 0 24 24" fill="none">
+        <path d="M4.5 19.5c3-4 6.5-7.5 13-13.5" stroke="#7c471e" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M17.5 6c0 0 3.8 1.2 3.2 5s-4.2 1.5-5.2-.5c-1-2 2-4.5 2-4.5Z" fill="#cf7e27" stroke="#753d15" stroke-width="1.1" stroke-linejoin="round"/>
+        <path d="M11 13.5c0 0-1 3.5-3.5 3.5s-2-2.5 0-3.5 3.5 0 3.5 0Z" fill="#677846" stroke="#48562f" stroke-width="1.1" stroke-linejoin="round"/>
+        <path d="M17.5 6c1-1.4 2.8-1.4 3.2 0s-1.2 2.5-3.2 0Z" fill="#ba5622" stroke="#753d15" stroke-width="0.9" stroke-linejoin="round"/>
+      </symbol>
+
+      <!-- 7. 圆角精密八齿齿轮（侧栏“模型、Harness 与服务端设置”） -->
+      <symbol id="autumn-icon-gear-leaf" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="3.2" stroke="#8c4e20" stroke-width="1.8" fill="#fdfbf7"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="#8c4e20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+
+      <!-- 8. 温暖小木屋（侧栏“我的”） -->
+      <symbol id="autumn-icon-home-usage" viewBox="0 0 24 24" fill="none">
+        <path d="M3.5 10.5 12 4l8.5 6.5" stroke="#8c4618" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M5.5 9.5V19a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5" fill="#fdfaf3" stroke="#8c4618" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M10 20v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" fill="#c97728" stroke="#754019" stroke-width="1.1"/>
+      </symbol>
+
+      <!-- 9. 优雅银杏大树（侧栏“设备管理”） -->
+      <symbol id="autumn-icon-tree" viewBox="0 0 24 24" fill="none">
+        <path d="M12 21.5v-7.5" stroke="#684226" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M8.5 21.5h7" stroke="#5a3d24" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M12 5.2c-2.5-1.8-5.8-.8-7 1.5-1.3 2.5-.2 5.5 1.5 6.8 1.4 1 3.4 1.5 5.5 1.5s4.1-.5 5.5-1.5c1.7-1.3 2.8-4.3 1.5-6.8-1.2-2.3-4.5-3.3-7-1.5Z" fill="#d98926" stroke="#874716" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M12 8c-2.8 0-4.6 1.6-4.8 3.5M12 8c2.8 0 4.6 1.6 4.8 3.5" stroke="#fae1a0" stroke-width="1" stroke-linecap="round" opacity="0.85"/>
+      </symbol>
+
+      <!-- 10. 圆形头像剪影（侧栏“账号”） -->
+      <symbol id="autumn-icon-user-badge" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9.5" fill="#fcf6ea" stroke="#8f4f22" stroke-width="1.8"/>
+        <circle cx="12" cy="9.5" r="3.2" fill="#bf6f24" stroke="#753e16" stroke-width="1"/>
+        <path d="M6.8 17.5c1-2.5 3-3.8 5.2-3.8s4.2 1.3 5.2 3.8" stroke="#753e16" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+
+      <!-- 11. 秋金闪电（用于均衡/快速模式） -->
+      <symbol id="autumn-icon-lightning" viewBox="0 0 24 24" fill="none">
+        <path d="M13 2.5 6 12.5h5.5L10 21.5l8-10h-5.5Z" fill="#d98522" stroke="#9e5611" stroke-width="1.2" stroke-linejoin="round"/>
+      </symbol>
+
+      <!-- 12. 迷你绿色小树微标（用于任务状态条尚未开始） -->
+      <symbol id="autumn-icon-tree-mini" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10.5" fill="#506636"/>
+        <path d="M12 17v-4.5" stroke="#f6edd8" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M12 6.5c-2.8 0-4.6 2-4.6 4.5 0 1.6 1.1 3 2.9 3.2h3.4c1.8-.2 2.9-1.6 2.9-3.2 0-2.5-1.8-4.5-4.6-4.5Z" fill="#edd9aa"/>
+      </symbol>
+
+      <!-- 13. 羽毛秋叶兼容别名 -->
+      <symbol id="autumn-icon-model-feather" viewBox="0 0 24 24" fill="none">
+        <use href="#autumn-icon-leaf"/>
+      </symbol>
+    </defs></svg>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="boot-screen" id="bootScreen" aria-label="Chloe 正在启动">
     <div class="boot-wordmark">Chloe<span>.</span></div>
@@ -213,105 +307,11 @@
     <main class="chat-stage" id="chatStage">
       <section class="welcome" id="welcome">
         <span class="hero-eyebrow-pill" title="Chloe 开发工作台" aria-label="Chloe 开发工作台">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20z"/><path d="M2 21c0-3 1.8-6.5 5-8"/></svg>
+          <svg class="autumn-icon autumn-icon-hero"><use href="#autumn-icon-leaf"></use></svg>
           你的个人 AI 开发工作区
         </span>
         <h1 class="hero-greeting-title animate-blur-fade-up">你好，我是<span class="chloe-brand-name">Chloe</span></h1>
         <p class="hero-greeting-desc animate-blur-fade-up">我可以帮助你编写代码、调试问题、连接远程环境，并管理你的服务器与项目。</p>
-        <div class="suggestions">
-          <div class="feature-rich-card">
-            <button type="button" class="feature-card-main-btn" data-action="new-task" data-prompt="请帮我推进一个开发任务，先梳理目标和执行方案。">
-              <div class="feature-card-header">
-                <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <path d="M13 13L8 18L13 23M23 13L28 18L23 23M19 12L17 24" stroke="#4D533C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M22 22C24 20 26 21 27 23C27 25 25 27 23 27C21 27 20 25 22 22Z" fill="#C26A28" opacity="0.85"/>
-                  <path d="M22 25L24 23" stroke="#FFF" stroke-width="1" stroke-linecap="round"/>
-                </svg>
-                <span class="feature-card-badge">01</span>
-              </div>
-              <div class="feature-card-content">
-                <div class="feature-card-title-row">
-                  <h3>开发推进</h3>
-                  <span class="feature-card-arrow-circle"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
-                </div>
-                <p>代码编写、重构与测试交付<br>从想法到可运行的结果。</p>
-              </div>
-            </button>
-            <div class="feature-card-tags">
-              <button type="button" class="feature-card-tag-pill" data-prompt="请为我生成当前任务的核心代码实现与必要注释。">代码生成</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="请审查当前代码并进行结构与性能重构优化。">重构优化</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="请为当前功能模块编写完整的测试用例并验证边界条件。">测试用例</button>
-            </div>
-          </div>
-
-          <div class="feature-rich-card">
-            <button type="button" class="feature-card-main-btn" data-action="remote-workspace" data-prompt="检查当前远程开发工作区状态与授权设备。">
-              <div class="feature-card-header">
-                <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <rect x="8" y="9" width="20" height="13" rx="2" stroke="#4D533C" stroke-width="1.8"/>
-                  <path d="M11.5 13.5L14 15.5L11.5 17.5M16 17.5H19.5" stroke="#4D533C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M18 22V26M13 26H23" stroke="#4D533C" stroke-width="1.8" stroke-linecap="round"/>
-                  <path d="M23 7.5C25 6 27.5 7 28 9C28 10.5 26.5 12 24.5 11.5C23.5 11 22.5 9 23 7.5Z" fill="#D98A3A"/>
-                </svg>
-                <span class="feature-card-badge">02</span>
-              </div>
-              <div class="feature-card-content">
-                <div class="feature-card-title-row">
-                  <h3>远程开发工作区</h3>
-                  <span class="feature-card-arrow-circle"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
-                </div>
-                <p>连接 Windows 电脑与多终端环境<br>在你的真实开发环境中完成任务。</p>
-              </div>
-            </button>
-            <div class="feature-card-tags">
-              <button type="button" class="feature-card-tag-pill" data-prompt="检查与 Windows 受控电脑的远程连接状态。">远程连接</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="查看当前已授权的环境与运行依赖项。">环境管理</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="在绑定的远程项目目录中推进协作开发。">项目协作</button>
-            </div>
-          </div>
-
-          <div class="feature-rich-card">
-            <button type="button" class="feature-card-main-btn" data-action="server-check" data-prompt="检查服务器运行状态与 CPA 模型额度。">
-              <div class="feature-card-header">
-                <svg class="feature-card-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="36" height="36" rx="10" fill="#F4EDE2"/>
-                  <ellipse cx="16" cy="10" rx="7" ry="2.5" fill="#D98A3A" opacity="0.9"/>
-                  <path d="M9 10V15C9 16.4 12.1 17.5 16 17.5C19.9 17.5 23 16.4 23 15V10" stroke="#8E4823" stroke-width="1.6"/>
-                  <path d="M9 15V20C9 21.4 12.1 22.5 16 22.5C19.9 22.5 23 21.4 23 20V15" stroke="#8E4823" stroke-width="1.6"/>
-                  <path d="M9 20V25C9 26.4 12.1 27.5 16 27.5C19.9 27.5 23 26.4 23 25V20" stroke="#8E4823" stroke-width="1.6"/>
-                  <path d="M23 18C25 17 27 18 28 20C28 22 26 24 24 24C22.5 24 22 23 23 18Z" fill="#C26A28"/>
-                </svg>
-                <span class="feature-card-badge">03</span>
-              </div>
-              <div class="feature-card-content">
-                <div class="feature-card-title-row">
-                  <h3>服务器与额度</h3>
-                  <span class="feature-card-arrow-circle"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></span>
-                </div>
-                <p>服务器健康、资源及可用额度<br>随时掌握运行状态与资源使用。</p>
-              </div>
-            </button>
-            <div class="feature-card-tags">
-              <button type="button" class="feature-card-tag-pill" data-prompt="检查服务器各项服务与 Docker 容器运行健康度。">健康监控</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="检查当前 CPU、内存、磁盘以及模型资源配额。">资源管理</button>
-              <button type="button" class="feature-card-tag-pill" data-prompt="查看 CPA 与 Sub2API 的账号组用量与消耗分析。">成本分析</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="chloe-status-idle-strip" id="idleTaskPromptStrip">
-          <div class="status-strip-left">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="7.5" r="4.5" fill="#4D533C"/>
-              <path d="M12 12V20M9 20H15" stroke="#4D533C" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <strong>尚未开始</strong>
-            <span>不同任务请使用独立对话</span>
-          </div>
-          <span class="status-strip-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-        </div>
       </section>
       <section class="task-status-strip" id="taskStatusStrip" aria-live="polite" hidden></section>
       <button class="history-load" id="loadOlderMessages" type="button" hidden>加载更早消息</button>
@@ -326,19 +326,28 @@
     <section class="composer-wrap animate-blur-fade-up" style="animation-delay:500ms">
       <div class="attachment-strip" id="attachmentStrip"></div>
       <div class="composer liquid-glass" id="composer">
-        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="回复 Chloe"></textarea>
+        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="向 Chloe 发送消息，或输入 / 使用快捷操作..."></textarea>
         <div class="composer-toolbar">
           <div class="composer-toolbar-left">
             <button class="attach-button" id="attachButton" aria-label="添加内容" aria-expanded="false">
               <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
             </button>
             <button class="composer-model composer-pill-btn" id="modelButton" aria-label="模型与执行环境">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="M9 3v18M3 9h18"/></svg>
-              <span class="composer-env-pill" id="composerEnvPill">服务端</span>
-              <b id="modelLabel">Grok 4.7 High</b>
-              <i></i>
-              <span id="reasoningLabel">均衡</span>
-              <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+              <span class="model-pill-segment segment-env" title="运行环境">
+                <svg class="autumn-icon composer-env-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-sprout"></use></svg>
+                <span class="composer-env-pill" id="composerEnvPill">服务端</span>
+                <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+              <span class="model-pill-segment segment-model" title="选择模型">
+                <svg class="autumn-icon composer-model-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>
+                <b id="modelLabel">Grok 4.7 High</b>
+                <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
+              <span class="model-pill-segment segment-reasoning" title="智能与思考程度">
+                <svg class="autumn-icon composer-reasoning-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-lightning"></use></svg>
+                <span id="reasoningLabel">均衡</span>
+                <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
               <span id="accessLabel" class="visually-hidden">完全访问</span>
             </button>
           </div>
@@ -416,30 +425,7 @@
     <div class="drawer-panel">
       <div class="drawer-head sidebar-brand">
         <div class="sidebar-brand-left">
-          <svg class="chloe-logo-icon" width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12.5 19.5C8.5 18 6.5 14.5 7.5 10.5C9.5 8.5 13 9.5 16 13C16.5 16 15 19 12.5 19.5Z" fill="url(#chloe-leaf-left)" opacity="0.92"/>
-            <path d="M9 13C12 14.5 15 15.5 15.5 15.5" stroke="#8A421D" stroke-width="1.1" stroke-linecap="round"/>
-            <path d="M23.5 19.5C27.5 18 29.5 14.5 28.5 10.5C26.5 8.5 23 9.5 20 13C19.5 16 21 19 23.5 19.5Z" fill="url(#chloe-leaf-right)" opacity="0.92"/>
-            <path d="M27 13C24 14.5 21 15.5 20.5 15.5" stroke="#8A421D" stroke-width="1.1" stroke-linecap="round"/>
-            <path d="M18 4C18 4 13.5 10 13.5 17C13.5 23 18 27.5 18 27.5C18 27.5 22.5 23 22.5 17C22.5 10 18 4 18 4Z" fill="url(#chloe-leaf-center)"/>
-            <path d="M18 7.5V26M18 14L15 12M18 17L21 15M18 20L15 18" stroke="#7A3614" stroke-width="1.3" stroke-linecap="round"/>
-            <path d="M18 27.5C17.5 30 16 32 14.5 33" stroke="#8A421D" stroke-width="1.5" stroke-linecap="round"/>
-            <defs>
-              <linearGradient id="chloe-leaf-center" x1="13.5" y1="4" x2="22.5" y2="28" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#E5993E"/>
-                <stop offset="0.6" stop-color="#C66723"/>
-                <stop offset="1" stop-color="#9C4016"/>
-              </linearGradient>
-              <linearGradient id="chloe-leaf-left" x1="7" y1="9" x2="16" y2="20" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#EDB353"/>
-                <stop offset="1" stop-color="#C26A28"/>
-              </linearGradient>
-              <linearGradient id="chloe-leaf-right" x1="29" y1="9" x2="20" y2="20" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#E28935"/>
-                <stop offset="1" stop-color="#B2501E"/>
-              </linearGradient>
-            </defs>
-          </svg>
+          <img class="chloe-logo-icon" src="/vault/assets/icons/chloe/brand-mark.svg" alt="" aria-hidden="true">
           <h2>Chloe</h2>
         </div>
         <button class="icon-button sidebar-toggle-btn" id="closeDrawer" aria-label="关闭侧边栏">
@@ -473,25 +459,25 @@
       <div class="drawer-tools">
         <div class="drawer-section-group">
           <button class="drawer-entry-card drawer-admin-entry" id="customerDevicesButton" hidden aria-controls="customerDevicesSheet">
-            <span class="profile-monogram customer-device-monogram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11" rx="2"/><path d="M8 19.5h8M12 15.5v4M7 8h10M7 11h5"/></svg></span>
+            <span class="profile-monogram customer-device-monogram"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-monitor-leaf"></use></svg></span>
             <span class="drawer-entry-text"><strong>远程开发工作区</strong><small>连接 Windows 电脑与受控项目</small></span>
-            <i class="drawer-entry-arrow" aria-hidden="true">›</i>
+            <svg class="drawer-entry-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
           </button>
-          <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>↗</span></button>
-          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet">模型、Harness 与服务端设置</button>
+          <button class="workspace-entry" id="workspaceOverviewButton" type="button"><span class="workspace-entry-label"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-branch"></use></svg>项目与服务连接</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet"><span class="workspace-entry-label"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-gear-leaf"></use></svg>模型、Harness 与服务端设置</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
         <div class="drawer-section-group">
           <div class="drawer-utilities">
             <button class="drawer-profile" id="profileButton">
-              <span class="drawer-profile-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+              <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-home-usage"></use></svg></span>
               <span><strong>我的</strong><small>用量与额度</small></span>
             </button>
             <button class="drawer-profile drawer-admin-entry" id="adminSettingsButton" hidden>
-              <span class="drawer-profile-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg></span>
+              <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree"></use></svg></span>
               <span><strong>设备管理</strong><small>/4端可登录</small></span>
             </button>
             <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
-              <span class="drawer-profile-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg></span>
+              <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-user-badge"></use></svg></span>
               <span><strong>账号</strong><small>Codex</small></span>
             </button>
             <button class="drawer-profile" id="localSshButton" style="display:none;">
@@ -502,7 +488,7 @@
         </div>
         <section class="drawer-theme" aria-labelledby="themeTitle">
           <span>
-            <i aria-hidden="true">◐</i>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>
             <b id="themeTitle">外观</b>
           </span>
           <div class="theme-options" role="group" aria-label="选择界面主题">
@@ -514,7 +500,7 @@
         </section>
         <div class="drawer-footer">
           <span>Chloe <b id="appVersion">v—</b></span>
-          <button id="updateButton">检查更新</button>
+          <button id="updateButton" class="update-link">检查更新<i class="update-badge-dot" aria-hidden="true"></i></button>
         </div>
       </div>
     </div>
@@ -850,6 +836,6 @@
   <script src="/vault/profile-overview.js?v=3"></script>
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
   <script src="/vault/customer-devices.js?v=3"></script>
-  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.7-remote-workspace"></script>
+  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.8-autumn-icons"></script>
 </body>
 </html>

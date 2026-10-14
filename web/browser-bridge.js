@@ -326,7 +326,7 @@
     const drawerTitle = document.querySelector(".drawer-head h2");
     if (drawerTitle) drawerTitle.textContent = "Chloe";
     const input = document.getElementById("messageInput");
-    if (input) input.placeholder = "向 Chloe 发送消息";
+    if (input) input.placeholder = "向 Chloe 发送消息，或输入 / 使用快捷操作...";
     window.DropVault.nativeReady({
       version: "3.0.0",
       cacheScope: bridge.getCacheScope(),

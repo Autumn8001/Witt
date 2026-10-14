@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(new URL("../backend/package.json", import.meta.url));
 const { chromium } = require("playwright");
@@ -548,41 +550,23 @@ async function captureUiSurface(name, selector, textSelector) {
 }
 
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-const cssNames = ["ui-system.css", "profile-overview.css", "component-interactions.css", "styles.css", "quota.css", "quota-fix.css", "reset-glow.css", "composer-aura.css", "composer-refine.css", "composer-transparency.css", "composer-overlay.css", "composer-spectra.css", "quota-layout.css", "quota-header-restore.css", "quota-confirm.css", "quota-compact.css", "drawer-motion.css", "quota-profile-motion.css", "usage-insight.css", "quota-spacing.css", "usage-ring-fit.css", "auth-gate.css", "approval-card.css", "approval-dock.css", "night-contrast.css", "witt-white.css", "browser-chatgpt.css", "conversation-type.css", "night-theme.css", "message-collapse.css", "chat-overflow-fix.css", "codex-accounts.css", "formula-code.css", "performance.css", "landscape.css", "lumora-global.css", "codex-model-picker.css", "chat-links.css", "completed-turn.css", "drawer-layout.css", "witt-next.css", "artifact-preview.css", "claude-app.css", "local-terminal.css", "customer-devices.css"];
-const cssFiles = new Map(cssNames.map((name) => [
-  name, readFileSync(new URL(`../web/${name}`, import.meta.url), "utf8"),
-]));
-const js = readFileSync(new URL("../web/app-workspace-20260916-r3.js", import.meta.url), "utf8");
-const profileOverviewJs = readFileSync(new URL("../web/profile-overview.js", import.meta.url), "utf8");
-const customerDevicesJs = readFileSync(new URL("../web/customer-devices.js", import.meta.url), "utf8");
-const browserBridgeJs = readFileSync(new URL("../web/browser-bridge.js", import.meta.url), "utf8");
-const katexJs = readFileSync(new URL("../web/vendor/katex/katex.min.js", import.meta.url), "utf8");
-const katexCss = readFileSync(new URL("../web/vendor/katex/katex.min.css", import.meta.url), "utf8");
-const xtermJs = readFileSync(new URL("../web/vendor/xterm/xterm.js", import.meta.url), "utf8");
-const xtermFitJs = readFileSync(new URL("../web/vendor/xterm/addon-fit.js", import.meta.url), "utf8");
-const xtermWebLinksJs = readFileSync(new URL("../web/vendor/xterm/addon-web-links.js", import.meta.url), "utf8");
-const xtermCss = readFileSync(new URL("../web/vendor/xterm/xterm.css", import.meta.url), "utf8");
-const icon = readFileSync(new URL("../web/icon.svg", import.meta.url), "utf8");
+const cssNames = [...html.matchAll(/<link\b(?=[^>]*rel=["']stylesheet["'])[^>]*href=["']([^"']+)["'][^>]*>/gi)]
+  .map((match) => decodeURIComponent(new URL(match[1], "https://wit.test").pathname).split("/").pop());
 await page.route("**/vault/**", async (route) => {
-  const pathname = new URL(route.request().url()).pathname;
-  if (pathname.endsWith("version.json")) return route.fulfill({
+  const pathname = decodeURIComponent(new URL(route.request().url()).pathname);
+  if (pathname.endsWith("/version.json")) return route.fulfill({
     contentType: "application/json",
     body: JSON.stringify({ frontendSha: "abcdef0123456789abcdef0123456789abcdef01" }),
   });
-  if (pathname.endsWith(".css")) {
-    const name = pathname.split("/").pop();
-    return route.fulfill({ contentType: "text/css", body: name === "katex.min.css" ? katexCss : (name === "xterm.css" ? xtermCss : (cssFiles.get(name) || "")) });
+  const relative = (pathname === "/vault" || pathname === "/vault/" ? "index.html" : pathname.replace(/^\/vault\//, "")).replaceAll("/", path.sep);
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "web");
+  const file = path.resolve(root, relative);
+  if (!file.startsWith(root + path.sep) || !existsSync(file)) {
+    return route.fulfill({ status: 404, contentType: "text/plain", body: `Missing local UI asset: ${relative}` });
   }
-  if (pathname.endsWith("xterm.js")) return route.fulfill({ contentType: "application/javascript", body: xtermJs });
-  if (pathname.endsWith("addon-fit.js")) return route.fulfill({ contentType: "application/javascript", body: xtermFitJs });
-  if (pathname.endsWith("addon-web-links.js")) return route.fulfill({ contentType: "application/javascript", body: xtermWebLinksJs });
-  if (pathname.endsWith("profile-overview.js")) return route.fulfill({ contentType: "application/javascript", body: profileOverviewJs });
-  if (pathname.endsWith("customer-devices.js")) return route.fulfill({ contentType: "application/javascript", body: customerDevicesJs });
-  if (pathname.endsWith("browser-bridge.js")) return route.fulfill({ contentType: "application/javascript", body: browserBridgeJs });
-  if (pathname.endsWith(".js")) return route.fulfill({ contentType: "application/javascript", body: pathname.endsWith("katex.min.js") ? katexJs : js });
-  if (pathname.includes("/fonts/")) return route.fulfill({ status: 204 });
-  if (pathname.endsWith(".svg")) return route.fulfill({ contentType: "image/svg+xml", body: icon });
-  return route.fulfill({ contentType: "text/html", body: html });
+  const ext = path.extname(file).toLowerCase();
+  const contentType = ({ ".html": "text/html", ".css": "text/css", ".js": "application/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf", ".json": "application/json" })[ext] || "application/octet-stream";
+  return route.fulfill({ contentType, body: readFileSync(file) });
 });
 const customerDeviceFixture = {
   devices: [
@@ -787,6 +771,11 @@ await page.waitForFunction(() => document.querySelector("#customerDevicesSheet")
 if (workspaceCreation?.device_id !== "PC-ONLINE" || workspaceCreation.root_alias !== "workspace" || workspaceCreation.title !== "UI 验收工作区") throw new Error("Workspace UI submitted the wrong binding");
 
 await page.locator("#menuButton").click();
+const localSshHiddenInBrowser = await page.locator("#localSshButton").evaluate((node) => getComputedStyle(node).display === "none");
+if (!localSshHiddenInBrowser) throw new Error("Local SSH entry should stay hidden in the browser shell");
+// This flow exercises the native-only sheet behind the existing mock bridge.
+// The production browser visibility remains asserted above and is restored after the fixture.
+await page.locator("#localSshButton").evaluate((node) => { node.dataset.nativeShellFixture = "true"; node.style.removeProperty("display"); });
 await page.locator("#localSshButton").click();
 await page.locator("#localSshSheet.open").waitFor();
 await page.locator("#localSshConnectForm:not([hidden])").waitFor();
@@ -968,6 +957,7 @@ if (process.env.WITT_LOCAL_SSH_ONLY === "1") {
   console.log("Local SSH UI check passed");
   process.exit(0);
 }
+await page.locator("#localSshButton").evaluate((node) => { node.style.display = "none"; delete node.dataset.nativeShellFixture; });
 await page.locator("#closeLocalSsh").click();
 const surfaceMotion = await page.evaluate(() => {
   const sheetIds = [
@@ -1073,12 +1063,13 @@ const nextShell = await page.evaluate(() => {
     composerRadius: Number.parseFloat(composer.borderRadius),
     composerBlur: composer.webkitBackdropFilter || composer.backdropFilter,
     font: getComputedStyle(document.body).fontFamily,
+    fontToken: getComputedStyle(document.documentElement).getPropertyValue("--ui-font-sans").trim(),
     headingFont: getComputedStyle(document.querySelector(".welcome h1")).fontFamily,
   };
 });
 if (nextShell.videoCount !== 0 || nextShell.atmosphereLayers !== 3 ||
     nextShell.topbarRadius < 10 || nextShell.composerRadius < 16 ||
-    !nextShell.font.includes("OpenAI Sans")) {
+    !nextShell.fontToken || !nextShell.font.includes(nextShell.fontToken.split(",")[0].replaceAll('"', "").trim())) {
   throw new Error(`Workspace shell was not applied: ${JSON.stringify(nextShell)}`);
 }
 await page.waitForTimeout(80);
@@ -1464,8 +1455,15 @@ await page.locator('#reasoningSegments [data-reasoning="high"]').click();
 if ((await page.locator("#reasoningControl").getAttribute("data-level")) !== "high") {
   throw new Error("Clickable reasoning rail did not update its visual intensity");
 }
-const modelRailHeight = await page.locator(".model-options").evaluate((node) => node.getBoundingClientRect().height);
-if (modelRailHeight > 118) throw new Error("Model selector is no longer compact");
+// Model cards now wrap into two columns on mobile, so section height grows
+// with the real catalog. Check usable cards rather than the old single-row skin.
+const modelCardLayout = await page.locator(".model-options").evaluate((node) => {
+  const width = node.getBoundingClientRect().width;
+  return [...node.querySelectorAll("button")].map((button) => ({ width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height, containerWidth: width }));
+});
+if (!modelCardLayout.length || modelCardLayout.some((card) => card.height < 44 || card.width > card.containerWidth + 1)) {
+  throw new Error(`Model selector cards overflow or have undersized targets: ${JSON.stringify(modelCardLayout)}`);
+}
 const reasoningAnimation = await page.locator(".reasoning-liquid-fill").evaluate((node) => getComputedStyle(node).animationName);
 if (!reasoningAnimation.includes("reasoning-spectrum")) {
   throw new Error("Higher reasoning level did not activate the spectrum animation");
@@ -1493,6 +1491,8 @@ const settingsVisual = await page.evaluate(() => {
     viewportHeight: innerHeight,
     panelOverflow: panel.overflowY,
     runtimeBackground: runtime.backgroundImage,
+    runtimeSurface: runtime.backgroundColor,
+    expectedInk: getComputedStyle(document.body).color,
     metricColor: metric.color,
     actionColor: action.color,
   };
@@ -1500,10 +1500,10 @@ const settingsVisual = await page.evaluate(() => {
 if (settingsVisual.footerTop < 0 || settingsVisual.footerBottom > settingsVisual.viewportHeight + 1) {
   throw new Error(`Settings action bar is not fixed inside the visible sheet: ${JSON.stringify(settingsVisual)}`);
 }
-if (settingsVisual.panelOverflow !== "hidden" || !settingsVisual.runtimeBackground.includes("linear-gradient")) {
+if (settingsVisual.panelOverflow !== "hidden" || settingsVisual.runtimeSurface === "rgba(0, 0, 0, 0)") {
   throw new Error(`Settings sheet did not use the new scrolling and runtime surfaces: ${JSON.stringify(settingsVisual)}`);
 }
-if (!settingsVisual.metricColor.includes("248") || !settingsVisual.actionColor.includes("248")) {
+if (settingsVisual.metricColor !== settingsVisual.expectedInk || settingsVisual.actionColor !== settingsVisual.expectedInk) {
   throw new Error(`Runtime text lost contrast: ${JSON.stringify(settingsVisual)}`);
 }
 await captureUiSurface("settings", ".settings-panel", ".settings-section-head small, .model-options small, .model-options em, .access-options small, .reasoning-stops strong");
@@ -1516,12 +1516,13 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(520);
 const lightSettingsVisual = await page.evaluate(() => ({
+  expectedInk: getComputedStyle(document.body).color,
   metricColor: getComputedStyle(document.querySelector(".app-server-capabilities .app-server-metrics strong")).color,
   actionColor: getComputedStyle(document.querySelector(".app-server-actions strong")).color,
   selectedModelColor: getComputedStyle(document.querySelector(".model-options > button.selected strong")).color,
 }));
-if (!lightSettingsVisual.metricColor.includes("248") ||
-    !lightSettingsVisual.actionColor.includes("248") ||
+if (lightSettingsVisual.metricColor !== lightSettingsVisual.expectedInk ||
+    lightSettingsVisual.actionColor !== lightSettingsVisual.expectedInk ||
     lightSettingsVisual.selectedModelColor.includes("255, 255, 255")) {
   throw new Error(`Day settings text is not readable: ${JSON.stringify(lightSettingsVisual)}`);
 }
@@ -1848,8 +1849,8 @@ if ((await page.evaluate(() => window.__createdConversationArgs.codexProfile)) !
 if ((await page.locator("#projectLabel").textContent()) !== "空白") {
   throw new Error("New conversation project did not default to blank");
 }
-if ((await page.locator("#welcome").textContent()).includes("项目")) {
-  throw new Error("New conversation landing still mentioned a project");
+if (!(await page.locator("#welcome h1").textContent()).includes("Chloe")) {
+  throw new Error("New conversation did not show the Chloe greeting");
 }
 await page.waitForFunction(() => !document.querySelector("#welcome")?.hidden);
 await page.waitForTimeout(480);
@@ -1857,7 +1858,6 @@ const welcomeLayout = await page.evaluate(() => {
   const welcome = document.querySelector("#welcome");
   window.__welcomeDebug = {
     welcome: { display: getComputedStyle(welcome).display, rect: welcome.getBoundingClientRect().toJSON(), hidden: welcome.hidden },
-    suggestionContainer: { display: getComputedStyle(welcome.querySelector(".suggestions")).display, rect: welcome.querySelector(".suggestions").getBoundingClientRect().toJSON() },
     buttons: [...welcome.querySelectorAll(".suggestions button")].map((button) => ({ display: getComputedStyle(button).display, minHeight: getComputedStyle(button).minHeight, rect: button.getBoundingClientRect().toJSON() })),
     css: [...document.styleSheets].map((sheet) => sheet.href).filter(Boolean),
     bodyClass: document.body.className,
@@ -1867,12 +1867,11 @@ const welcomeLayout = await page.evaluate(() => {
   return {
     headingSize: Number.parseFloat(getComputedStyle(heading).fontSize),
     suggestionCount: suggestions.length,
-    minSuggestionHeight: Math.min(...suggestions.map((button) => button.getBoundingClientRect().height)),
     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     debug: window.__welcomeDebug,
   };
 });
-if (welcomeLayout.headingSize < 20 || welcomeLayout.suggestionCount !== 3 ||
+if (welcomeLayout.headingSize < 20 || welcomeLayout.suggestionCount !== 0 ||
     welcomeLayout.overflow) {
   throw new Error(`Witt mobile welcome layout failed: ${JSON.stringify(welcomeLayout)}`);
 }
@@ -2119,11 +2118,15 @@ for (const theme of ["light", "dark"]) {
   const control = page.locator("#newChatButton");
   await control.hover();
   await page.waitForTimeout(180);
-  const hover = await control.evaluate((node) => ({
-    color: getComputedStyle(node).backgroundColor,
-    focusColor: getComputedStyle(document.documentElement).getPropertyValue("--ui-focus").trim(),
-  }));
-  if (hover.color !== (theme === "dark" ? "rgb(54, 59, 56)" : "rgb(243, 244, 244)")) {
+  const hover = await control.evaluate((node) => {
+    const probe = document.createElement("span");
+    probe.style.backgroundColor = "var(--ui-hover-surface)";
+    node.append(probe);
+    const expectedColor = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return { color: getComputedStyle(node).backgroundColor, expectedColor };
+  });
+  if (hover.color !== hover.expectedColor) {
     throw new Error(`Missing ${theme} hover feedback: ${JSON.stringify(hover)}`);
   }
   await page.keyboard.press("Tab");
@@ -2148,9 +2151,10 @@ for (const theme of ["light", "dark"]) {
   }
   const disabled = await page.locator("#voiceButton").evaluate((node) => ({
     disabled: node.disabled, opacity: Number(getComputedStyle(node).opacity),
+    expectedOpacity: Number(getComputedStyle(document.documentElement).getPropertyValue("--ui-disabled-opacity")),
     pointerEvents: getComputedStyle(node).pointerEvents,
   }));
-  if (!disabled.disabled || disabled.opacity > .5 || disabled.pointerEvents !== "none") {
+  if (!disabled.disabled || disabled.opacity > disabled.expectedOpacity + .01 || disabled.pointerEvents !== "none") {
     throw new Error(`Disabled button looks actionable: ${JSON.stringify(disabled)}`);
   }
   await page.locator("#messageInput").focus();

@@ -27,7 +27,7 @@
     }
   }
   const savedReasoning = localStorage.getItem("wit_reasoning_preference") || localStorage.getItem("wit_reasoning") || "medium";
-  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "danger-full-access";
+  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "workspace-write";
   const state = {
     conversations: [],
     activeId: localStorage.getItem("wit_active_conversation") || null,
@@ -138,6 +138,19 @@
     return item.project || "未分组";
   }
 
+  const autumnHistoryIcons = ["leaf", "acorn", "sprout", "document-leaf"];
+  function autumnHistoryIcon(item) {
+    const seed = String(item?.id || item?.title || "history");
+    let hash = 0;
+    for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+    const icon = autumnHistoryIcons[hash % autumnHistoryIcons.length];
+    return `<svg class="autumn-history-icon autumn-history-${icon}" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${icon}"></use></svg>`;
+  }
+
+  function autumnPinnedIcon() {
+    return '<svg class="autumn-history-icon autumn-history-leaf" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
+  }
+
   function refreshHistorySearch() {
     clearTimeout(historySearchTimer);
     const q = $("#historySearch").value.trim();
@@ -160,9 +173,13 @@
     const last = state.active?.messages?.findLast((message) => message.role === "assistant");
     const status = approval ? { state: "waiting_confirmation", label: "等你确认" }
       : state.active?.taskStatus || { state: state.busy ? "running" : last?.status || "idle", label: state.busy ? "处理中" : last?.status === "failed" ? "执行失败" : last?.status === "interrupted" ? "已暂停" : last ? "已完成" : "准备就绪" };
-    strip.hidden = !state.activeId;
+    // A fresh conversation is the welcome surface, not an idle task.
+    // Running tasks and approvals can precede the first assistant message.
+    strip.hidden = !state.activeId || (!state.busy && !approval && !state.active?.messages?.length && (!state.active?.taskStatus || state.active.taskStatus.state === "idle"));
     strip.dataset.state = status.state;
-    strip.innerHTML = `<span class="task-state-dot"></span><strong>${escapeHtml(status.label)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : ""}`;
+    const isIdle = status.state === "idle" || status.label === "准备就绪";
+    const displayLabel = isIdle ? "尚未开始" : status.label;
+    strip.innerHTML = `<span class="task-state-tree"><svg class="task-state-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree-mini"></use></svg></span><strong>${escapeHtml(displayLabel)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : '<svg class="task-strip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>'}`;
     strip.querySelector("#jumpToApproval")?.addEventListener("click", () => $("#approvalDock")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
     const older = $("#loadOlderMessages");
     older.hidden = !state.workspaceFeatures || !state.active?.hasMore;
@@ -706,8 +723,11 @@
       : preferred;
     state.model = model;
     state.preferredModel = model;
-    state.reasoning = state.preferredReasoning || "high";
-    state.accessMode = state.preferredAccessMode || "danger-full-access";
+    state.reasoning = state.preferredReasoning || (model.startsWith("gemini-") ? "medium" : "high");
+    const accessModes = Array.isArray(state.capabilities?.accessModes)
+      ? state.capabilities.accessModes : ["read-only", "workspace-write", "danger-full-access"];
+    const preferredAccess = state.preferredAccessMode || state.capabilities?.defaultAccessMode;
+    state.accessMode = accessModes.includes(preferredAccess) ? preferredAccess : accessModes[0] || "read-only";
     state.draftModel = model;
     state.draftReasoning = state.reasoning;
     state.draftAccessMode = state.accessMode;
@@ -2099,13 +2119,20 @@
   }
 
   function openDrawer() {
+    if (document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches) {
+      document.body.classList.remove("sidebar-collapsed");
+      $("#drawer").setAttribute("aria-hidden", "false");
+      return;
+    }
     $("#drawer").classList.add("open");
     $("#drawer").setAttribute("aria-hidden", "false");
   }
 
   function closeDrawer() {
     $("#drawer").classList.remove("open");
-    $("#drawer").setAttribute("aria-hidden", "true");
+    const desktop = document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches;
+    const hidden = desktop ? document.body.classList.contains("sidebar-collapsed") : true;
+    $("#drawer").setAttribute("aria-hidden", String(hidden));
   }
 
   function allArtifacts() {
@@ -2396,8 +2423,8 @@
       ? conversations.map((conversation) => `
         <article class="conversation-row ${conversation.id === state.activeId ? "active" : ""}" data-id="${conversation.id}">
           <button class="conversation-open" data-open="${conversation.id}">
-            <span class="conversation-mark">${conversation.busy ? '<i></i>' : '<svg viewBox="0 0 24 24"><path d="M5 6h14v10H9l-4 4V6Z"/></svg>'}</span>
-            <span>${state.workspaceFeatures ? `<span class="history-project-label">${escapeHtml(historyProjectName(conversation))}</span>` : ""}<strong>${pinned.has(conversation.id) ? "⌖ " : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.searchSnippet || conversation.lastMessage || "暂无消息")}</small></span>
+            <span class="conversation-mark">${conversation.busy ? '<i></i>' : autumnHistoryIcon(conversation)}</span>
+            <span>${state.workspaceFeatures ? `<span class="history-project-label">${escapeHtml(historyProjectName(conversation))}</span>` : ""}<strong>${pinned.has(conversation.id) ? `<span class="conversation-pin" aria-label="已置顶">${autumnPinnedIcon()}</span>` : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.searchSnippet || conversation.lastMessage || "暂无消息")}</small></span>
           </button>
           <button class="conversation-more" data-archive="${conversation.id}" aria-label="移除对话">•••</button>
         </article>`).join("")
@@ -3653,8 +3680,7 @@
         setConnected(false, "需要更新 App");
         $("#welcome h1").textContent = "新版对话已经准备好";
         $("#welcome>p").textContent = "请先更新 Chloe，更新完成后即可在这里连续对话。";
-        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Chloe</b><small>安装支持连续对话的新版本</small></button>`;
-        $("#legacyUpdate").addEventListener("click", () => bridge()?.checkForUpdates?.());
+        $("#composerHint").textContent = "请在侧栏中检查更新，以使用连续对话功能。";
         $("#messageInput").disabled = true;
         $("#attachButton").disabled = true;
         $("#sendButton").disabled = true;
@@ -3744,6 +3770,16 @@
     },
     onCapabilities(json) {
       state.capabilities = JSON.parse(json);
+      const accessModes = Array.isArray(state.capabilities.accessModes)
+        ? state.capabilities.accessModes : ["read-only", "workspace-write", "danger-full-access"];
+      if (!accessModes.includes(state.preferredAccessMode)) {
+        state.preferredAccessMode = state.capabilities.defaultAccessMode || accessModes[0] || "read-only";
+        state.accessMode = state.preferredAccessMode;
+        try {
+          localStorage.setItem("wit_access", state.accessMode);
+          localStorage.setItem("wit_access_preference", state.accessMode);
+        } catch {}
+      }
       renderCapabilities();
       reconcileModelPreference();
       renderRuntimeControls();
@@ -4343,7 +4379,12 @@
   $("#workspaceBackdrop").addEventListener("click", closeWorkspaceOverview);
   $("#refreshWorkspace").addEventListener("click", requestWorkspaceOverview);
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeWorkspaceOverview(); });
-  $("#closeDrawer").addEventListener("click", closeDrawer);
+  $("#closeDrawer").addEventListener("click", () => {
+    if (document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches) {
+      document.body.classList.add("sidebar-collapsed");
+    }
+    closeDrawer();
+  });
   $("#drawerBackdrop").addEventListener("click", closeDrawer);
   $("#profileButton").addEventListener("click", openProfile);
   $("#localSshButton").addEventListener("click", openLocalSsh);
@@ -5111,30 +5152,6 @@
     const archiveId = event.target.closest("[data-archive]")?.dataset.archive;
     if (openId) selectConversation(openId);
     if (archiveId) openArchiveDialog(archiveId);
-  });
-  $(".suggestions").addEventListener("click", (event) => {
-    let btn = event.target.closest("button");
-    if (!btn) {
-      const card = event.target.closest(".feature-rich-card");
-      if (card && !event.target.closest(".feature-card-tags")) {
-        btn = card.querySelector(".feature-card-main-btn");
-      }
-    }
-    if (!btn) return;
-    const action = btn.dataset.action;
-    if (action === "remote-workspace" && window.WittCustomerDevices?.open) {
-      window.WittCustomerDevices.open();
-      return;
-    }
-    const prompt = btn.dataset.prompt;
-    if (prompt) {
-      $("#messageInput").value = prompt;
-      $("#messageInput").dispatchEvent(new Event("input"));
-      $("#messageInput").focus();
-    }
-  });
-  $("#idleTaskPromptStrip")?.addEventListener("click", () => {
-    $("#messageInput")?.focus();
   });
   $("#cancelArchive").addEventListener("click", closeArchiveDialog);
   $(".dialog-backdrop").addEventListener("click", closeArchiveDialog);

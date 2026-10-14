@@ -122,24 +122,30 @@ function parseAntigravityStep(step, conversationId) {
     durationMs: numberOrUndefined(step.duration_ms),
     usage: step.usage || null,
   };
-  const tool = step.tool_info || step.toolInfo;
+  const tool = step.tool_info || step.toolInfo || step.tool_call || step.toolCall;
   if (tool && typeof tool === "object") {
     // Field names inside tool_info were not published in the sections we could
     // read, so accept the plausible spellings instead of guessing one.
+    const status = firstString(tool.status, step.state);
+    const output = tool.output ?? tool.result ?? step.tool_output ?? step.toolOutput;
+    const isUpdate = output !== undefined || ["completed", "failed", "error", "cancelled"].includes(status);
     return {
       ...base,
-      type: "tool_call",
+      type: isUpdate ? "tool_call_update" : "tool_call",
       id: firstString(tool.id, tool.call_id, tool.tool_call_id),
       tool: firstString(tool.name, tool.tool, tool.tool_name),
-      status: firstString(tool.status, step.state),
+      status,
       input: tool.input ?? tool.args ?? tool.parameters ?? null,
-      output: tool.output ?? tool.result ?? null,
-      unverifiedShape: true,
+      output: output ?? null,
     };
   }
-  const delta = firstString(step.text_delta, step.textDelta);
+  const plan = step.plan || step.plan_update || step.planUpdate || step.steps;
+  if (Array.isArray(plan)) return { ...base, type: "plan", entries: plan };
+  const delta = firstString(step.text_delta, step.textDelta, step.response_delta, step.responseDelta,
+    step.output_text, step.outputText);
   if (delta) return { ...base, type: "text_delta", text: delta };
-  const thinking = firstString(step.thinking_delta, step.thinkingDelta, step.thought);
+  const thinking = firstString(step.thinking_delta, step.thinkingDelta, step.thought_delta,
+    step.thoughtDelta, step.reasoning_delta, step.reasoningDelta, step.thought, step.thinking);
   if (thinking) return { ...base, type: "reasoning_delta", text: thinking };
   return { ...base, type: "notice", kind: "step_update", raw: step };
 }
@@ -159,11 +165,21 @@ function parseAntigravityEvent(payload) {
       };
     }
     case "step_update":
-      return parseAntigravityStep(payload.step_update || payload.stepUpdate, payload.conversation_id);
+      return parseAntigravityStep(
+        payload.step_update || payload.stepUpdate || payload.step,
+        firstString(payload.conversation_id, payload.conversationId),
+      );
+    case "plan":
+    case "plan_update":
+      return {
+        type: "plan",
+        sessionId: firstString(payload.conversation_id, payload.conversationId),
+        entries: payload.plan || payload.steps || payload.entries || [],
+      };
     case "result": {
       const result = payload.result || {};
       const status = firstString(result.status);
-      const failed = Boolean(result.error) || (status && status !== "SUCCESS");
+      const failed = Boolean(result.error) || (status && !["SUCCESS", "COMPLETED", "DONE"].includes(status));
       return {
         type: "result",
         sessionId: firstString(result.conversation_id, result.conversationId),

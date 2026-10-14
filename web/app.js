@@ -9,7 +9,7 @@
   const CODEX_PROFILE_IDS = ["default", "xuanyu", "account4", "account5"];
   const savedModel = localStorage.getItem("wit_model_preference") || localStorage.getItem("wit_model") || "gpt-5.6-sol";
   const savedReasoning = localStorage.getItem("wit_reasoning_preference") || localStorage.getItem("wit_reasoning") || "medium";
-  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "danger-full-access";
+  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "workspace-write";
   const state = {
     conversations: [],
     activeId: localStorage.getItem("wit_active_conversation") || null,
@@ -1737,6 +1737,18 @@
       : `<div class="detail-error">暂时没有可显示的文件差异。</div>`;
   }
 
+  const autumnHistoryIcons = ["leaf", "acorn", "sprout", "document-leaf"];
+  function autumnHistoryIcon(item) {
+    const seed = String(item?.id || item?.title || "history");
+    let hash = 0;
+    for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+    const icon = autumnHistoryIcons[hash % autumnHistoryIcons.length];
+    return `<svg class="autumn-history-icon autumn-history-${icon}" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${icon}"></use></svg>`;
+  }
+  function autumnPinnedIcon() {
+    return '<svg class="autumn-history-icon autumn-history-leaf" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
+  }
+
   function renderConversations() {
     $("#conversationCount").textContent = String(state.conversations.length);
     const pinned = new Set(JSON.parse(localStorage.getItem("wit_pinned_conversations") || "[]"));
@@ -1746,8 +1758,8 @@
       ? conversations.map((conversation) => `
         <article class="conversation-row ${conversation.id === state.activeId ? "active" : ""}" data-id="${conversation.id}">
           <button class="conversation-open" data-open="${conversation.id}">
-            <span class="conversation-mark">${conversation.busy ? '<i></i>' : '<svg viewBox="0 0 24 24"><path d="M5 6h14v10H9l-4 4V6Z"/></svg>'}</span>
-            <span><strong>${pinned.has(conversation.id) ? "⌖ " : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.lastMessage || "暂无消息")}</small></span>
+            <span class="conversation-mark">${conversation.busy ? '<i></i>' : autumnHistoryIcon(conversation)}</span>
+            <span><strong>${pinned.has(conversation.id) ? `<span class="conversation-pin" aria-label="已置顶">${autumnPinnedIcon()}</span>` : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.lastMessage || "暂无消息")}</small></span>
           </button>
           <button class="conversation-more" data-archive="${conversation.id}" aria-label="移除对话">•••</button>
         </article>`).join("")

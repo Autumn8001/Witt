@@ -1,13 +1,24 @@
 /* Customer computer workspace: operate the customer's machine without turning
    the general device-authorisation page into a command console. */
 .customer-devices-panel {
+  --ink: var(--chloe-ink);
+  --ink-soft: var(--chloe-body);
+  --surface: var(--chloe-canvas);
+  --surface-solid: var(--chloe-surface);
+  --surface-soft: var(--chloe-soft);
+  --line: var(--chloe-line);
+  --line-strong: color-mix(in srgb, var(--chloe-line) 78%, var(--chloe-ink));
+  --muted: var(--chloe-muted);
+  --mint: var(--chloe-olive);
+  --danger: var(--ui-error);
+  --warning: var(--ui-warning);
   width: min(100%, 720px);
   max-height: min(94dvh, 880px);
   padding: 18px clamp(16px, 3.5vw, 28px) calc(20px + env(safe-area-inset-bottom));
-  color: var(--ink, #243839);
-  background: var(--surface-solid, #fff);
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.16), 0 4px 16px rgba(15, 23, 42, 0.08);
-  border-radius: 20px;
+  color: var(--chloe-ink);
+  background: var(--chloe-surface);
+  box-shadow: var(--chloe-elevated, var(--chloe-shadow));
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -27,7 +38,7 @@
 }
 .customer-devices-intro {
   margin: 2px 0 14px;
-  color: var(--muted, #718181);
+  color: var(--chloe-muted);
   font-size: 12px;
   line-height: 1.55;
   flex-shrink: 0;
@@ -53,13 +64,13 @@
 }
 .customer-devices-toolbar h3 {
   margin: 0;
-  color: var(--ink, #243839);
+  color: var(--chloe-ink);
   font-size: 14px;
   font-weight: 700;
 }
 .customer-devices-toolbar p {
   margin: 3px 0 0;
-  color: var(--muted, #718181);
+  color: var(--chloe-muted);
   font-size: 11px;
   line-height: 1.45;
 }
@@ -72,10 +83,10 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid var(--line-strong, rgba(44, 55, 79, .16));
-  border-radius: 11px;
-  color: var(--ink, #243839);
-  background: var(--surface-solid, #fff);
+  border: 1px solid var(--chloe-line);
+  border-radius: 7px;
+  color: var(--chloe-ink);
+  background: var(--chloe-surface);
   font-size: 12px;
   font-weight: 550;
   cursor: pointer;
@@ -84,8 +95,8 @@
 }
 .customer-refresh-button:hover:not(:disabled),
 .customer-inline-button:hover:not(:disabled) {
-  background: var(--surface-soft, #f4f6f8);
-  border-color: var(--line-strong, rgba(44, 55, 79, .28));
+  background: var(--chloe-soft);
+  border-color: var(--chloe-olive);
 }
 .customer-refresh-button span {
   font-size: 14px;
@@ -99,15 +110,15 @@
 .customer-status {
   min-height: 20px;
   margin: 0 0 10px;
-  color: var(--muted, #718181);
+  color: var(--chloe-muted);
   font-size: 11px;
   line-height: 1.5;
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.customer-status[data-state="error"] { color: var(--danger, #e05269); }
-.customer-status[data-state="loading"] { color: var(--mint, #1e7065); }
+.customer-status[data-state="error"] { color: var(--ui-error); }
+.customer-status[data-state="loading"] { color: var(--chloe-olive); }
 
 /* Compact & Modern Device Card */
 .customer-device-list {
@@ -119,19 +130,19 @@
   min-width: 0;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--line, rgba(44, 55, 79, .12));
-  border-radius: 13px;
-  background: var(--surface-solid, #fff);
+  border: 1px solid var(--chloe-line);
+  border-radius: 8px;
+  background: var(--chloe-canvas);
   transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 .customer-device:hover:not(.is-selected) {
-  border-color: var(--line-strong, rgba(44, 55, 79, .24));
-  background: color-mix(in srgb, var(--surface-soft, #f8fafc) 60%, var(--surface-solid, #fff));
+  border-color: var(--chloe-olive);
+  background: var(--chloe-soft);
 }
 .customer-device.is-selected {
-  border: 1.5px solid var(--mint, #1e7065);
-  background: color-mix(in srgb, var(--mint, #1e7065) 4%, var(--surface-solid, #fff));
-  box-shadow: 0 2px 12px rgba(30, 112, 101, 0.08), inset 0 0 0 1px var(--mint, #1e7065);
+  border: 1.5px solid var(--chloe-olive);
+  background: color-mix(in srgb, var(--chloe-olive) 6%, var(--chloe-canvas));
+  box-shadow: inset 0 0 0 1px var(--chloe-olive);
 }
 .customer-device-select {
   width: 100%;
@@ -146,14 +157,14 @@
   column-gap: 8px;
   row-gap: 5px;
   border: 0;
-  color: var(--ink, #243839);
+  color: var(--chloe-ink);
   background: transparent;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .customer-device-select:active {
-  background: color-mix(in srgb, var(--mint, #1e7065) 6%, transparent);
+  background: color-mix(in srgb, var(--chloe-olive) 6%, transparent);
 }
 .customer-device-state {
   grid-area: state;
@@ -162,8 +173,8 @@
   gap: 5px;
   padding: 2px 7px;
   border-radius: 6px;
-  background: var(--surface-soft, #f0f2f5);
-  color: var(--muted, #667085);
+  background: var(--chloe-soft);
+  color: var(--chloe-muted);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -174,23 +185,23 @@
   height: 6px;
   display: inline-block;
   border-radius: 50%;
-  background: var(--muted, #98a2b3);
+  background: var(--chloe-muted);
 }
 .is-online .customer-device-state {
-  color: var(--mint, #1e7065);
-  background: color-mix(in srgb, var(--mint, #1e7065) 10%, transparent);
+  color: var(--ui-success);
+  background: color-mix(in srgb, var(--ui-success) 10%, transparent);
 }
 .is-online .customer-device-state i,
 .customer-detail-status.online i {
-  background: var(--mint, #1e7065);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mint, #1e7065) 18%, transparent);
+  background: var(--ui-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-success) 18%, transparent);
 }
 .customer-device-select > strong {
   grid-area: name;
   min-width: 0;
   font-size: 13.5px;
   font-weight: 650;
-  color: var(--ink, #243839);
+  color: var(--chloe-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -202,7 +213,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 6px;
-  color: var(--muted, #718181);
+  color: var(--chloe-muted);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -240,8 +251,8 @@
   line-height: 1;
 }
 .customer-device.is-selected .customer-device-select > em {
-  color: #fff;
-  background: var(--mint, #1e7065);
+  color: var(--chloe-canvas);
+  background: var(--chloe-olive);
   font-weight: 600;
 }
 .customer-legacy-action {
@@ -469,8 +480,8 @@
   padding: 0 16px;
   border: 0;
   border-radius: 11px;
-  color: #fff;
-  background: var(--ink, #1f2937);
+  color: var(--chloe-canvas);
+  background: var(--chloe-olive);
   font: 650 13px/1 inherit;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -480,8 +491,7 @@
   justify-content: center;
 }
 .customer-start-workspace:hover:not(:disabled) {
-  background: #111827;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  background: var(--chloe-olive-hover);
   transform: translateY(-1px);
 }
 .customer-start-workspace:active:not(:disabled) {
@@ -618,94 +628,10 @@
   stroke-linejoin: round;
 }
 
-/* Dark Theme Support */
-[data-theme="dark"] .customer-devices-panel {
-  color: var(--ink, #ececec);
-  background: #1f1f1f;
-  border: 1px solid rgba(255, 255, 255, .12);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
-}
-[data-theme="dark"] .customer-devices-toolbar h3,
-[data-theme="dark"] .customer-detail-head h3,
-[data-theme="dark"] .customer-workspace-start h4 {
-  color: #f3f4f6;
-}
-[data-theme="dark"] .customer-device {
-  background: #262626;
-  border-color: rgba(255, 255, 255, .10);
-}
-[data-theme="dark"] .customer-device:hover:not(.is-selected) {
-  border-color: rgba(255, 255, 255, .20);
-  background: #2a2a2a;
-}
-[data-theme="dark"] .customer-device.is-selected {
-  border-color: var(--mint, #14b89a);
-  background: color-mix(in srgb, var(--mint, #14b89a) 8%, #262626);
-  box-shadow: 0 2px 12px rgba(20, 184, 154, 0.15), inset 0 0 0 1px var(--mint, #14b89a);
-}
-[data-theme="dark"] .customer-device-select > strong {
-  color: #f3f4f6;
-}
-[data-theme="dark"] .customer-device-state {
-  background: #333333;
-  color: #9ca3af;
-}
-[data-theme="dark"] .is-online .customer-device-state {
-  color: var(--mint, #14b89a);
-  background: color-mix(in srgb, var(--mint, #14b89a) 15%, transparent);
-}
-[data-theme="dark"] .customer-device-select > small span {
-  background: #333333;
-  color: #9ca3af;
-}
-[data-theme="dark"] .customer-device-select > em {
-  background: #333333;
-  color: #9ca3af;
-}
-[data-theme="dark"] .customer-device.is-selected .customer-device-select > em {
-  color: #fff;
-  background: var(--mint, #14b89a);
-}
-[data-theme="dark"] .customer-refresh-button,
-[data-theme="dark"] .customer-inline-button {
-  background: #2a2a2a;
-  border-color: rgba(255, 255, 255, .14);
-  color: #e5e7eb;
-}
-[data-theme="dark"] .customer-refresh-button:hover:not(:disabled) {
-  background: #333333;
-}
-[data-theme="dark"] .customer-capability-hint {
-  background: color-mix(in srgb, var(--mint, #14b89a) 8%, #222);
-  border-color: color-mix(in srgb, var(--mint, #14b89a) 30%, transparent);
-  color: #d1d5db;
-}
-[data-theme="dark"] .customer-result-block.customer-workspace-start {
-  background: #262626;
-  border-color: rgba(255, 255, 255, .12);
-}
-[data-theme="dark"] .customer-workspace-field > span {
-  color: #d1d5db;
-}
-[data-theme="dark"] .customer-workspace-field select,
-[data-theme="dark"] .customer-workspace-field input {
-  background: #1c1c1c;
-  border-color: rgba(255, 255, 255, .14);
-  color: #f3f4f6;
-}
-[data-theme="dark"] .customer-start-workspace {
-  background: #f3f4f6;
-  color: #111827;
-}
-[data-theme="dark"] .customer-start-workspace:hover:not(:disabled) {
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
-}
-
 /* Browser Specific Desktop Enhancements */
 body.web-browser .customer-devices-panel {
   width: min(90vw, 760px);
-  border-radius: 20px;
+  border-radius: 10px;
   padding: 22px 28px 20px;
 }
 body.web-browser .customer-devices-panel .sheet-handle {
