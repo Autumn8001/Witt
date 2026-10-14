@@ -51,7 +51,7 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-panel { color: var(--chloe-ink) !important; background: var(--chloe-sidebar) !important; padding: 22px 18px 16px !important; display: flex !important; flex-direction: column !important; gap: 0 !important; height: 100dvh !important; border-right: 1px solid rgba(125,97,55,.08) !important; box-shadow: none !important; overflow-y: auto; }
 :root body.web-browser.chloe-autumn-workspace .sidebar-brand { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 0 12px !important; min-height: 48px !important; margin-bottom: 20px; flex: none; }
 .sidebar-brand-left { display: flex; align-items: center; gap: 14px; }
-:root body.web-browser.chloe-autumn-workspace .chloe-logo-icon { width: 48px; height: 48px; flex: none; stroke: none; }
+:root body.web-browser.chloe-autumn-workspace .chloe-logo-icon { width: 49px; height: 42px; flex: none; stroke: none; object-fit: contain; }
 :root body.web-browser.chloe-autumn-workspace .sidebar-brand-left h2 { margin: 0 !important; font-family: Georgia, "Songti SC", serif !important; font-size: 36px !important; font-weight: 500 !important; letter-spacing: -.025em !important; color: var(--chloe-ink) !important; }
 :root body.web-browser.chloe-autumn-workspace #closeDrawer { display: grid !important; color: var(--chloe-ink); width: 40px; height: 40px; background: transparent !important; }
 :root body.web-browser.chloe-autumn-workspace #drawerNewChat { display: flex !important; justify-content: space-between !important; align-items: center !important; flex: none; min-height: 56px !important; padding: 0 20px !important; margin: 0 0 24px !important; border: 0 !important; border-radius: 14px !important; color: #fff !important; background: linear-gradient(115deg, #68744f, #454f33) !important; box-shadow: 0 5px 12px rgba(61,70,43,.12) !important; }
@@ -86,12 +86,12 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-entry-text small { font-size: 12px !important; color: var(--chloe-muted) !important; margin-top: 4px; }
 :root body.web-browser.chloe-autumn-workspace .workspace-entry { display: flex !important; align-items: center !important; justify-content: space-between; min-height: 48px; margin: 0 !important; padding: 12px 14px !important; border: 0 !important; border-radius: 12px !important; color: var(--chloe-ink) !important; background: color-mix(in srgb, var(--chloe-surface) 45%, transparent) !important; font-size: 15px !important; }
 .workspace-entry-label { display: inline-flex; align-items: center; gap: 12px; text-align: left; }
-.workspace-entry-label svg { width: 24px !important; height: 24px !important; }
+.workspace-entry-label svg { width: 28px !important; height: 28px !important; }
 .workspace-entry svg, .drawer-entry-arrow { width: 18px !important; height: 18px !important; color: var(--chloe-gold) !important; flex: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-utilities { display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)) !important; gap: 10px !important; }
 :root body.web-browser.chloe-autumn-workspace .drawer-tools .drawer-profile { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 7px !important; padding: 12px 4px !important; min-height: 100px !important; border-radius: 16px !important; border: 0 !important; background: var(--chloe-surface) !important; text-align: center; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile-svg { color: var(--chloe-gold) !important; display: grid; place-items: center; width: 30px; height: 30px; }
-:root body.web-browser.chloe-autumn-workspace .drawer-profile-svg svg { width: 28px; height: 28px; color: var(--chloe-gold) !important; }
+:root body.web-browser.chloe-autumn-workspace .drawer-profile-svg svg { width: 36px; height: 36px; color: var(--chloe-gold) !important; }
 :root body.web-browser.chloe-autumn-workspace #profileButton .drawer-profile-svg { color: var(--chloe-brown) !important; }
 :root body.web-browser.chloe-autumn-workspace #adminSettingsButton .drawer-profile-svg { color: var(--chloe-amber) !important; }
 :root body.web-browser.chloe-autumn-workspace #codexAccountsButton .drawer-profile-svg { color: var(--chloe-rust) !important; }
@@ -229,11 +229,11 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 :root body.web-browser.chloe-autumn-workspace .drawer-profile-svg .autumn-icon,
 :root body.web-browser.chloe-autumn-workspace .profile-monogram .autumn-icon { width: 36px; height: 36px; color: currentColor; }
 :root body.web-browser.chloe-autumn-workspace #modelButton > .autumn-icon { width: 18px; height: 18px; color: var(--chloe-gold); }
-:root body.web-browser.chloe-autumn-workspace #modelButton .composer-env-icon { width: 17px; height: 17px; color: var(--chloe-olive); }
-:root body.web-browser.chloe-autumn-workspace #modelButton .composer-model-icon { width: 18px; height: 18px; color: var(--chloe-gold); }
+:root body.web-browser.chloe-autumn-workspace #modelButton .composer-env-icon { width: 19px; height: 19px; color: var(--chloe-olive); }
+:root body.web-browser.chloe-autumn-workspace #modelButton .composer-model-icon { width: 20px; height: 20px; color: var(--chloe-gold); }
 :root body.web-browser.chloe-autumn-workspace #modelButton .composer-reasoning-icon { width: 16px; height: 16px; color: var(--chloe-amber); }
 :root body.web-browser.chloe-autumn-workspace .conversation-mark { width: 28px !important; height: 28px !important; border-radius: 9px !important; }
-:root body.web-browser.chloe-autumn-workspace .conversation-mark .autumn-history-icon { width: 17px; height: 17px; }
+:root body.web-browser.chloe-autumn-workspace .conversation-mark .autumn-history-icon { width: 23px; height: 23px; }
 :root body.web-browser.chloe-autumn-workspace .autumn-history-icon { fill: currentColor; stroke: none; }
 :root body.web-browser.chloe-autumn-workspace .autumn-history-leaf { color: var(--chloe-brown); }
 :root body.web-browser.chloe-autumn-workspace .autumn-history-acorn { color: var(--chloe-rust); }
