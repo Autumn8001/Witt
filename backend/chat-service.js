@@ -4369,6 +4369,7 @@ class ChatService {
 
 module.exports = {
   ChatService,
+  ALLOWED_ACCESS,
   servePublicArtifactPreview,
   servePublicArtifactSource,
   ADMIN_MODELS,
