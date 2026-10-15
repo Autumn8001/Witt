@@ -29,6 +29,7 @@ class RemoteWorkspaceService {
     this.audit = options.audit;
     this.runtimeDir = options.runtimeDir;
     this.mcpProgram = options.mcpProgram || path.join(__dirname, "mcp", "remote-workspace.js");
+    this.antigravityBin = options.antigravityBin || "";
     this.apiBase = options.apiBase || "http://127.0.0.1:3003";
     this.approvalTtlMs = options.approvalTtlMs || 5 * 60_000;
     this.notifyApproval = options.notifyApproval || (() => { throw new RemoteWorkspaceServiceError("APPROVAL_UI_UNAVAILABLE"); });
@@ -47,7 +48,9 @@ class RemoteWorkspaceService {
     if (existing) return existing;
     const directory = path.join(this.runtimeDir, binding.workspace_id);
     const configDir = path.join(directory, ".grok");
+    const geminiConfigDir = path.join(directory, ".gemini", "config");
     fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(geminiConfigDir, { recursive: true, mode: 0o700 });
     const secret = crypto.randomBytes(32).toString("base64url");
     const credentialFile = path.join(directory, "mcp-session-token");
     fs.writeFileSync(credentialFile, `${secret}\n`, { mode: 0o600 });
@@ -59,9 +62,41 @@ class RemoteWorkspaceService {
       "",
     ].join("\n");
     fs.writeFileSync(path.join(configDir, "config.toml"), config, { mode: 0o600 });
+    fs.writeFileSync(path.join(geminiConfigDir, "mcp_config.json"), JSON.stringify({
+      mcpServers: { witt_remote_workspace: {
+        command: process.execPath,
+        args: [this.mcpProgram],
+        env: {
+          WITT_REMOTE_WORKSPACE_MCP_ENABLED: "1",
+          WITT_REMOTE_WORKSPACE_MCP_API: this.apiBase,
+          WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE: credentialFile,
+        },
+      } },
+    }, null, 2) + "\n", { mode: 0o600 });
+    let geminiBin = this.antigravityBin;
+    if (process.platform === "linux" && geminiBin && fs.existsSync(`${geminiBin}.orig-elf`)) {
+      const launcher = path.join(directory, "gemini-runtime");
+      const quote = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
+      fs.writeFileSync(launcher,
+        `#!/bin/sh\nexec /usr/bin/setpriv --reuid=agytest --regid=agytest --clear-groups env HOME=${quote(directory)} /usr/bin/qemu-x86_64 ${quote(`${geminiBin}.orig-elf`)} "$@"\n`,
+        { mode: 0o700 });
+      geminiBin = launcher;
+      for (const target of [directory, configDir, geminiConfigDir, credentialFile,
+        path.join(configDir, "config.toml"), path.join(geminiConfigDir, "mcp_config.json"), launcher]) {
+        try { fs.chownSync(target, 1000, 1000); } catch {}
+      }
+    }
+    const codexConfigOverrides = [
+      `mcp_servers.witt_remote_workspace.command=${JSON.stringify(process.execPath)}`,
+      `mcp_servers.witt_remote_workspace.args=${JSON.stringify([this.mcpProgram])}`,
+      "mcp_servers.witt_remote_workspace.enabled=true",
+      'mcp_servers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_MCP_ENABLED="1"',
+      `mcp_servers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_MCP_API=${JSON.stringify(this.apiBase)}`,
+      `mcp_servers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE=${JSON.stringify(credentialFile)}`,
+    ];
     const value = Object.freeze({
       workspaceId: binding.workspace_id, cwd: directory, secret, credentialFile,
-      apiBase: this.apiBase,
+      apiBase: this.apiBase, home: directory, geminiBin, codexConfigOverrides,
     });
     this.sessions.set(binding.workspace_id, value);
     return value;

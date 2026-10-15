@@ -86,6 +86,7 @@ class WorkspaceStore {
       harness_id, model_id, harness_session_id, created_at, updated_at, state
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     this.updateState = this.db.prepare("UPDATE remote_workspaces SET state = ?, updated_at = ? WHERE workspace_id = ? AND state = ?");
+    this.updateRuntime = this.db.prepare("UPDATE remote_workspaces SET harness_id = ?, model_id = ?, harness_session_id = ?, updated_at = ? WHERE workspace_id = ?");
   }
 
   create(binding) {
@@ -117,6 +118,22 @@ class WorkspaceStore {
     if (record.state === nextState) return record;
     if (!TRANSITIONS[record.state].has(nextState)) throw new WorkspaceStoreError("INVALID_STATE_TRANSITION");
     this.updateState.run(nextState, this.now(), record.workspace_id, record.state);
+    return this.get(record.workspace_id);
+  }
+
+  setRuntime(workspaceId, runtime) {
+    const record = this.get(workspaceId);
+    if (!record) throw new WorkspaceStoreError("WORKSPACE_NOT_FOUND");
+    if (record.state !== "active") throw new WorkspaceStoreError("WORKSPACE_NOT_ACTIVE");
+    const candidate = validateBinding({
+      workspace_id: record.workspace_id, conversation_id: record.conversation_id,
+      customer_id: record.customer_id, device_id: record.device_id,
+      root_alias: record.root_alias, display_path: record.display_path,
+      harness_id: runtime?.harness_id, model_id: runtime?.model_id,
+      harness_session_id: runtime?.harness_session_id,
+    });
+    this.updateRuntime.run(candidate.harness_id, candidate.model_id, candidate.harness_session_id,
+      this.now(), record.workspace_id);
     return this.get(record.workspace_id);
   }
 

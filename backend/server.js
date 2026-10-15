@@ -296,6 +296,7 @@ const remoteWorkspaceService = new RemoteWorkspaceService({
   workspaceStore: remoteWorkspaceStore, dispatcher: remoteWorkspaceDispatcher,
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
   runtimeDir: path.join(remoteWorkspaceDir, "runtime"), apiBase: `http://127.0.0.1:${port}`,
+  antigravityBin: harnessOptions.antigravity.bin || "/root/.local/bin/agy",
   notifyApproval: (binding, approval) => {
     const services = [chatService, ...userChatServices.values()];
     const chat = services.find((service) => service?.readConversation(binding.conversation_id));
@@ -420,7 +421,7 @@ const { handleDevelopmentWorkflow, handleDevelopmentWorkflowAction, developmentW
   createDevelopmentRoutes({ chatFor, sendJson, readJsonBody });
 const deviceRoutes = createDeviceRoutes({ gateway: deviceGateway, sendJson, authorized });
 const remoteWorkspaceRoutes = createRemoteWorkspaceRoutes({
-  gateway: deviceGateway, service: remoteWorkspaceService, chatFor, sendJson, readJsonBody,
+  gateway: deviceGateway, service: remoteWorkspaceService, chatFor, runtimeProfiles, sendJson, readJsonBody,
 });
 
 function filesFor(principal) {

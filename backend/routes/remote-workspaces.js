@@ -13,7 +13,7 @@ function errorStatus(error) {
   return 500;
 }
 
-function createRemoteWorkspaceRoutes({ gateway, service, chatFor, sendJson, readJsonBody }) {
+function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfiles, sendJson, readJsonBody }) {
   const local = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
   const mcpInternal = (req) => local(req) && !req.headers["x-forwarded-for"] && !req.headers["x-real-ip"];
   const requiredCapabilities = [
@@ -21,6 +21,10 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, sendJson, read
     "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info",
   ];
 
+  const models = () => [{ id: "grok-4.7-high", name: "Grok Build", harness: "grok-build", reasoning: "high" }, ...(runtimeProfiles?.list?.() || [])]
+    .filter((profile) => ["grok-build", "codex", "google-antigravity"].includes(profile.harness))
+    .filter((profile, index, all) => all.findIndex((item) => (item.model || item.id) === (profile.model || profile.id)) === index)
+    .map((profile) => ({ id: profile.model || profile.id, name: profile.name, harness: profile.harness, reasoning: profile.reasoning }));
   const options = () => gateway.registry.list().map((device) => ({
     customer_id: gateway.registry.definition(device.device_id)?.customerId || device.customer_name || device.device_id,
     device_id: device.device_id, device_label: device.label, status: device.status,
@@ -28,7 +32,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, sendJson, read
       root_alias: alias,
       display_path: gateway.registry.definition(device.device_id)?.workspaceRoots?.[alias] || alias,
     })),
-    ready: requiredCapabilities.every((capability) => device.capabilities.includes(capability)),
+    ready: requiredCapabilities.every((capability) => device.capabilities.includes(capability)), models: models(),
   }));
 
   function handleInternal(req, res, url) {
@@ -62,7 +66,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, sendJson, read
         if (!described.allowed_roots.includes(body.root_alias) || !requiredCapabilities.every((capability) => described.capabilities.includes(capability))) {
           sendJson(res, 409, { error: "WORKSPACE_CAPABILITY_UNAVAILABLE" }); return;
         }
-        const model = typeof body.model === "string" && body.model.startsWith("grok-") ? body.model : "grok-4.7-high";
+        const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : "grok-4.7-high";
         const sessionId = crypto.randomUUID();
         try {
           const chat = chatFor(principal);
@@ -74,7 +78,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, sendJson, read
             customer_id: definition.customerId || described.customer_name || described.device_id,
             device_id: described.device_id, root_alias: body.root_alias,
             display_path: definition.workspaceRoots?.[body.root_alias] || body.root_alias,
-            harness_id: "grok-build", model_id: conversation.model, harness_session_id: sessionId,
+            harness_id: conversation.harnessId, model_id: conversation.model, harness_session_id: sessionId,
           });
           sendJson(res, 201, { workspace, conversation: chat.publicConversation(conversation) });
         } catch (createError) {

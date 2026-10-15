@@ -79,6 +79,7 @@ class AntigravityAdapter {
     this.baseUrl = options.baseUrl || "";
     this.printTimeoutMs = Number(options.printTimeoutMs || 5 * 60 * 1000);
     this.stdinSessions = options.stdinSessions === true;
+    this.remoteWorkspace = options.remoteWorkspace || null;
     this.skipPermissions = options.skipPermissions === true;
     this.runAsAdmin = options.runAsAdmin === true && this.skipPermissions;
     this.logger = options.logger || new RuntimeLogger({ enabled: false });
@@ -97,6 +98,7 @@ class AntigravityAdapter {
     const env = {};
     if (this.apiKeyEnv && this.apiKeyValue) env[this.apiKeyEnv] = this.apiKeyValue;
     if (this.baseUrl) env.GOOGLE_GEMINI_BASE_URL = this.baseUrl;
+    if (this.remoteWorkspace?.home) env.HOME = this.remoteWorkspace.home;
     // Never inherit an admin marker from the parent process. The launcher only
     // honors this marker when the trusted caller selected full-access mode.
     env.CHLOE_AGY_ADMIN_EXECUTION = this.runAsAdmin ? "1" : "0";
