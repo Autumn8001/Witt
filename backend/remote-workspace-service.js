@@ -59,7 +59,9 @@ class RemoteWorkspaceService {
     let geminiSettings = {};
     try { geminiSettings = JSON.parse(fs.readFileSync(geminiSettingsFile, "utf8")); } catch {}
     fs.writeFileSync(geminiSettingsFile,
-      JSON.stringify({ ...geminiSettings, modelProvider: "gemini" }) + "\n", { mode: 0o600 });
+      JSON.stringify({ ...geminiSettings, modelProvider: "gemini",
+        permissions: { ...geminiSettings.permissions,
+          allow: ["mcp(witt_remote_workspace/*)"] } }) + "\n", { mode: 0o600 });
     const secret = crypto.randomBytes(32).toString("base64url");
     const credentialFile = path.join(directory, "mcp-session-token");
     fs.writeFileSync(credentialFile, `${secret}\n`, { mode: 0o600 });
@@ -124,6 +126,29 @@ class RemoteWorkspaceService {
       }
     }
     return null;
+  }
+
+  stageAttachments(binding, files) {
+    if (!files.length) return files;
+    const runtime = this.runtimeFor(binding);
+    // Keep the copy destination outside the model-writable working directory.
+    // A new root-owned directory and exclusive copies prevent symlink overwrite.
+    const directory = fs.mkdtempSync(path.join(this.runtimeDir, "attachments-"));
+    fs.chmodSync(directory, 0o711);
+    const staged = files.map((file) => {
+      if (fs.statSync(file.path).size > 16 * 1024 * 1024) {
+        throw new RemoteWorkspaceServiceError("ATTACHMENT_TOO_LARGE");
+      }
+      const destination = path.join(directory,
+        crypto.randomUUID() + path.extname(file.path).slice(0, 18));
+      fs.copyFileSync(file.path, destination, fs.constants.COPYFILE_EXCL);
+      fs.chmodSync(destination, 0o600);
+      if (process.platform === "linux" && runtime.geminiBin !== this.antigravityBin) {
+        fs.chownSync(destination, 1000, 1000);
+      }
+      return { ...file, path: destination };
+    });
+    return staged;
   }
 
   async executeMcp(secret, operation, args) {

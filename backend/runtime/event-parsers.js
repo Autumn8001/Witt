@@ -126,13 +126,14 @@ function parseAntigravityStep(step, conversationId) {
   if (tool && typeof tool === "object") {
     // Field names inside tool_info were not published in the sections we could
     // read, so accept the plausible spellings instead of guessing one.
-    const status = firstString(tool.status, step.state);
+    const rawStatus = firstString(tool.status, step.state);
+    const status = ({ DONE: "completed", ERROR: "failed", FAILED: "failed", CANCELLED: "cancelled", ACTIVE: "running" })[rawStatus] || rawStatus;
     const output = tool.output ?? tool.result ?? step.tool_output ?? step.toolOutput;
     const isUpdate = output !== undefined || ["completed", "failed", "error", "cancelled"].includes(status);
     return {
       ...base,
       type: isUpdate ? "tool_call_update" : "tool_call",
-      id: firstString(tool.id, tool.call_id, tool.tool_call_id),
+      id: firstString(tool.id, tool.call_id, tool.tool_call_id) || (base.stepIndex !== undefined ? `tool-${base.stepIndex}` : undefined),
       tool: firstString(tool.name, tool.tool, tool.tool_name),
       status,
       input: tool.input ?? tool.args ?? tool.parameters ?? null,

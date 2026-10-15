@@ -65,7 +65,7 @@ function validateWorkspaceOperation(operation, args) {
   if (typeof operation !== "string") invalid("INVALID_OPERATION");
   if (operation === "workspace.list") {
     if (!optionalKeys(args, [], ["path"])) invalid();
-    return { operation, args: { path: args.path === undefined ? "." : validateRelativePath(args.path, { allowRoot: true }) } };
+    return { operation, args: { path: args.path === undefined || args.path === "" ? "." : validateRelativePath(args.path, { allowRoot: true }) } };
   }
   if (operation === "workspace.stat" || operation === "workspace.read") {
     if (!exactKeys(args, ["path"])) invalid();

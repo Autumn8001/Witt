@@ -2934,13 +2934,15 @@
   function streamGroupLabel(entries) {
     const commands = entries.filter((entry) => entry.kind === "command").length;
     const files = entries
-      .filter((entry) => entry.kind === "file")
+      .filter((entry) => entry.kind === "file" && !entry.readOnly)
       .reduce((total, entry) => total + Math.max(1, Number(entry.count) || 1), 0);
+    const reads = entries.filter((entry) => entry.kind === "file" && entry.readOnly).length;
     const tools = entries.filter((entry) => !["command", "file", "web"].includes(entry.kind)).length;
     const web = entries.filter((entry) => entry.kind === "web").length;
     const parts = [];
     if (commands) parts.push(`执行 ${commands} 条命令`);
     if (files) parts.push(`修改 ${files} 个文件`);
+    if (reads) parts.push(`读取 ${reads} 个文件`);
     if (web) parts.push(`查询 ${web} 次`);
     if (tools) parts.push(`调用 ${tools} 个工具`);
     return parts.join(" · ") || `处理 ${entries.length} 项操作`;

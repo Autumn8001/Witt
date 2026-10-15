@@ -548,6 +548,8 @@ class ChatService {
         return true;
       }).map(({ details, ...entry }) => ({
         ...entry,
+        ...(entry.kind === "file" && /^(?:view_file|read_file|list_dir|find_by_name|grep_search)$/.test(details?.tool || "")
+          ? { readOnly: true } : {}),
         hasDetails: Boolean(details),
       })),
     };
@@ -2915,6 +2917,10 @@ class ChatService {
         "你是 Chloe 的开发助手。Chloe 是当前应用的名称；内部 witt_* MCP 工具名和服务标识保持不变，不代表其他人的 Witt 实例。",
         "以本轮用户请求为准，不自动执行历史开发任务；新对话不自动继承其他对话，只使用实际提供的上下文和当前授权项目的信息。",
         "你正在操作一个 Remote Vibecoding Workspace。客户电脑上的项目只能通过 witt_remote_workspace MCP 工具访问。",
+        `客户项目授权根目录：${remote.display_path || remote.root_alias}。MCP 路径只能使用根目录内的相对路径；列根目录时传 path="."。`,
+        "若用户指定的客户电脑文件位于授权项目目录外，应直接说明尚未授权该位置，请用户将该文件作为附件上传或另建对应目录的工作区；不要反复调用工具、猜测路径或使用 .. 越界。",
+        "Antigravity 的 MCP 工具通过 call_mcp_tool 调用，ServerName=witt_remote_workspace，ToolName 使用 workspace_list、workspace_read、workspace_stat 等实际工具名。允许用 view_file 读取当前 MCP 工具的描述文件，但这些描述不是客户文件，也不代表已修改客户文件。",
+        "本轮明确列出的附件是用户上传的只读副本，可用本机 view_file 查看这些附件；图片请实际查看后描述，不把图片当 UTF-8 文本读取。",
         "本会话已固定绑定到一个客户、一个设备和一个项目根目录；模型可以由用户在 Chloe 设置中切换，但不得索取、猜测或尝试切换 device_id、磁盘路径、网络共享或其他目录。",
         "不要使用本机文件工具、shell、浏览器或 SSH 来替代 workspace MCP；它们不代表客户项目。",
         "先用 workspace_list/read/search/stat 理解代码。修改前读取 SHA-256，写入必须附带刚读取的 SHA-256；patch 必须使用唯一的 before/after 文本。",
@@ -2975,7 +2981,9 @@ class ChatService {
         `用户：${userText}${attachmentText}`,
       ].join("\n");
     }
-    if (conversation.codexThreadId) return `${userText}${attachmentText}`;
+    if (conversation.codexThreadId) return this.remoteWorkspaceBinding(conversation)
+      ? `${this.buildDeveloperInstructions(conversation)}\n\n用户：${userText}${attachmentText}`
+      : `${userText}${attachmentText}`;
     return [
       this.buildDeveloperInstructions(conversation),
       "",
@@ -3460,7 +3468,9 @@ class ChatService {
     const existingSession = remoteWorkspace && !conversation.remoteWorkspaceStarted
       ? null : (conversation.harnessSessionId || null);
     const promptConversation = { ...conversation, codexThreadId: existingSession };
-    const prompt = this.buildPrompt(promptConversation, user, attachments);
+    const promptAttachments = remoteWorkspace && attachments.length
+      ? this.remoteWorkspaceService.stageAttachments(remoteWorkspace, attachments) : attachments;
+    const prompt = this.buildPrompt(promptConversation, user, promptAttachments);
 
     this.active = {
       conversationId: conversation.id,
@@ -3501,6 +3511,8 @@ class ChatService {
       model,
       cwd: workDir,
       effort: normalizeEffort(reasoning || "medium"),
+      ...(remoteWorkspace && promptAttachments.length
+        ? { addDirs: [...new Set(promptAttachments.map((file) => path.dirname(file.path)))] } : {}),
       skipPermissions,
       ...(existingSession ? { conversationId: existingSession } : {}),
     });

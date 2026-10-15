@@ -168,3 +168,20 @@ test("new remote Gemini contexts start fresh and resume only after CLI session d
     assert.equal(completion(turn.calls).success, true);
   }
 });
+
+test("Antigravity tool DONE updates match the original step and complete reads", () => {
+  const { parseAntigravityEvent } = require("./runtime/event-parsers");
+  const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
+  const start = parseAntigravityEvent({ event: "step_update", step_update: {
+    step_index: 5, state: "ACTIVE", tool_info: { name: "view_file", input: { AbsolutePath: "/workspace/schema.json" } },
+  } });
+  const end = parseAntigravityEvent({ event: "step_update", step_update: {
+    step_index: 5, state: "DONE", tool_info: { name: "view_file", output: "schema" },
+  } });
+  assert.equal(start.id, end.id);
+  assert.equal(end.type, "tool_call_update");
+  assert.equal(end.status, "completed");
+  const adapter = new AntigravityAdapter({ bin: "agy" });
+  assert.equal(adapter.formatToolUpdate(end).status, "completed");
+  assert.deepEqual(adapter.buildArgs({ prompt: "image", addDirs: ["/attachments"] }).slice(0, 2), ["--add-dir", "/attachments"]);
+});
