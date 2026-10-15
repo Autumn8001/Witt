@@ -42,6 +42,34 @@ helpers and `chatFor(principal)`. A Witt host can reuse this API/MCP contract
 without importing the Chloe frontend. The package currently depends on the
 existing workspace/gateway modules; it is not a separately published package.
 
+## Browser + lightweight connector follow-up
+
+The default exe now opens a local customer webpage in the default browser.
+Pairing, server/operator/expiry review, directory selection, authorization,
+pause/resume, per-edit diff confirmation and termination live on that page.
+The existing WSS executor remains in the connector. The server-side harness,
+Gateway and MCP contract are unchanged. `--native` retains the previous native
+window for compatibility/testing; it is no longer the default.
+
+The page is embedded in the executable, needs no web runtime installation and
+is served only from a random `127.0.0.1` port. Local API requests require an
+exact Host, same-origin POST and an unpredictable per-process bearer token.
+The token is delivered in the browser fragment, removed from the address bar,
+kept in page memory and never forwarded to the server. No CORS or persistent
+local credentials are enabled. Remote traffic remains certificate-validated
+HTTPS/WSS; loopback HTTP does not carry the model or server-side runtime.
+
+Closing/refreshing the page requests revocation using a keepalive request.
+If the browser crashes or cannot notify the connector, loss of page heartbeats
+revokes and exits within 120 seconds. Grant expiry and network disconnect also
+terminate the connector. Use **结束协助并退出连接器** for explicit termination.
+
+The connector is still an executable: a browser alone cannot run the Windows
+filesystem executor. This change removes the native control interface and
+manual command requirement, not the need to obtain/start the connector once.
+No URL-handler registration, permanent installation or automatic download is
+introduced. Public signed distribution remains unfinished.
+
 ## Client and operator steps
 
 1. On the **development** Chloe instance, open Remote Workspace, generate an
@@ -49,9 +77,10 @@ existing workspace/gateway modules; it is not a separately published package.
 2. Transfer the locally built `artifacts/chloe-assist.exe` to the test Windows
    machine and verify `artifacts/SHA256SUMS.txt` through a trusted channel.
 3. Run `chloe-assist.exe join XXXXX-XXXXX --server https://<test-host>/vault-api`.
-   Without arguments the exe opens its pairing window. The optional `--root`
+   Without arguments the exe opens its customer webpage in the default browser;
+   customers can enter the server and code there, without using a command line. The optional `--root`
    only prefills the directory; it does not approve access.
-4. The customer checks the server address, operator, expiry and directory,
+4. On the webpage, the customer checks the server address, operator, expiry and directory,
    optionally enables edits, then clicks **允许并连接**.
 5. The operator refreshes the session and opens its Grok workspace in Chloe.
 6. The customer can pause/resume or disconnect and exit. A network disconnect
@@ -74,8 +103,8 @@ reasoning or model credentials.
 
 ## Release status
 
-This is a locally built Windows amd64 exe, **6,606,848 bytes**, approximately
-**6.30 MiB**, with Go/WebSocket code statically included and only Windows system
+This is a locally built Windows amd64 exe, **7,032,320 bytes**, approximately
+**6.71 MiB**, with Go/WebSocket code statically included and only Windows system
 DLLs required at runtime. The current artifact is **NotSigned**. There is no
 trusted public release URL, Authenticode certificate or verified download/install
 flow. SHA-256 alone is not publisher authentication. No one-click install PASS is
@@ -138,7 +167,9 @@ For the real server-side harness test, use
 It requires a previously trusted SSH host, creates private test state and binds
 only loopback ports. Then run `tests/test-assist-native.py` with the matching SSH
 arguments. `--expiry-only` runs the one-minute expiry test. Run
-`node tests/assist-ui.cjs` for browser acceptance. Creating
+`node tests/assist-ui.cjs` for operator browser acceptance. The customer browser
+flow is `node tests/assist-browser.cjs`; `--lifecycle-only` checks page unload
+and the actual two-minute heartbeat fallback without repeating model calls. Creating
 `artifacts/assist-e2e/stop` closes the tunnel and only the verified fixture PID.
 
 ## Not completed / NOT TESTED
@@ -159,3 +190,31 @@ arguments. `--expiry-only` runs the one-minute expiry test. Run
 Next minimal task: run this exact artifact on a clean Windows VM. Publisher
 signing/distribution, Shell authorization and Codex acceptance remain separate
 tasks; do not expand automatically.
+
+## Browser follow-up verification
+
+`tests/assist-browser.cjs` drives the real Go browser controller on the same
+non-elevated Windows 11 test machine, against the isolated Gateway and real
+server-side Grok Build harness (Gemini upstream as disclosed above).
+The fixture is a Go **test executable** with only the OS browser launcher
+substituted by Playwright navigation; production pairing, authorization,
+filesystem/WSS execution, approval and lifecycle code are unchanged. This is
+not a clean-machine acceptance test of Windows default-browser association.
+
+- PASS: unauthorized local API requests and foreign Origins rejected.
+- PASS: preview alone leaves the remote session unapproved.
+- PASS: browser consent establishes WSS; actual model read returns unique marker.
+- PASS: file unchanged until webpage diff approval; actual patch/audit verified.
+- PASS: webpage pause/resume and explicit end/revoke/process exit.
+- PASS: 1280px and 390px page checks; no horizontal overflow or browser errors.
+- Page-unload and forced page-close lease results: see local `browser-lifecycle-results.json`.
+  The initial combined run passed the read/edit/control checks but used an
+  incorrect 15-second close expectation; Chromium omitted its close notification.
+  The corrected lifecycle run tests the documented 120-second heartbeat fallback.
+- PASS: Go tests, plus 54 unchanged Node regression tests.
+
+Local evidence and test credentials remain excluded from Git. Browser screenshots
+are `browser-consent-1280.png`, `browser-consent-390.png`, `browser-diff.png`.
+Default-browser launch and native directory-picker interaction on a clean machine,
+Windows 10, signing, public delivery and production deployment remain NOT TESTED
+or unfinished. No production configuration/service has been changed.

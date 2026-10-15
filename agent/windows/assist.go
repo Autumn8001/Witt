@@ -32,7 +32,10 @@ type assistGrant struct {
 	Capabilities []string `json:"allowed_capabilities"`
 }
 
-type assistOptions struct{ Server, Code, Root, CAFile string }
+type assistOptions struct {
+	Server, Code, Root, CAFile string
+	Native                     bool
+}
 type assistPolicy struct {
 	sync.RWMutex
 	sessionID    string
@@ -71,10 +74,14 @@ func handleAssist(args []string) (bool, error) {
 	f.StringVar(&options.Server, "server", options.Server, "HTTPS Chloe API base URL")
 	f.StringVar(&options.Root, "root", "", "prefill workspace directory; approval is still required")
 	f.StringVar(&options.CAFile, "ca-file", "", "additional trusted CA for an isolated development gateway")
+	f.BoolVar(&options.Native, "native", false, "use the legacy native consent window")
 	if err := f.Parse(args); err != nil {
 		return true, err
 	}
-	return true, showAssist(options)
+	if options.Native {
+		return true, showAssist(options)
+	}
+	return true, showAssistBrowser(options)
 }
 
 type assistClient struct {

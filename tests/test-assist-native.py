@@ -84,7 +84,7 @@ try:
  invite=api('/remote-assist/sessions',{'customer_label':'Windows 原生验收','ttl_minutes':1 if args.expiry_only else 15,'allow_edits':True});sid=invite['assist_session_id']
  (out/'test-session.json').write_text(json.dumps({'sessionId':sid,'marker':marker,'root':str(root)}),encoding='utf8')
  assert session(sid)['state']=='pending' and not session(sid)['connected'];result['before_authorization']='PASS: no device or workspace bound'
- proc=subprocess.Popen([str(repo/'artifacts/chloe-assist.exe'),'join',invite['pairing_code'],'--server',base,'--root',str(root),'--ca-file',context['caFile']])
+ proc=subprocess.Popen([str(repo/'artifacts/chloe-assist.exe'),'join',invite['pairing_code'],'--native','--server',base,'--root',str(root),'--ca-file',context['caFile']])
  hwnd=wait(lambda:next((h for h,t in windows(proc.pid) if t=='Chloe Assist · 临时远程协助'),None))
  click(hwnd,101);wait(lambda:user.IsWindowEnabled(user.GetDlgItem(hwnd,102)))
  assert session(sid)['state']=='pending';screenshot(hwnd,'native-consent.png')
