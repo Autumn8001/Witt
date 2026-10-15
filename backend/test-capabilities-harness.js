@@ -60,6 +60,40 @@ async function capabilities(service, sent) {
   return { status: last.status, payload: last.body, raw: JSON.stringify(last.body) };
 }
 
+test("server access policy export remains iterable", () => {
+  const { ALLOWED_ACCESS } = require("./chat-service");
+  assert.ok([...ALLOWED_ACCESS].includes("workspace-write"));
+});
+
+test("remote model PATCH accepts unchanged permissions and renews only runtime context", () => {
+  const requestBody = { model: ENABLED_GEMINI, reasoning: "high", accessMode: "workspace-write", harness: "auto" };
+  const { service, sent } = makeService({ requestBody });
+  const conversation = service.createConversation("remote", "grok-4.7-high", "high", "workspace-write");
+  conversation.harnessSessionId = crypto.randomUUID();
+  const previousSession = conversation.harnessSessionId;
+  service.writeConversation(conversation);
+  const binding = { workspace_id: crypto.randomUUID(), conversation_id: conversation.id,
+    device_id: "PC-AUTUMN-WINDOWS", root_alias: "project" };
+  let updated;
+  service.remoteWorkspaceService = {
+    bindingForConversation: () => binding,
+    workspaceStore: { setRuntime(id, runtime) { updated = { id, ...runtime }; } },
+  };
+  service.updateConversationSettings({}, {}, conversation.id);
+  assert.equal(sent.at(-1).status, 200);
+  const stored = service.readConversation(conversation.id);
+  assert.equal(stored.model, ENABLED_GEMINI);
+  assert.equal(stored.harnessId, "google-antigravity");
+  assert.notEqual(stored.harnessSessionId, previousSession);
+  assert.equal(stored.accessMode, "workspace-write");
+  assert.equal(updated.id, binding.workspace_id);
+  assert.equal(updated.harness_session_id, stored.harnessSessionId);
+  requestBody.accessMode = "danger-full-access";
+  service.updateConversationSettings({}, {}, conversation.id);
+  assert.equal(sent.at(-1).status, 409);
+  assert.equal(service.readConversation(conversation.id).accessMode, "workspace-write");
+});
+
 test("the shared developer prompt is provider-neutral", (t) => {
   const { service, root } = makeService();
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

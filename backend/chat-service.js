@@ -247,7 +247,7 @@ class ChatService {
     });
   }
 
-  clientFor(profile, model = this.defaultModel) {
+  clientFor(profile, model = this.defaultModel, conversation = null) {
     const deepseek = DEEPSEEK_MODELS.has(model);
     const configOverrides = ["features.default_mode_request_user_input=true"];
     let route = null;
@@ -264,6 +264,9 @@ class ChatService {
       "model_providers.witt-deepseek.stream_max_retries=2",
       "model_providers.witt-deepseek.stream_idle_timeout_ms=300000",
     );
+    const remoteBinding = conversation && this.remoteWorkspaceBinding(conversation);
+    const remoteWorkspace = remoteBinding ? this.remoteWorkspaceService.runtimeFor(remoteBinding) : null;
+    if (remoteWorkspace?.codexConfigOverrides) configOverrides.push(...remoteWorkspace.codexConfigOverrides);
     const client = sharedAppServer({
       codexBin: this.codexBin,
       cwd: profile.workDir,
@@ -274,6 +277,7 @@ class ChatService {
         envOverrides: route.envOverrides,
         cacheIdentity: route.cacheIdentity,
       } : {}),
+      ...(remoteWorkspace ? { cacheIdentity: `remote-workspace:${remoteWorkspace.workspaceId}` } : {}),
       clientScope: this.clientScope,
     });
     if (!this.boundClients.has(client)) {
@@ -1064,14 +1068,19 @@ class ChatService {
   }
 
   createRemoteWorkspaceConversation({ title, model, reasoning, harnessSessionId }) {
-    if (!this.remoteWorkspaceService || !/^grok-/.test(String(model || ""))) {
-      throw new Error("远程工作区目前仅支持 Grok Build");
+    const selectedModel = String(model || "");
+    const harness = resolveHarness(selectedModel, "auto");
+    if (!this.remoteWorkspaceService || !["grok-build", "codex", "google-antigravity"].includes(harness)) {
+      throw new Error("该模型尚未接入远程工作区工具链");
+    }
+    if (!this.modelAllowed(selectedModel, this.defaultCodexProfile)) {
+      throw new Error("该模型当前不可用于远程工作区");
     }
     if (typeof harnessSessionId !== "string" || !harnessSessionId) throw new Error("远程会话标识无效");
     const conversation = this.createConversation(title || "远程开发工作区", model, reasoning || "high",
       "workspace-write", "", null);
-    conversation.harnessId = "grok-build";
-    conversation.providerId = providerForModel(conversation.model) || "cpa";
+    conversation.harnessId = harness;
+    conversation.providerId = conversation.providerId || providerForModel(conversation.model) || "cpa";
     conversation.harnessSessionId = harnessSessionId;
     conversation.remoteWorkspaceStarted = false;
     // A Remote Workspace never maps a client-side Windows path to `workDir`.
@@ -1749,10 +1758,7 @@ class ChatService {
       if (remoteWorkspace && (Object.hasOwn(body || {}, "workDir") ||
           (Object.hasOwn(body || {}, "accessMode") && body.accessMode !== conversation.accessMode) ||
           Object.hasOwn(body || {}, "codexProfile"))) {
-        this.sendJson(res, 409, {
-          error: "远程工作区的设备、项目范围、访问权限和账号不可切换。",
-          remoteWorkspaceLocked: true,
-        });
+        this.sendJson(res, 409, { error: "远程工作区的设备、项目范围、访问权限和账号不可切换。" });
         return;
       }
       const requestedModel = body?.model == null
@@ -1824,7 +1830,7 @@ class ChatService {
       // Either runtime binding counts as existing context: a Codex thread or a
       // non-Codex harness session. A bound session is never migrated silently.
       const hasRuntimeContext = Boolean(conversation.codexThreadId || conversation.harnessSessionId);
-      if (hasRuntimeContext && nextHarness !== boundHarness) {
+      if (hasRuntimeContext && nextHarness !== boundHarness && !remoteWorkspace) {
         this.sendJson(res, 409, {
           error: "Harness changed. Start a new session or branch this session; the current session stays bound.",
           harnessChanged: true,
@@ -1836,6 +1842,10 @@ class ChatService {
       if (conversation.messages.some((message) =>
         message.status === "queued" || message.status === "running")) {
         this.sendJson(res, 409, { error: "当前对话正在处理，完成后再切换" });
+        return;
+      }
+      if (remoteWorkspace && !["grok-build", "codex", "google-antigravity"].includes(nextHarness)) {
+        this.sendJson(res, 400, { error: "该模型尚未接入远程工作区工具链" });
         return;
       }
       const providerChanged = this.modelProviderIdentity(requestedModel) !==
@@ -1875,6 +1885,19 @@ class ChatService {
         if (!conversation.codexThreadId && !Object.hasOwn(body || {}, "workDir")) {
           requestedWorkDir = requestedProfile.id === "default" ? "" : requestedProfile.workDir;
         }
+      }
+      const remoteRuntimeChanged = Boolean(remoteWorkspace) &&
+        (requestedModel !== conversation.model || nextHarness !== boundHarness);
+      if (remoteRuntimeChanged) {
+        conversation.codexThreadId = null;
+        conversation.harnessSessionId = crypto.randomUUID();
+        conversation.remoteWorkspaceStarted = false;
+        conversation.replayHistoryOnNextTurn = true;
+        requestedWorkDir = "";
+        this.remoteWorkspaceService.workspaceStore.setRuntime(remoteWorkspace.workspace_id, {
+          harness_id: nextHarness, model_id: requestedModel,
+          harness_session_id: conversation.harnessSessionId,
+        });
       }
       conversation.model = requestedModel;
       conversation.providerId = this.sub2api && SUB2API_CODEX_MODELS[requestedModel]
@@ -2891,7 +2914,7 @@ class ChatService {
         "你是 Chloe 的开发助手。Chloe 是当前应用的名称；内部 witt_* MCP 工具名和服务标识保持不变，不代表其他人的 Witt 实例。",
         "以本轮用户请求为准，不自动执行历史开发任务；新对话不自动继承其他对话，只使用实际提供的上下文和当前授权项目的信息。",
         "你正在操作一个 Remote Vibecoding Workspace。客户电脑上的项目只能通过 witt_remote_workspace MCP 工具访问。",
-        "本会话已固定绑定到一个客户、一个设备和一个项目根目录；不要索取、猜测或尝试切换 device_id、磁盘路径、网络共享或其他目录。",
+        "本会话已固定绑定到一个客户、一个设备和一个项目根目录；模型可以由用户在 Chloe 设置中切换，但不得索取、猜测或尝试切换 device_id、磁盘路径、网络共享或其他目录。",
         "不要使用本机文件工具、shell、浏览器或 SSH 来替代 workspace MCP；它们不代表客户项目。",
         "先用 workspace_list/read/search/stat 理解代码。修改前读取 SHA-256，写入必须附带刚读取的 SHA-256；patch 必须使用唯一的 before/after 文本。",
         "执行操作只使用 program 加 argv，绝不拼接 shell 命令。遇到需要确认的安装、服务、外部 Git 操作或其他命令时，等待 Chloe 的确认界面，不要尝试绕过。",
@@ -3156,7 +3179,7 @@ class ChatService {
       setImmediate(() => this.runNext());
       return;
     }
-    const client = this.clientFor(profile, model);
+    const client = this.clientFor(profile, model, conversation);
     this.active = {
       conversationId: conversation.id,
       messageId: assistant.id,
@@ -3411,7 +3434,9 @@ class ChatService {
     // A global runtime option must not override a session's access policy.
     const skipPermissions = conversation?.accessMode === "danger-full-access";
     return new AntigravityAdapter({
-      bin: options.bin,
+      bin: this.remoteWorkspaceBinding(conversation)
+        ? this.remoteWorkspaceService.runtimeFor(this.remoteWorkspaceBinding(conversation)).geminiBin || options.bin
+        : options.bin,
       model,
       cwd: this.effectiveWorkDir(conversation),
       apiKeyEnv: options.apiKeyEnv || "GEMINI_API_KEY",
@@ -3420,6 +3445,8 @@ class ChatService {
       printTimeoutMs: options.timeoutMs || 300000,
       skipPermissions,
       runAsAdmin: options.runAsAdmin === true && skipPermissions,
+      remoteWorkspace: this.remoteWorkspaceBinding(conversation)
+        ? this.remoteWorkspaceService.runtimeFor(this.remoteWorkspaceBinding(conversation)) : null,
       logger: this.runtimeLogger,
     });
   }
@@ -4372,6 +4399,7 @@ class ChatService {
 
 module.exports = {
   ChatService,
+  ALLOWED_ACCESS,
   servePublicArtifactPreview,
   servePublicArtifactSource,
   ADMIN_MODELS,
