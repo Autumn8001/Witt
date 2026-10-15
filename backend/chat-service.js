@@ -1745,9 +1745,12 @@ class ChatService {
         this.sendJson(res, 200, { conversation: this.publicConversation(conversation) });
         return;
       }
-      if (this.remoteWorkspaceBinding(conversation)) {
+      const remoteWorkspace = this.remoteWorkspaceBinding(conversation);
+      if (remoteWorkspace && (Object.hasOwn(body || {}, "workDir") ||
+          (Object.hasOwn(body || {}, "accessMode") && body.accessMode !== conversation.accessMode) ||
+          Object.hasOwn(body || {}, "codexProfile"))) {
         this.sendJson(res, 409, {
-          error: "远程工作区已固定绑定设备、项目根目录、Harness 与模型；请创建新工作区。",
+          error: "远程工作区的设备、项目范围、访问权限和账号不可切换。",
           remoteWorkspaceLocked: true,
         });
         return;

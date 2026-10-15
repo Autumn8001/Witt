@@ -823,11 +823,11 @@
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
     const remote = activeRemoteWorkspace(state.active);
-    const remoteLocked = Boolean(remote);
+    const remoteLocked = false;
 
     // 远程工作区环境锁定横幅
     let lockedBanner = menu.querySelector(".quick-locked-banner");
-    if (remoteLocked) {
+    if (remote) {
       if (!lockedBanner) {
         lockedBanner = document.createElement("div");
         lockedBanner.className = "quick-locked-banner";
@@ -909,7 +909,7 @@
     }
     const profileHost = $("#runtimeProfileOptions");
     const remote = activeRemoteWorkspace(state.active);
-    const remoteLocked = Boolean(remote);
+    const remoteLocked = false;
     if (profileHost) {
       if (state.runtimeProfilesError) {
         profileHost.innerHTML = `
@@ -939,12 +939,16 @@
           : "";
         profileHost.innerHTML = routingHelp + state.runtimeProfiles.map((profile) => {
           const selected = profile.model === selectedModel && (state.harness || "auto") === "auto";
-          const runtimeUnavailable = capabilitiesKnown
+          const runtimeUnavailable = remote
+            ? false
+            : (capabilitiesKnown
             ? Boolean(profile.harness && runtime[profile.harness]?.available !== true)
-            : profile.harness !== "grok-build";
-          const modelUnavailable = capabilitiesKnown
+            : profile.harness !== "grok-build");
+          const modelUnavailable = remote
+            ? false
+            : (capabilitiesKnown
             ? !availableModels.includes(profile.model)
-            : profile.model !== MVP_DEFAULT_MODEL;
+            : profile.model !== MVP_DEFAULT_MODEL);
           const unavailable = remoteLocked || runtimeUnavailable || modelUnavailable;
           const profileName = runtimeProfileDisplayName(profile);
           const label = remoteLocked
@@ -957,7 +961,7 @@
     document.querySelectorAll("[data-harness]").forEach((button) => {
       const id = button.dataset.harness || "auto";
       const status = id === "auto" ? null : runtime[id];
-      const runtimeUnavailable = Boolean(status && status.available === false);
+      const runtimeUnavailable = remote ? false : Boolean(status && status.available === false);
       const unavailable = remoteLocked || runtimeUnavailable;
       button.disabled = unavailable;
       button.setAttribute("aria-disabled", String(unavailable));
@@ -1262,10 +1266,10 @@
     $("#accessLabel").textContent = accessNames[state.accessMode] || "完全访问";
     $("#projectLabel").textContent = projectName(state.workDir);
     $("#moreProjectLabel").textContent = projectName(state.workDir);
-    const remoteLocked = Boolean(remote);
+    const remoteLocked = false;
     ["#projectButton", "#moreProjectButton"].forEach((selector) => {
       const button = $(selector);
-      if (button) button.disabled = remoteLocked;
+      if (button) button.disabled = Boolean(remote);
     });
     const modelBtn = $("#modelButton");
     if (modelBtn) {
@@ -1277,7 +1281,7 @@
     // 同步抽屉设置面板锁定状态
     let sheetBanner = $("#settingsLockedBanner");
     const settingsScroll = $(".settings-panel .settings-scroll");
-    if (remoteLocked && remote) {
+    if (remote) {
       if (!sheetBanner && settingsScroll) {
         sheetBanner = document.createElement("div");
         sheetBanner.id = "settingsLockedBanner";
@@ -2079,10 +2083,7 @@
   }
 
   function applySettings({ closeSheet = true, announce = true } = {}) {
-    if (Boolean(activeRemoteWorkspace(state.active))) {
-      if (closeSheet) closeSettings();
-      return;
-    }
+    const remote = activeRemoteWorkspace(state.active);
     state.model = state.draftModel || state.model;
     state.reasoning = state.draftReasoning || state.reasoning;
     state.accessMode = state.draftAccessMode || state.accessMode;
@@ -5191,14 +5192,12 @@
     setQuickModelMenu(!$("#quickModelMenu").classList.contains("open"));
   });
   $("#quickModelExpand").addEventListener("click", () => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const menu = $("#quickModelMenu");
     const open = !menu.classList.contains("models-open");
     menu.classList.toggle("models-open", open);
     $("#quickModelExpand").setAttribute("aria-expanded", String(open));
   });
   $("#quickModelOptions").addEventListener("click", (event) => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const model = event.target.closest("[data-quick-model]")?.dataset.quickModel;
     if (!model) return;
     state.draftModel = model;
@@ -5209,7 +5208,6 @@
     setQuickModelMenu(false);
   });
   $("#quickReasoningOptions").addEventListener("click", (event) => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const reasoning = event.target.closest("[data-quick-reasoning]")?.dataset.quickReasoning;
     if (!reasoning) return;
     state.draftReasoning = reasoning;
@@ -5233,7 +5231,6 @@
   $("#closeSettings").addEventListener("click", closeSettings);
   $("#sheetBackdrop").addEventListener("click", closeSettings);
   $(".model-options").addEventListener("click", (event) => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const model = event.target.closest("[data-model]")?.dataset.model;
     if (!model) return;
     state.draftModel = model;
@@ -5241,7 +5238,6 @@
     updateModelControls();
   });
   const selectReasoning = (event) => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const reasoning = event.target.closest("[data-reasoning]")?.dataset.reasoning;
     if (!reasoning) return;
     state.draftReasoning = reasoning;
@@ -5250,24 +5246,22 @@
   $("#reasoningStops").addEventListener("click", selectReasoning);
   $("#reasoningSegments").addEventListener("click", selectReasoning);
   $(".access-options").addEventListener("click", (event) => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const accessMode = event.target.closest("[data-access]")?.dataset.access;
     if (!accessMode) return;
     state.draftAccessMode = accessMode;
     updateModelControls();
   });
   $("#saveSettings").addEventListener("click", () => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     applySettings();
   });
   document.addEventListener("click", (event) => {
     const harness = event.target.closest?.("[data-harness]");
-    if (harness && !harness.disabled && !Boolean(activeRemoteWorkspace(state.active))) {
+    if (harness && !harness.disabled) {
       state.harness = harness.dataset.harness;
       renderRuntimeControls();
     }
     const profile = event.target.closest?.("[data-runtime-profile]");
-    if (profile && !profile.disabled && !Boolean(activeRemoteWorkspace(state.active))) {
+    if (profile && !profile.disabled) {
       const selected = (state.runtimeProfiles || []).find((item) => item.id === profile.dataset.runtimeProfile);
       if (!selected) return;
       state.draftModel = selected.model;
