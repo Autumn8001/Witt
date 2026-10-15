@@ -17,7 +17,7 @@
   })();
   const legacyMode = !sheet || !root.querySelector(".customer-devices-toolbar");
   const state = {
-    devices: [], capabilities: {}, roots: [], selectedId: "", selected: null,
+    devices: [], capabilities: {}, roots: [], models: [], selectedId: "", selected: null,
     currentRoot: "", currentPath: "", systemInfo: null, fileEntries: null,
     fileContent: null, screenshot: null, busy: "", error: "", lastFocus: null,
   };
@@ -201,7 +201,8 @@
     detail.hidden = false; const id = deviceId(device); const online = isOnline(device); const roots = rootsFor(device);
     if (!state.currentRoot && roots[0]) state.currentRoot = roots[0].id;
     const ready = device.ready !== false;
-    detail.innerHTML = `<div class="customer-detail-head"><div><h3>${escape(device.device_label || device.label || device.customer_name || id)}</h3><p>${escape(device.customer_id || device.customer_name || "客户项目")} · ${escape(device.hostname || `已授权 ${roots.length} 个项目`)}</p></div><span class="customer-detail-status ${online && ready ? "online" : "offline"}"><i aria-hidden="true"></i>${online && ready ? "可以开始" : online ? "需要更新 Agent" : "设备离线"}</span></div><p class="customer-capability-hint">远程开发会固定绑定这台电脑与一个项目根目录。Grok 只能经受控工具读写该项目，确认操作会回到本页的 Chloe 审批界面。</p><section class="customer-result-block customer-workspace-start"><header><div><h4>创建远程开发工作区</h4><small>不会把 Grok、密钥或服务器 AI 安装到客户电脑</small></div></header><label class="customer-workspace-field"><span>项目根目录</span><select data-workspace-root ${roots.length ? "" : "disabled"}>${roots.length ? roots.map((entry) => `<option value="${escape(entry.id)}" ${entry.id === state.currentRoot ? "selected" : ""}>${escape(entry.label)}</option>`).join("") : "<option>暂无已授权项目根目录</option>"}</select></label><label class="customer-workspace-field"><span>会话名称</span><input data-workspace-title maxlength="60" value="${escape(`${device.device_label || device.label || id} 远程开发`)}" autocomplete="off"></label><button type="button" class="customer-start-workspace" data-start-remote-workspace ${online && ready && roots.length ? "" : "disabled"}>${state.busy === "start-workspace" ? "正在创建…" : "开始远程开发"}</button><p class="customer-workspace-note">开始后将进入一个独立对话。项目范围、设备和 Harness 不可在对话中切换。</p></section>`;
+    const models = state.models.length ? state.models : [{ id: "grok-4.7-high", name: "Grok Build", harness: "grok-build", reasoning: "high" }];
+    detail.innerHTML = `<div class="customer-detail-head"><div><h3>${escape(device.device_label || device.label || device.customer_name || id)}</h3><p>${escape(device.customer_id || device.customer_name || "客户项目")} · ${escape(device.hostname || `已授权 ${roots.length} 个项目`)}</p></div><span class="customer-detail-status ${online && ready ? "online" : "offline"}"><i aria-hidden="true"></i>${online && ready ? "可以开始" : online ? "需要更新 Agent" : "设备离线"}</span></div><p class="customer-capability-hint">远程开发会固定绑定这台电脑、项目根目录和所选模型。所有模型都经受控工具读写该项目，确认操作会回到 Chloe 审批界面。</p><section class="customer-result-block customer-workspace-start"><header><div><h4>创建远程开发工作区</h4><small>不会把模型、密钥或服务器 AI 安装到客户电脑</small></div></header><label class="customer-workspace-field"><span>项目根目录</span><select data-workspace-root ${roots.length ? "" : "disabled"}>${roots.length ? roots.map((entry) => `<option value="${escape(entry.id)}" ${entry.id === state.currentRoot ? "selected" : ""}>${escape(entry.label)}</option>`).join("") : "<option>暂无已授权项目根目录</option>"}</select></label><label class="customer-workspace-field"><span>开发模型</span><select data-workspace-model>${models.map((entry) => `<option value="${escape(entry.id)}" data-reasoning="${escape(entry.reasoning || "high")}">${escape(entry.name || entry.id)} · ${escape(entry.id)}</option>`).join("")}</select></label><label class="customer-workspace-field"><span>会话名称</span><input data-workspace-title maxlength="60" value="${escape(`${device.device_label || device.label || id} 远程开发`)}" autocomplete="off"></label><button type="button" class="customer-start-workspace" data-start-remote-workspace ${online && ready && roots.length ? "" : "disabled"}>${state.busy === "start-workspace" ? "正在创建…" : "开始远程开发"}</button><p class="customer-workspace-note">开始后仍固定设备与项目范围；模型会使用同一条受控工作区工具链。</p></section>`;
   }
   function selectDevice(id) {
     state.selectedId = id; state.selected = state.devices.find((device) => deviceId(device) === id) || null; state.currentRoot = rootsFor(state.selected)[0]?.id || ""; state.currentPath = ""; state.systemInfo = null; state.fileEntries = null; state.fileContent = null; state.screenshot = null; state.error = ""; renderList(); renderDetail(); detail?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -223,7 +224,7 @@
         if (remoteError.status !== 404) throw remoteError;
         payload = await call("customer-devices");
       }
-      state.devices = Array.isArray(payload.devices) ? payload.devices : []; state.capabilities = payload.capabilities || {}; state.roots = payload.roots || [];
+      state.devices = Array.isArray(payload.devices) ? payload.devices : []; state.capabilities = payload.capabilities || {}; state.roots = payload.roots || []; state.models = Array.isArray(payload.models) ? payload.models : (state.devices[0]?.models || []);
       if (!state.devices.some((device) => deviceId(device) === state.selectedId)) { state.selectedId = ""; state.selected = null; } else state.selected = state.devices.find((device) => deviceId(device) === state.selectedId) || null;
       renderList(); renderDetail(); setStatus(`共 ${state.devices.length} 台 · ${state.devices.filter(isOnline).length} 台在线`, "ready");
     } catch (error) { state.error = error.message; setStatus(error.message, "error"); if (!state.devices.length) renderList(); }
@@ -265,12 +266,14 @@
   async function startWorkspace() {
     const device = state.selected;
     const rootSelect = query("[data-workspace-root]", detail);
+    const modelSelect = query("[data-workspace-model]", detail);
     const title = query("[data-workspace-title]", detail)?.value || "远程开发工作区";
     const rootAlias = rootSelect?.value || state.currentRoot;
     if (!device || !rootAlias || !isOnline(device) || device.ready === false) return;
     setBusy("start-workspace"); renderDetail();
     try {
-      const payload = await call("remote-workspaces", { method: "POST", body: JSON.stringify({ device_id: deviceId(device), root_alias: rootAlias, title }) });
+      const selectedModel = modelSelect?.selectedOptions?.[0];
+      const payload = await call("remote-workspaces", { method: "POST", body: JSON.stringify({ device_id: deviceId(device), root_alias: rootAlias, title, model: modelSelect?.value, reasoning: selectedModel?.dataset.reasoning || "high" }) });
       const conversationId = payload?.conversation?.id;
       if (!conversationId) throw new Error("工作区已创建，但未返回对话");
       closeSheet();
