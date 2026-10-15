@@ -11,6 +11,10 @@ const base = process.env.WITT_REMOTE_WORKSPACE_MCP_API || "";
 const credentialFile = process.env.WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE || "";
 const enabled = process.env.WITT_REMOTE_WORKSPACE_MCP_ENABLED === "1";
 
+let allowedCapabilities = null;
+if (process.env.WITT_REMOTE_WORKSPACE_CAPABILITIES !== undefined) {
+  try {const value=JSON.parse(process.env.WITT_REMOTE_WORKSPACE_CAPABILITIES);allowedCapabilities=new Set(Array.isArray(value)?value:[]);} catch {allowedCapabilities=new Set();}
+}
 const tools = [
   ["workspace_list", "List files below this session's fixed workspace root.", { path: { type: "string", maxLength: 1024 } }, []],
   ["workspace_stat", "Read metadata for a workspace path.", { path: { type: "string", minLength: 1, maxLength: 1024 } }, ["path"]],
@@ -23,7 +27,7 @@ const tools = [
   ["workspace_git_status", "Return git status for this workspace.", {}, []],
   ["workspace_git_diff", "Return git diff for this workspace.", {}, []],
   ["workspace_system_info", "Return non-sensitive system information for the connected customer device.", {}, []],
-].map(([name, description, properties, required]) => ({ name, description, inputSchema: { type: "object", properties, required, additionalProperties: false } }));
+].filter(([name]) => allowedCapabilities === null || allowedCapabilities.has(name.replace(/^workspace_/, "workspace."))).map(([name, description, properties, required]) => ({ name, description, inputSchema: { type: "object", properties, required, additionalProperties: false } }));
 
 // Only the namespace separator changes; git_status/git_diff/system_info
 // remain single operation names in the backend and Agent protocol.

@@ -25,7 +25,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
     .filter((profile) => ["grok-build", "codex", "google-antigravity"].includes(profile.harness))
     .filter((profile, index, all) => all.findIndex((item) => (item.model || item.id) === (profile.model || profile.id)) === index)
     .map((profile) => ({ id: profile.model || profile.id, name: profile.name, harness: profile.harness, reasoning: profile.reasoning }));
-  const options = () => gateway.registry.list().map((device) => ({
+  const options = () => gateway.registry.list().filter(device => !device.device_id.startsWith("assist-")).map((device) => ({
     customer_id: gateway.registry.definition(device.device_id)?.customerId || device.customer_name || device.device_id,
     full_access: device.capabilities.includes("workspace.full_access"),
     device_id: device.device_id, device_label: device.label, status: device.status,
@@ -58,7 +58,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
     }
     if (req.method === "POST" && url.pathname === "/remote-workspaces") {
       readJsonBody(req, 16 * 1024, (error, body) => {
-        if (error || !plainObject(body) || !validDeviceId(body.device_id) || typeof body.root_alias !== "string") {
+        if (error || !plainObject(body) || String(body.device_id).startsWith("assist-") || !validDeviceId(body.device_id) || typeof body.root_alias !== "string") {
           sendJson(res, 400, { error: "INVALID_ARGUMENTS" }); return;
         }
         const described = gateway.registry.describe(body.device_id);

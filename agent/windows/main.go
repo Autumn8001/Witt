@@ -45,6 +45,8 @@ type agentConfig struct {
 	roots              map[string]string
 	allowScreenCapture bool
 	fullAccess         bool
+	assist             *assistPolicy
+	dialer             *websocket.Dialer
 }
 
 type rootFlags struct {
@@ -144,17 +146,18 @@ type packet struct {
 	// Args deliberately stays as JSON until the selected tool validates its own
 	// schema. Workspace commands need arrays and approval objects; decoding into
 	// map[string]string used to silently discard that structure.
-	Args       json.RawMessage `json:"args,omitempty"`
-	TimeoutMS  int             `json:"timeout_ms,omitempty"`
-	ExitCode   int             `json:"exit_code"`
-	Stdout     string          `json:"stdout,omitempty"`
-	Stderr     string          `json:"stderr,omitempty"`
-	DurationMS int64           `json:"duration_ms,omitempty"`
-	Error      string          `json:"error,omitempty"`
-	Truncated  bool            `json:"truncated,omitempty"`
-	Mime       string          `json:"mime,omitempty"`
-	Data       string          `json:"data,omitempty"`
-	Approval   json.RawMessage `json:"approval,omitempty"`
+	Args               json.RawMessage `json:"args,omitempty"`
+	TimeoutMS          int             `json:"timeout_ms,omitempty"`
+	ExitCode           int             `json:"exit_code"`
+	Stdout             string          `json:"stdout,omitempty"`
+	Stderr             string          `json:"stderr,omitempty"`
+	DurationMS         int64           `json:"duration_ms,omitempty"`
+	Error              string          `json:"error,omitempty"`
+	Truncated          bool            `json:"truncated,omitempty"`
+	Mime               string          `json:"mime,omitempty"`
+	Data               string          `json:"data,omitempty"`
+	WorkspaceSessionID string          `json:"workspace_session_id,omitempty"`
+	Approval           json.RawMessage `json:"approval,omitempty"`
 	// ExecutionState distinguishes an operation that definitely did not begin
 	// from one whose outcome cannot be known after a timeout/disconnect. The
 	// gateway must never replay an unknown write or process invocation.
@@ -200,6 +203,12 @@ func executeWithConfig(ctx context.Context, p packet, deviceID string, config ag
 	if p.Type != "command" || p.ID == "" || p.TimeoutMS < 1000 || p.TimeoutMS > 30000 {
 		result.Error = "COMMAND_NOT_ALLOWED"
 		return result
+	}
+	if config.assist != nil {
+		if err := config.assist.check(p); err != nil {
+			result.Error = err.Error()
+			return result
+		}
 	}
 	start := time.Now()
 	commandCtx, cancel := context.WithTimeout(ctx, time.Duration(p.TimeoutMS)*time.Millisecond)
@@ -515,7 +524,11 @@ func runSessionWithConfig(ctx context.Context, url, deviceID, token string, conf
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+token)
 	header.Set("X-Witt-Device-Id", deviceID)
-	conn, response, err := websocket.DefaultDialer.DialContext(ctx, url, header)
+	dialer := config.dialer
+	if dialer == nil {
+		dialer = websocket.DefaultDialer
+	}
+	conn, response, err := dialer.DialContext(ctx, url, header)
 	if err != nil {
 		if response != nil {
 			return fmt.Errorf("gateway HTTP %d", response.StatusCode)
@@ -540,7 +553,11 @@ func runSessionWithConfig(ctx context.Context, url, deviceID, token string, conf
 	if registered.V != 1 || registered.Type != "registered" || registered.DeviceID != deviceID {
 		return errors.New("registration rejected")
 	}
-	log.Printf("registered device %s", deviceID)
+	if config.assist != nil && config.assist.record != nil {
+		config.assist.record("Connected · 已连接，随时可以暂停或撤销")
+	} else {
+		log.Printf("registered device %s", deviceID)
+	}
 	ticker := time.NewTicker(20 * time.Second)
 	defer ticker.Stop()
 	workers.Add(1)
@@ -593,6 +610,15 @@ func runSessionWithConfig(ctx context.Context, url, deviceID, token string, conf
 			defer workers.Done()
 			defer func() { <-busy }()
 			result := executeWithConfig(ctx, command, deviceID, config)
+			if config.assist != nil && config.assist.record != nil {
+				var a workspaceArgs
+				json.Unmarshal(command.Args, &a)
+				status := "completed"
+				if result.Error != "" {
+					status = result.Error
+				}
+				config.assist.record(a.Operation + " · " + a.Path + " · " + status)
+			}
 			if ctx.Err() != nil {
 				return
 			}
@@ -607,6 +633,22 @@ func runSessionWithConfig(ctx context.Context, url, deviceID, token string, conf
 }
 
 func main() {
+	assistArgs := os.Args[1:]
+	if strings.EqualFold(filepath.Base(os.Args[0]), "chloe-assist.exe") {
+		if len(assistArgs) == 0 {
+			assistArgs = []string{"join"}
+		}
+		if assistArgs[0] != "join" {
+			log.Print("Chloe Assist supports only temporary join sessions")
+			return
+		}
+	}
+	if handled, err := handleAssist(assistArgs); handled {
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
 	endpoint := flag.String("gateway", "", "WSS gateway URL")
 	deviceID := flag.String("device-id", "", "configured device ID")
 	tokenFile := flag.String("token-file", "", "file containing this device's bearer token")

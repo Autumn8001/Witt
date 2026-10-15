@@ -101,6 +101,7 @@ class CommandDispatcher {
     this.registry = registry;
     this.pending = new Map();
     this.now = options.now || Date.now;
+    this.authorizeCommand = options.authorizeCommand || (() => {});
   }
 
   // Workspace callers use:
@@ -110,6 +111,7 @@ class CommandDispatcher {
   // arguments or authorizes a root on its own.
   dispatch(deviceId, tool, args, timeoutMs = 10000, context = undefined) {
     const allowed = allowedCommand(tool, args, context);
+    this.authorizeCommand(deviceId, allowed);
     const session = this.registry.session(deviceId);
     if (!session?.registered || session.ws.readyState !== 1 ||
         this.registry.describe(deviceId, this.now())?.status !== "online") {

@@ -22,3 +22,5 @@ tests/artifacts/
 tests/legacy-token-fixture.txt
 android/app/src/main/assets/lumora/
 /web/update.json
+
+/artifacts/

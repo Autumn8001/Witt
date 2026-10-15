@@ -415,8 +415,14 @@ func executeWorkspaceRootOperation(ctx context.Context, p packet, deviceID strin
 		}
 		return executeWorkspaceSearch(ctx, p, deviceID, scopeRoot, target, args.Query)
 	case "write":
+		if config.assist != nil {
+			return executeAssistEdit(ctx, p, deviceID, config, args, target)
+		}
 		return executeWorkspaceWrite(ctx, p, deviceID, target, args)
 	case "patch":
+		if config.assist != nil {
+			return executeAssistEdit(ctx, p, deviceID, config, args, target)
+		}
 		return executeWorkspacePatch(ctx, p, deviceID, target, args)
 	case "exec":
 		return executeWorkspaceExec(ctx, p, deviceID, target, args, config.fullAccess)

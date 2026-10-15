@@ -6,7 +6,7 @@ function createDeviceRoutes({ gateway, sendJson, authorized }) {
   const local = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
   const internal = (req) => local(req) && !req.headers["x-forwarded-for"] &&
     !req.headers["x-real-ip"] && !req.headers["x-forwarded-proto"] && authorized(req);
-  const describe = (id) => validDeviceId(id) ? gateway.registry.describe(id) : null;
+  const describe = (id) => !String(id).startsWith("assist-") && validDeviceId(id) ? gateway.registry.describe(id) : null;
 
   function body(req, limit = 16 * 1024) {
     return new Promise((resolve, reject) => {
@@ -89,7 +89,7 @@ function createDeviceRoutes({ gateway, sendJson, authorized }) {
     if (!url.pathname.startsWith("/internal/devices")) return false;
     if (!internal(req)) { sendJson(res, 403, { error: "internal_access_required" }); return true; }
     if (url.pathname === "/internal/devices" && req.method === "GET") {
-      sendJson(res, 200, { devices: gateway.registry.list() }); return true;
+      sendJson(res, 200, { devices: gateway.registry.list().filter(d => !d.device_id.startsWith("assist-")) }); return true;
     }
     const get = url.pathname.match(/^\/internal\/devices\/([^/]+)$/);
     if (get && req.method === "GET") {
@@ -114,7 +114,7 @@ function createDeviceRoutes({ gateway, sendJson, authorized }) {
     if (url.pathname !== "/customer-devices" && !url.pathname.startsWith("/customer-devices/")) return false;
     if (!principal.admin) { sendJson(res, 403, { error: "admin_required" }); return true; }
     if (url.pathname === "/customer-devices" && req.method === "GET") {
-      sendJson(res, 200, { devices: gateway.registry.list() }); return true;
+      sendJson(res, 200, { devices: gateway.registry.list().filter(d => !d.device_id.startsWith("assist-")) }); return true;
     }
     const command = url.pathname.match(/^\/customer-devices\/([^/]+)\/hostname$/);
     if (command && req.method === "POST") { hostname(res, command[1]); return true; }
