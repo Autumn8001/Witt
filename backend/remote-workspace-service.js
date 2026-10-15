@@ -75,13 +75,17 @@ class RemoteWorkspaceService {
     }, null, 2) + "\n", { mode: 0o600 });
     let geminiBin = this.antigravityBin;
     if (process.platform === "linux" && geminiBin && fs.existsSync(`${geminiBin}.orig-elf`)) {
+      // Permit the unprivileged runtime to traverse its home without allowing
+      // directory listings of the workspace database or other runtime homes.
+      fs.chmodSync(path.dirname(this.runtimeDir), 0o711);
+      fs.chmodSync(this.runtimeDir, 0o711);
       const launcher = path.join(directory, "gemini-runtime");
       const quote = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
       fs.writeFileSync(launcher,
-        `#!/bin/sh\nexec /usr/bin/setpriv --reuid=agytest --regid=agytest --clear-groups env HOME=${quote(directory)} /usr/bin/qemu-x86_64 ${quote(`${geminiBin}.orig-elf`)} "$@"\n`,
+        `#!/bin/sh\nexec /usr/bin/setpriv --reuid=agytest --regid=agytest --clear-groups env HOME=${quote(directory)} USER=agytest /usr/bin/qemu-x86_64 -cpu max ${quote(`${geminiBin}.orig-elf`)} "$@"\n`,
         { mode: 0o700 });
       geminiBin = launcher;
-      for (const target of [directory, configDir, geminiConfigDir, credentialFile,
+      for (const target of [directory, configDir, path.dirname(geminiConfigDir), geminiConfigDir, credentialFile,
         path.join(configDir, "config.toml"), path.join(geminiConfigDir, "mcp_config.json"), launcher]) {
         try { fs.chownSync(target, 1000, 1000); } catch {}
       }
