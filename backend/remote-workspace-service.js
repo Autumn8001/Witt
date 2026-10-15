@@ -49,8 +49,17 @@ class RemoteWorkspaceService {
     const directory = path.join(this.runtimeDir, binding.workspace_id);
     const configDir = path.join(directory, ".grok");
     const geminiConfigDir = path.join(directory, ".gemini", "config");
+    const geminiStateDir = path.join(directory, ".gemini", "antigravity-cli");
     fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
     fs.mkdirSync(geminiConfigDir, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(geminiStateDir, { recursive: true, mode: 0o700 });
+    // New isolated homes default to OAuth login. Explicitly select the Gemini
+    // API provider so the adapter's key/base URL are used in headless mode.
+    const geminiSettingsFile = path.join(geminiStateDir, "settings.json");
+    let geminiSettings = {};
+    try { geminiSettings = JSON.parse(fs.readFileSync(geminiSettingsFile, "utf8")); } catch {}
+    fs.writeFileSync(geminiSettingsFile,
+      JSON.stringify({ ...geminiSettings, modelProvider: "gemini" }) + "\n", { mode: 0o600 });
     const secret = crypto.randomBytes(32).toString("base64url");
     const credentialFile = path.join(directory, "mcp-session-token");
     fs.writeFileSync(credentialFile, `${secret}\n`, { mode: 0o600 });
@@ -85,7 +94,8 @@ class RemoteWorkspaceService {
         `#!/bin/sh\nexec /usr/bin/setpriv --reuid=agytest --regid=agytest --clear-groups env HOME=${quote(directory)} USER=agytest /usr/bin/qemu-x86_64 -cpu max ${quote(`${geminiBin}.orig-elf`)} "$@"\n`,
         { mode: 0o700 });
       geminiBin = launcher;
-      for (const target of [directory, configDir, path.dirname(geminiConfigDir), geminiConfigDir, credentialFile,
+      for (const target of [directory, configDir, path.dirname(geminiConfigDir), geminiConfigDir,
+        geminiStateDir, geminiSettingsFile, credentialFile,
         path.join(configDir, "config.toml"), path.join(geminiConfigDir, "mcp_config.json"), launcher]) {
         try { fs.chownSync(target, 1000, 1000); } catch {}
       }

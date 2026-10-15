@@ -9,6 +9,7 @@ const { workspaceOverview } = require("./workspace-overview");
 const { resolveHarness, harnessChanged, HARNESSES } = require("./runtime/runtime-resolver");
 const { GrokBuildAdapter } = require("./runtime/grok-build-adapter");
 const { AntigravityAdapter, normalizeEffort } = require("./runtime/antigravity-adapter");
+const { redactHarnessText, sanitizeHarnessContent } = require("./runtime/tool-content");
 const { describeBinary } = require("./runtime/runtime-binaries");
 const { RuntimeLogger } = require("./runtime/runtime-log");
 const { createGitChangeBaseline, collectGitChanges } = require("./git-change-collector");
@@ -3456,7 +3457,8 @@ class ChatService {
     const workDir = this.effectiveWorkDir(conversation);
     const adapter = this.antigravityAdapter(model, conversation);
     const remoteWorkspace = this.remoteWorkspaceBinding(conversation);
-    const existingSession = conversation.harnessSessionId || null;
+    const existingSession = remoteWorkspace && !conversation.remoteWorkspaceStarted
+      ? null : (conversation.harnessSessionId || null);
     const promptConversation = { ...conversation, codexThreadId: existingSession };
     const prompt = this.buildPrompt(promptConversation, user, attachments);
 
@@ -3618,7 +3620,8 @@ class ChatService {
 
     // 4. Strict error check: if exit code not ok or error event received, always fail
     if (!result.ok || this.active.harnessEventError) {
-      this.finishActive(false, text, `Google Antigravity ${result.errorType || "failed"}`);
+      const detail = redactHarnessText(this.active.harnessEventError || result.stderr || "", 400);
+      this.finishActive(false, text, `Google Antigravity ${result.errorType || "failed"}${detail ? `: ${detail}` : ""}`);
       return;
     }
 

@@ -146,3 +146,25 @@ test("git changes are collected before completion and existing session is resume
   assert.deepEqual(turn.calls.map((call) => call.type), ["sendPrompt", "git", "finish"]);
   assert.equal(turn.calls[0].params.conversationId, "existing-session");
 });
+
+test("Gemini result errors are redacted and fail the turn without throwing", async () => {
+  const turn = makeTurn({
+    events: [{ type: "result", error: "authentication failed api_key=private-test-value" }],
+    result: { ok: false, errorType: "process_exited" },
+  });
+  await turn.run();
+  assert.equal(completion(turn.calls).success, false);
+  assert.match(turn.service.active.harnessEventError, /authentication failed/);
+  assert.doesNotMatch(turn.service.active.harnessEventError, /private-test-value/);
+});
+
+test("new remote Gemini contexts start fresh and resume only after CLI session discovery", async () => {
+  for (const started of [false, true]) {
+    const turn = makeTurn({ harnessSessionId: "bound-session", result: { ok: true, text: "hello" } });
+    turn.service.remoteWorkspaceBinding = () => ({ workspace_id: "workspace" });
+    turn.conversation.remoteWorkspaceStarted = started;
+    await turn.run();
+    assert.equal(turn.calls[0].params.conversationId, started ? "bound-session" : undefined);
+    assert.equal(completion(turn.calls).success, true);
+  }
+});
