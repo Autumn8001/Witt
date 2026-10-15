@@ -38,6 +38,10 @@ class RemoteWorkspaceService {
     fs.mkdirSync(this.runtimeDir, { recursive: true, mode: 0o700 });
   }
 
+  fullAccessFor(binding) {
+    return this.dispatcher.fullAccessFor?.(binding?.device_id) === true;
+  }
+
   bindingForConversation(conversationId) {
     return this.workspaceStore.getByConversation(conversationId);
   }

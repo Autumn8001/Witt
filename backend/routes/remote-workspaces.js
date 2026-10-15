@@ -27,6 +27,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
     .map((profile) => ({ id: profile.model || profile.id, name: profile.name, harness: profile.harness, reasoning: profile.reasoning }));
   const options = () => gateway.registry.list().map((device) => ({
     customer_id: gateway.registry.definition(device.device_id)?.customerId || device.customer_name || device.device_id,
+    full_access: device.capabilities.includes("workspace.full_access"),
     device_id: device.device_id, device_label: device.label, status: device.status,
     roots: device.allowed_roots.map((alias) => ({
       root_alias: alias,

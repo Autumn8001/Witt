@@ -160,3 +160,24 @@ test("dispatcher does not dispatch denied work", async (t) => {
     (error) => error.code === "OPERATION_DENIED");
   assert.equal(audit.list(IDS.workspace)[0].status, "denied");
 });
+
+test("full device access permits absolute paths and programs only when opted in", () => {
+  const args = {path: "D:\\下载\\Google\\test.png"};
+  assert.throws(() => classifyWorkspaceOperation("workspace.read_image",args));
+  const allowed = classifyWorkspaceOperation("workspace.read_image",args,{fullAccess:true});
+  assert.equal(allowed.category, SAFE);
+  assert.equal(allowed.args.path,"D:/下载/Google/test.png");
+  assert.equal(classifyWorkspaceOperation("workspace.exec",{program:"powershell",argv:["-NoProfile","-Command","Write-Output ok"]}).category,DENY);
+  assert.equal(classifyWorkspaceOperation("workspace.exec",{program:"powershell",argv:["-NoProfile","-Command","Write-Output ok"],cwd:"C:/"},{fullAccess:true}).category,SAFE);
+});
+
+test("dispatcher derives full access from the bound device", async (t) => {
+ const directory=temp(t), store=new WorkspaceStore(directory), audit=new WorkspaceAuditStore(directory);
+ t.after(()=>{store.close();audit.close();});store.create(binding());
+ let enabled=false,calls=0;
+ const dispatcher=new WorkspaceDispatcher({workspaceStore:store,audit,approvals:new ApprovalGate(),
+ fullAccessFor:id=>enabled && id==="PC-001",transport:{dispatch:async()=>{calls++;return {exit_code:0};}}});
+ const request={workspace_id:IDS.workspace,operation:"workspace.read_image",args:{path:"D:/Downloads/photo.png"}};
+ await assert.rejects(()=>dispatcher.execute(request),/INVALID_PATH/);assert.equal(calls,0);
+ enabled=true;assert.equal((await dispatcher.execute(request)).status,"completed");assert.equal(calls,1);
+});

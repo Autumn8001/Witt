@@ -8,9 +8,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"image"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"os"
 	"os/exec"
@@ -99,6 +103,23 @@ func resolveWorkspacePath(config agentConfig, alias, rawPath string, allowMissin
 	if !ok || alias == "" {
 		return "", "", errors.New("ROOT_NOT_CONFIGURED")
 	}
+	if config.fullAccess {
+		candidate := rawPath
+		if !filepath.IsAbs(candidate) {
+			candidate = filepath.Join(root, candidate)
+		}
+		resolved, err := filepath.EvalSymlinks(candidate)
+		if err != nil && allowMissingLeaf && errors.Is(err, os.ErrNotExist) {
+			parent, parentErr := filepath.EvalSymlinks(filepath.Dir(candidate))
+			if parentErr == nil {
+				return filepath.Join(parent, filepath.Base(candidate)), candidate, nil
+			}
+		}
+		if err != nil {
+			return "", "", errors.New("PATH_NOT_FOUND")
+		}
+		return resolved, resolved, nil
+	}
 	rel, err := normalizeWorkspacePath(rawPath)
 	if err != nil {
 		return "", "", err
@@ -171,7 +192,7 @@ func validWorkspaceSchema(p packet, operation string) bool {
 	switch operation {
 	case "system_info":
 		// no operation-specific fields
-	case "list", "stat", "read":
+	case "list", "stat", "read", "read_image":
 		add("root", "path")
 	case "search":
 		add("root", "path", "query")
@@ -342,7 +363,7 @@ func executeWorkspace(ctx context.Context, p packet, deviceID string, config age
 		}
 		result = executeSystemInfo(ctx, p, deviceID)
 		result.ExecutionState = "completed"
-	case "list", "stat", "read", "search", "write", "patch", "exec", "git_status", "git_diff":
+	case "list", "stat", "read", "read_image", "search", "write", "patch", "exec", "git_status", "git_diff":
 		if args.Root == "" {
 			return workspaceError(p, deviceID, "ROOT_NOT_CONFIGURED", "not_started")
 		}
@@ -369,6 +390,10 @@ func executeWorkspaceRootOperation(ctx context.Context, p packet, deviceID strin
 	if ctx.Err() != nil {
 		return workspaceError(p, deviceID, "COMMAND_TIMEOUT", "not_started")
 	}
+	scopeRoot := config.roots[args.Root]
+	if config.fullAccess {
+		scopeRoot = ""
+	}
 	switch args.Operation {
 	case "list":
 		if args.Path == "" {
@@ -377,22 +402,24 @@ func executeWorkspaceRootOperation(ctx context.Context, p packet, deviceID strin
 		if args.Query != "" || args.Content != "" || args.ExpectedSHA256 != "" || args.Before != "" || args.After != "" || args.Program != "" || len(args.Argv) != 0 {
 			return workspaceError(p, deviceID, "COMMAND_NOT_ALLOWED", "not_started")
 		}
-		return executeWorkspaceList(p, deviceID, config.roots[args.Root], target)
+		return executeWorkspaceList(p, deviceID, scopeRoot, target)
 	case "stat":
 		return executeWorkspaceStat(p, deviceID, relative, target)
 	case "read":
 		return executeWorkspaceRead(p, deviceID, relative, target)
+	case "read_image":
+		return executeWorkspaceImage(p, deviceID, target)
 	case "search":
 		if args.Query == "" || len(args.Query) > 512 {
 			return workspaceError(p, deviceID, "COMMAND_NOT_ALLOWED", "not_started")
 		}
-		return executeWorkspaceSearch(ctx, p, deviceID, config.roots[args.Root], target, args.Query)
+		return executeWorkspaceSearch(ctx, p, deviceID, scopeRoot, target, args.Query)
 	case "write":
 		return executeWorkspaceWrite(ctx, p, deviceID, target, args)
 	case "patch":
 		return executeWorkspacePatch(ctx, p, deviceID, target, args)
 	case "exec":
-		return executeWorkspaceExec(ctx, p, deviceID, target, args)
+		return executeWorkspaceExec(ctx, p, deviceID, target, args, config.fullAccess)
 	case "git_status":
 		return executeWorkspaceGit(ctx, p, deviceID, target, []string{"status", "--short", "--branch"})
 	case "git_diff":
@@ -420,7 +447,7 @@ func executeWorkspaceList(p packet, deviceID, root, path string) packet {
 		}
 		candidate := filepath.Join(path, entry.Name())
 		resolved, resolveErr := filepath.EvalSymlinks(candidate)
-		if resolveErr != nil || !withinPath(root, resolved) {
+		if resolveErr != nil || (root != "" && !withinPath(root, resolved)) {
 			continue
 		}
 		metadata, statErr := entry.Info()
@@ -432,6 +459,9 @@ func executeWorkspaceList(p packet, deviceID, root, path string) packet {
 			kind = "directory"
 		}
 		rel, relErr := filepath.Rel(root, candidate)
+		if root == "" {
+			rel, relErr = candidate, nil
+		}
 		if relErr != nil {
 			continue
 		}
@@ -474,6 +504,58 @@ func executeWorkspaceRead(p packet, deviceID, relative, path string) packet {
 	return jsonWorkspaceResult(p, deviceID, map[string]string{"path": filepath.ToSlash(relative), "content": string(data), "sha256": hash})
 }
 
+func executeWorkspaceImage(p packet, deviceID, path string) packet {
+	f, err := os.Open(path)
+	if err != nil {
+		return workspaceError(p, deviceID, "FILE_READ_FAILED", "completed")
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() > 20*1024*1024 {
+		return workspaceError(p, deviceID, "IMAGE_TOO_LARGE", "completed")
+	}
+	metadata, _, err := image.DecodeConfig(f)
+	if err != nil || metadata.Width <= 0 || metadata.Height <= 0 || int64(metadata.Width)*int64(metadata.Height) > 40_000_000 {
+		return workspaceError(p, deviceID, "INVALID_IMAGE", "completed")
+	}
+	f.Seek(0, 0)
+	picture, _, err := image.Decode(f)
+	if err != nil {
+		return workspaceError(p, deviceID, "INVALID_IMAGE", "completed")
+	}
+	w, h := metadata.Width, metadata.Height
+	if w > 2048 || h > 2048 {
+		if w >= h {
+			h = max(1, h*2048/w)
+			w = 2048
+		} else {
+			w = max(1, w*2048/h)
+			h = 2048
+		}
+		resized := image.NewRGBA(image.Rect(0, 0, w, h))
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				resized.Set(x, y, picture.At(picture.Bounds().Min.X+x*metadata.Width/w, picture.Bounds().Min.Y+y*metadata.Height/h))
+			}
+		}
+		picture = resized
+	}
+	var output bytes.Buffer
+	for _, quality := range []int{90, 75, 55, 35} {
+		output.Reset()
+		if jpeg.Encode(&output, picture, &jpeg.Options{Quality: quality}) != nil {
+			return workspaceError(p, deviceID, "INVALID_IMAGE", "completed")
+		}
+		if output.Len() <= maxScreenshotBytes {
+			break
+		}
+	}
+	if output.Len() > maxScreenshotBytes {
+		return workspaceError(p, deviceID, "IMAGE_TOO_LARGE", "completed")
+	}
+	return packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 0, ExecutionState: "completed", Mime: "image/jpeg", Data: base64.StdEncoding.EncodeToString(output.Bytes())}
+}
+
 func executeWorkspaceSearch(ctx context.Context, p packet, deviceID, root, start, query string) packet {
 	hits := make([]workspaceSearchHit, 0)
 	bytesUsed := 0
@@ -488,7 +570,7 @@ func executeWorkspaceSearch(ctx context.Context, p packet, deviceID, root, start
 			return nil
 		}
 		resolved, resolveErr := filepath.EvalSymlinks(path)
-		if resolveErr != nil || !withinPath(root, resolved) {
+		if resolveErr != nil || (root != "" && !withinPath(root, resolved)) {
 			return nil
 		}
 		info, statErr := entry.Info()
@@ -504,6 +586,9 @@ func executeWorkspaceSearch(ctx context.Context, p packet, deviceID, root, start
 				continue
 			}
 			rel, _ := filepath.Rel(root, path)
+			if root == "" {
+				rel = path
+			}
 			candidate := workspaceSearchHit{Path: filepath.ToSlash(rel), Line: number + 1, Text: line}
 			encoded, _ := json.Marshal(candidate)
 			if bytesUsed+len(encoded) > maxSearchBytes {
@@ -597,7 +682,7 @@ func executeWorkspacePatch(ctx context.Context, p packet, deviceID, path string,
 	return jsonWorkspaceResult(p, deviceID, map[string]string{"sha256": hashBytes([]byte(updated))})
 }
 
-func executeWorkspaceExec(ctx context.Context, p packet, deviceID, cwd string, args workspaceArgs) packet {
+func executeWorkspaceExec(ctx context.Context, p packet, deviceID, cwd string, args workspaceArgs, fullAccess ...bool) packet {
 	if !validProgram(args.Program) || len(args.Argv) > 64 {
 		return workspaceError(p, deviceID, "COMMAND_NOT_ALLOWED", "not_started")
 	}
@@ -607,6 +692,9 @@ func executeWorkspaceExec(ctx context.Context, p packet, deviceID, cwd string, a
 		}
 	}
 	risk := commandRisk(args.Program, args.Argv)
+	if len(fullAccess) > 0 && fullAccess[0] {
+		risk = "SAFE"
+	}
 	if risk == "DENY" {
 		return workspaceError(p, deviceID, "COMMAND_DENIED", "not_started")
 	}

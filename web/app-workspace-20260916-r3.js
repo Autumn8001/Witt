@@ -844,7 +844,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <strong>远程工作区 · 环境已锁定</strong>
         </div>
-        <p class="quick-locked-desc">当前会话已绑定受控设备与项目范围；模型可以切换，但仍只能通过受控工作区工具操作。</p>
+        <p class="quick-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可访问项目外文件。" : "当前会话已绑定设备与项目范围。"}模型可以切换。</p>
         <div class="quick-locked-tags">
           <span>设备：<b>${escapeHtml(devLabel)}</b></span>
           <span>范围：<b>${escapeHtml(pathLabel)}</b></span>
@@ -1255,7 +1255,7 @@
     const envPill = $("#composerEnvPill");
     if (envPill) {
       if (remote) {
-        envPill.textContent = `远程 · ${remote.deviceLabel || remote.rootAlias || "工作区"}`;
+        envPill.textContent = `${remote.fullAccess ? "完整访问" : "远程"} · ${remote.deviceLabel || remote.rootAlias || "工作区"}`;
         envPill.classList.add("is-remote");
         envPill.title = `已绑定远程设备：${remote.deviceLabel || ""}，项目：${remote.displayPath || remote.rootAlias || ""}`;
       } else {
@@ -1298,10 +1298,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <strong>远程开发工作区 · 设备范围已锁定</strong>
           </div>
-          <p class="settings-locked-desc">当前对话已固定绑定设备与项目范围；切换模型会开启新的模型上下文，文件权限和审批规则保持不变。</p>
+          <p class="settings-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可读写项目外文件和执行程序。" : "当前对话已固定绑定设备与项目范围。"}切换模型会开启新的模型上下文。</p>
           <div class="settings-locked-tags">
             <span>设备：<b>${escapeHtml(remote.deviceLabel || remote.deviceId || "受控电脑")}</b></span>
-            <span>范围：<b>${escapeHtml(remote.displayPath || remote.rootAlias || "项目根目录")}</b></span>
+            <span>范围：<b>${escapeHtml(remote.fullAccess ? "当前设备 · 完整访问" : (remote.displayPath || remote.rootAlias || "项目根目录"))}</b></span>
             <span>Harness：<b>${escapeHtml(state.harness || "自动匹配")}</b></span>
             <span>模型：<b>${escapeHtml(modelDisplayName(state.model))}</b></span>
           </div>

@@ -185,7 +185,7 @@ class CommandDispatcher {
         const bytes = decodeBase64(value.data, MAX_ATTACHMENT_BYTES);
         attachment = { mime: "image/jpeg", data: bytes.toString("base64") };
       } else if (hasData) {
-        if (pending.capability !== "filesystem.read" || typeof value.mime !== "string" ||
+        if (!["filesystem.read", "workspace.read_image"].includes(pending.capability) || typeof value.mime !== "string" ||
             value.mime.length === 0 || value.mime.length > 100 || !/^[\w.+-]+\/[\w.+-]+$/.test(value.mime) ||
             typeof value.data !== "string") {
           throw new DeviceError("INVALID_ATTACHMENT");

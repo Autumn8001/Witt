@@ -15,6 +15,7 @@ const tools = [
   ["workspace_list", "List files below this session's fixed workspace root.", { path: { type: "string", maxLength: 1024 } }, []],
   ["workspace_stat", "Read metadata for a workspace path.", { path: { type: "string", minLength: 1, maxLength: 1024 } }, ["path"]],
   ["workspace_read", "Read a UTF-8 text file and its SHA-256 precondition.", { path: { type: "string", minLength: 1, maxLength: 1024 } }, ["path"]],
+  ["workspace_read_image", "View a PNG or JPEG image on the connected Windows device. Use an absolute Windows path when this device grants full access; otherwise use a project-relative path. Returns image content, not UTF-8 text.", { path: { type: "string", minLength: 1, maxLength: 1024 } }, ["path"]],
   ["workspace_search", "Search UTF-8 text files below the workspace root.", { query: { type: "string", minLength: 1, maxLength: 1024 }, path: { type: "string", maxLength: 1024 }, max_results: { type: "integer", minimum: 1, maximum: 200 } }, ["query"]],
   ["workspace_write", "Write one text file with a required SHA-256 precondition. Use an empty hash only to create a missing file.", { path: { type: "string", minLength: 1, maxLength: 1024 }, content: { type: "string", maxLength: 524288 }, expected_sha256: { type: "string", maxLength: 64 } }, ["path", "content", "expected_sha256"]],
   ["workspace_patch", "Replace exactly one known text fragment after checking SHA-256.", { path: { type: "string", minLength: 1, maxLength: 1024 }, expected_sha256: { type: "string", minLength: 64, maxLength: 64 }, before: { type: "string", minLength: 1, maxLength: 524288 }, after: { type: "string", maxLength: 524288 } }, ["path", "expected_sha256", "before", "after"]],
@@ -65,7 +66,12 @@ input.on("line", async (line) => {
     else if (request.method === "ping") result = {};
     else if (request.method === "tools/list") result = { tools };
     else if (request.method === "tools/call") {
-      try { result = { content: [{ type: "text", text: JSON.stringify(await invoke(request.params?.name, request.params?.arguments || {})) }] }; }
+      try {
+        const value = await invoke(request.params?.name, request.params?.arguments || {});
+        result = { content: value?.mime?.startsWith("image/") && value?.data
+          ? [{ type: "image", mimeType: value.mime, data: value.data }]
+          : [{ type: "text", text: JSON.stringify(value) }], ...(value?.error ? { isError: true } : {}) };
+      }
       catch (error) { result = { isError: true, content: [{ type: "text", text: String(error.message || "WORKSPACE_ERROR").slice(0, 100) }] }; }
     } else throw new Error("METHOD_NOT_FOUND");
     send({ jsonrpc: "2.0", id: request.id, result });
