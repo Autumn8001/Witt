@@ -7,7 +7,7 @@ try {
   go test ./...
   if ($LASTEXITCODE -ne 0) { throw 'Agent tests failed' }
   $assistExe = Join-Path $assistOutput 'chloe-assist.exe'
-  go build -trimpath -ldflags '-H=windowsgui -s -w' -o $assistExe .
+  go build -trimpath -ldflags '-H=windowsgui -s -w -X main.assistBuild=1' -o $assistExe .
   if ($LASTEXITCODE -ne 0) { throw 'Assist build failed' }
   $assistHash = (Get-FileHash -LiteralPath $assistExe -Algorithm SHA256).Hash.ToLowerInvariant()
   "$assistHash  chloe-assist.exe" | Set-Content -LiteralPath (Join-Path $assistOutput 'SHA256SUMS.txt') -Encoding ascii

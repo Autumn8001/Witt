@@ -232,3 +232,24 @@ are `browser-consent-1280.png`, `browser-consent-390.png`, `browser-diff.png`.
 Default-browser launch and native directory-picker interaction on a clean machine,
 Windows 10, signing, public delivery and production deployment remain NOT TESTED
 or unfinished. No production configuration/service has been changed.
+
+## Folder picker hotfix — 2026-10-16
+
+The original browser connector synchronously waited for an unowned shell folder
+picker while disabling every web button. A real running connector on the test
+Windows machine was confirmed to have that visible shell dialog behind the
+browser. The picker now uses the foreground window as its owner and requests
+foreground activation when initialized. Opening it returns immediately to the
+webpage; status polling exposes pending/error state, cancellation is available,
+and a 90-second deadline closes an abandoned picker. Ending the connector also
+cancels the picker. Late picker results cannot change an authorized root, and
+manual path edits are no longer overwritten by polling.
+
+Go tests cover non-blocking requests/cancellation. Explicit native acceptance
+`ASSIST_PICKER_TEST_ROOT=<dedicated-root> go test -run TestAssistRealFolderDialog`
+selected the real test directory and cancelled a separate real dialog on this
+Windows machine. The standalone build now embeds its entry-point marker so
+browser-renamed downloads also open the customer webpage.
+
+The download artifact can be updated separately from the server snapshot;
+this client-only fix does not require restarting the production service.

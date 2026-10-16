@@ -25,6 +25,7 @@ import (
 var assistPage []byte
 
 var launchAssistBrowser = openAssistBrowser
+var chooseAssistFolder = pickAssistFolder
 
 type browserApproval struct {
 	ID     string `json:"id"`
@@ -42,6 +43,10 @@ type assistBrowser struct {
 	root, state, origin, secret string
 	logs                        []string
 	approval                    *browserApproval
+	folderPending               bool
+	folderError                 string
+	folderCancel                context.CancelFunc
+	folderSerial                int
 	cancel                      context.CancelFunc
 	serial                      int
 	lastSeen                    time.Time
@@ -106,6 +111,9 @@ func (b *assistBrowser) stop() {
 		b.state = "disconnected"
 		b.serial++
 		b.grant.Token = ""
+		if b.folderCancel != nil {
+			b.folderCancel()
+		}
 		b.mu.Unlock()
 		if p != nil {
 			p.Lock()
@@ -209,7 +217,7 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/api/status" {
 		b.mu.Lock()
 		b.lastSeen = time.Now()
-		out := map[string]any{"state": b.state, "server": b.options.Server, "code": b.options.Code, "root": b.root, "operator": b.grant.Operator, "expires": b.grant.Expires, "capabilities": b.grant.Capabilities, "logs": append([]string{}, b.logs...), "approval": b.approval}
+		out := map[string]any{"state": b.state, "server": b.options.Server, "code": b.options.Code, "root": b.root, "operator": b.grant.Operator, "expires": b.grant.Expires, "capabilities": b.grant.Capabilities, "logs": append([]string{}, b.logs...), "approval": b.approval, "folder_pending": b.folderPending, "folder_error": b.folderError}
 		b.mu.Unlock()
 		json.NewEncoder(w).Encode(out)
 		return
@@ -270,17 +278,55 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if state != "unpaired" && state != "preview" {
 				return errors.New("授权后不可切换目录")
 			}
-			root, err := pickAssistFolder()
-			if err != nil {
-				return err
-			}
 			b.mu.Lock()
-			b.root = root
+			if b.folderPending {
+				b.mu.Unlock()
+				return errors.New("目录选择窗口已打开，请完成选择或取消")
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			b.folderCancel = cancel
+			b.folderPending = true
+			b.folderError = ""
+			b.folderSerial++
+			serial := b.folderSerial
+			b.mu.Unlock()
+			go func() {
+				defer cancel()
+				root, err := chooseAssistFolder(ctx)
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				if b.folderSerial != serial {
+					return
+				}
+				b.folderPending = false
+				if err != nil {
+					b.folderError = err.Error()
+					return
+				}
+				if ctx.Err() == nil && (b.state == "preview" || b.state == "unpaired") {
+					b.root = root
+				}
+			}()
+		case "/api/folder-cancel":
+			b.mu.Lock()
+			if b.folderCancel != nil {
+				b.folderCancel()
+			}
+			b.folderSerial++
+			b.folderPending = false
+			b.folderError = ""
 			b.mu.Unlock()
 		case "/api/authorize":
 			if state != "preview" {
 				return errors.New("请先核对授权信息")
 			}
+			b.mu.Lock()
+			if b.folderCancel != nil {
+				b.folderCancel()
+			}
+			b.folderSerial++
+			b.folderPending = false
+			b.mu.Unlock()
 			root, err := filepath.Abs(input.Root)
 			if strings.TrimSpace(input.Root) == "" {
 				return errors.New("请先选择目录")

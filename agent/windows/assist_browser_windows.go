@@ -3,8 +3,10 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"runtime"
+	"sync"
 	"syscall"
 	"unsafe"
 )
@@ -16,15 +18,49 @@ func openAssistBrowser(address string) error {
 	}
 	return nil
 }
-func pickAssistFolder() (string, error) {
+
+var assistPickerWindows sync.Map
+var assistPickerCallback = syscall.NewCallback(func(hwnd uintptr, message uint32, unused, key uintptr) uintptr {
+	if message == 1 {
+		if ready, ok := assistPickerWindows.Load(key); ok {
+			ready.(chan uintptr) <- hwnd
+		}
+		assistCall("ShowWindow", hwnd, 5)
+		assistCall("BringWindowToTop", hwnd)
+		assistCall("SetForegroundWindow", hwnd)
+	}
+	return 0
+})
+
+func pickAssistFolder(ctx context.Context) (string, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	assistOLE.NewProc("CoInitializeEx").Call(0, 2)
 	defer assistOLE.NewProc("CoUninitialize").Call()
 	buffer := make([]uint16, 32768)
-	b := assistBrowse{Display: &buffer[0], Title: assistStr("选择本次允许访问的工作区目录"), Flags: 0x41}
+	key, _, _ := assistKernel.NewProc("GetCurrentThreadId").Call()
+	ready := make(chan uintptr, 1)
+	assistPickerWindows.Store(key, ready)
+	defer assistPickerWindows.Delete(key)
+	finished := make(chan struct{})
+	defer close(finished)
+	go func() {
+		select {
+		case window := <-ready:
+			select {
+			case <-ctx.Done():
+				assistCall("PostMessageW", window, 0x10, 0, 0)
+			case <-finished:
+			}
+		case <-finished:
+		}
+	}()
+	b := assistBrowse{Owner: assistCall("GetForegroundWindow"), Callback: assistPickerCallback, Param: key, Display: &buffer[0], Title: assistStr("选择本次允许访问的工作区目录"), Flags: 0x41}
 	id, _, _ := assistShell.NewProc("SHBrowseForFolderW").Call(uintptr(unsafe.Pointer(&b)))
 	if id == 0 {
+		if ctx.Err() != nil {
+			return "", errors.New("目录选择已取消或超时，请重试或粘贴目录路径")
+		}
 		return "", errors.New("未选择目录")
 	}
 	defer assistOLE.NewProc("CoTaskMemFree").Call(id)

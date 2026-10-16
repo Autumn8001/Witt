@@ -65,6 +65,52 @@ func TestBrowserApprovalIsBoundAndCancelled(t *testing.T) {
 	}
 }
 
+func TestFolderPickerDoesNotBlockBrowserAndCanBeCancelled(t *testing.T) {
+	previous := chooseAssistFolder
+	started, cancelled := make(chan struct{}), make(chan struct{})
+	chooseAssistFolder = func(ctx context.Context) (string, error) {
+		close(started)
+		<-ctx.Done()
+		close(cancelled)
+		return "late-result", ctx.Err()
+	}
+	defer func() { chooseAssistFolder = previous }()
+	b := &assistBrowser{origin: "http://127.0.0.1:43210", secret: assistRandom(), state: "unpaired", root: "original", done: make(chan struct{})}
+	request := func(route string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", b.origin+route, strings.NewReader("{}"))
+		r.Header.Set("Origin", b.origin)
+		r.Header.Set("Authorization", "Bearer "+b.secret)
+		w := httptest.NewRecorder()
+		b.ServeHTTP(w, r)
+		return w
+	}
+	if w := request("/api/folder"); w.Code != 200 {
+		t.Fatal(w.Body.String())
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("picker did not start")
+	}
+	if w := request("/api/status"); !strings.Contains(w.Body.String(), `"folder_pending":true`) {
+		t.Fatal(w.Body.String())
+	}
+	if w := request("/api/folder-cancel"); w.Code != 200 {
+		t.Fatal(w.Body.String())
+	}
+	select {
+	case <-cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("picker did not cancel")
+	}
+	b.mu.Lock()
+	if b.root != "original" || b.folderPending {
+		t.Error("cancelled picker changed scope or remained pending")
+	}
+	b.mu.Unlock()
+	b.stop()
+}
+
 // Test-only launcher: the real browser controller/lifecycle is exercised with
 // Playwright without changing the user's default browser or registering URLs.
 func TestAssistBrowserFixture(t *testing.T) {

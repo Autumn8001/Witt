@@ -632,9 +632,13 @@ func runSessionWithConfig(ctx context.Context, url, deviceID, token string, conf
 	}
 }
 
+// Set by the standalone connector build so browser-renamed downloads such as
+// "chloe-assist (1).exe" retain the same temporary-session entry point.
+var assistBuild string
+
 func main() {
 	assistArgs := os.Args[1:]
-	if strings.EqualFold(filepath.Base(os.Args[0]), "chloe-assist.exe") {
+	if assistBuild == "1" || strings.HasPrefix(strings.ToLower(filepath.Base(os.Args[0])), "chloe-assist") {
 		if len(assistArgs) == 0 {
 			assistArgs = []string{"join"}
 		}
