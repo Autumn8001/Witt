@@ -105,3 +105,26 @@ test("audit survives a restart but device credentials and active authorization d
   assert.ok(sessions.audit(s).some(a=>a.change?.diff==="- before\n+ after"));
   assert.equal(fs.readFileSync(path.join(root,"assist-audit.sqlite")).includes(Buffer.from(g.device_token)),false);
 });
+
+test("environment and command grants are explicit, reduced by customer and revoked with session",t=>{
+  const {sessions}=fixture(t);
+  const invite=sessions.create(operator,{allow_environment:true,allow_commands:true});
+  const preview=sessions.preview(invite.pairing_code);
+  assert.ok(preview.allowed_capabilities.includes("workspace.system_info"));
+  assert.ok(preview.allowed_capabilities.includes("workspace.exec"));
+  const g=sessions.authorize({pair_ticket:preview.pair_ticket,workspace_root:"D:/test",allowed_capabilities:[...READ,"workspace.system_info"]});
+  const s=sessions.sessions.get(g.assist_session_id);s.workspace_id=s.assist_session_id;
+  assert.equal(sessions.commandsAllowed(g.device_id),false);
+  const context={workspaceSessionId:g.assist_session_id};
+  sessions.guardDevice(g.device_id,{tool:"workspace",capability:"workspace.system_info",args:{},context});
+  assert.throws(()=>sessions.guardDevice(g.device_id,{tool:"workspace",capability:"workspace.exec",args:{root:"project"},context}),/SCOPE_DENIED/);
+  const next=sessions.create(operator,{allow_commands:true}),p=sessions.preview(next.pairing_code);
+  const command=sessions.authorize({pair_ticket:p.pair_ticket,workspace_root:"D:/test",allowed_capabilities:p.allowed_capabilities});
+  const cs=sessions.sessions.get(command.assist_session_id);cs.workspace_id=cs.assist_session_id;
+  assert.equal(sessions.commandsAllowed(command.device_id),true);
+  assert.ok(!command.allowed_capabilities.includes("workspace.full_access"));
+  sessions.guardDevice(command.device_id,{tool:"workspace",capability:"workspace.exec",args:{root:"project"},context:{workspaceSessionId:cs.assist_session_id}});
+  sessions.transition(cs,"paused");assert.equal(sessions.commandsAllowed(command.device_id),false);
+  sessions.transition(cs,"active");assert.equal(sessions.commandsAllowed(command.device_id),true);
+  sessions.transition(cs,"revoked");assert.equal(sessions.commandsAllowed(command.device_id),false);
+});

@@ -61,7 +61,7 @@ function sha256(value) {
   return value.toLowerCase();
 }
 
-function validateWorkspaceOperation(operation, args, { fullAccess = false } = {}) {
+function validateWorkspaceOperation(operation, args, { fullAccess = false, assistCommands = false } = {}) {
   const validatePath = (value, options) => {
     if (fullAccess && typeof value === "string" && /^[A-Za-z]:[\\/]/.test(value) &&
         value.length <= MAX_PATH_LENGTH && !/[\u0000-\u001f\u007f]/.test(value) &&
@@ -113,7 +113,7 @@ function validateWorkspaceOperation(operation, args, { fullAccess = false } = {}
     const result = { program, argv: [...args.argv] };
     if (args.cwd !== undefined) result.cwd = validatePath(args.cwd, { allowRoot: true });
     if (args.timeout_ms !== undefined) {
-      if (!Number.isInteger(args.timeout_ms) || args.timeout_ms < 1000 || args.timeout_ms > MAX_TIMEOUT_MS) invalid("INVALID_TIMEOUT");
+      if (!Number.isInteger(args.timeout_ms) || args.timeout_ms < 1000 || args.timeout_ms > (assistCommands ? 300_000 : MAX_TIMEOUT_MS)) invalid("INVALID_TIMEOUT");
       result.timeout_ms = args.timeout_ms;
     }
     return { operation, args: result };

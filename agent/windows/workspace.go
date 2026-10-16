@@ -1,8 +1,8 @@
 package main
 
-// Remote Workspace execution. This file deliberately contains no shell
-// interpreter support: an invocation is a program and an argv array, and all
-// paths are resolved under a configured root before it can start.
+// Remote Workspace execution uses program + argv. Legacy command policy stays
+// restricted; Assist can grant commands separately with per-command local consent.
+// File operations and process working directories remain scoped to the root.
 
 import (
 	"bytes"
@@ -37,6 +37,7 @@ type approval struct {
 }
 
 type workspaceArgs struct {
+	TimeoutMS      int       `json:"timeout_ms,omitempty"`
 	Operation      string    `json:"operation,omitempty"`
 	Root           string    `json:"root,omitempty"`
 	Path           string    `json:"path,omitempty"`
@@ -204,6 +205,7 @@ func validWorkspaceSchema(p packet, operation string) bool {
 		add("root", "program", "argv")
 		allowed["cwd"] = true
 		allowed["approval"] = true
+		allowed["timeout_ms"] = true
 	case "git_status", "git_diff":
 		// Status/diff deliberately operate at the session root by default.
 		// A bounded relative cwd is optional for monorepos.
@@ -425,6 +427,9 @@ func executeWorkspaceRootOperation(ctx context.Context, p packet, deviceID strin
 		}
 		return executeWorkspacePatch(ctx, p, deviceID, target, args)
 	case "exec":
+		if config.assist != nil {
+			return executeAssistExec(ctx, p, deviceID, config, args, target)
+		}
 		return executeWorkspaceExec(ctx, p, deviceID, target, args, config.fullAccess)
 	case "git_status":
 		return executeWorkspaceGit(ctx, p, deviceID, target, []string{"status", "--short", "--branch"})
@@ -723,6 +728,7 @@ func runProgram(ctx context.Context, p packet, deviceID, cwd, program string, ar
 	}
 	cmd := exec.CommandContext(ctx, program, argv...)
 	cmd.Dir = cwd
+	cmd.WaitDelay = 2 * time.Second
 	stdout, stderr := &boundedWriter{limit: maxOutput}, &boundedWriter{limit: maxOutput}
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	// From this point a subprocess may exist. A timeout or lost connection has

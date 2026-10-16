@@ -30,6 +30,9 @@ function classifyWorkspaceOperation(operation, args, options = {}) {
   if (["workspace.write", "workspace.patch"].includes(operation)) {
     return { category: SAFE, reason: "BOUNDED_WORKSPACE_EDIT", ...valid };
   }
+  // SAFE here means dispatch to the connector; Assist still requires local
+  // approval for every command, including read-only diagnostics. Never fullAccess.
+  if (operation === "workspace.exec" && options.assistCommands === true) return { category: SAFE, reason: "CLIENT_COMMAND_APPROVAL_REQUIRED", ...valid };
   if (operation === "workspace.exec") return classifyExec(valid);
   return { category: DENY, reason: "UNKNOWN_OPERATION", ...valid };
 }

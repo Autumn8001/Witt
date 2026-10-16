@@ -53,7 +53,7 @@ func (a *assistPolicy) check(p packet) error {
 		return errors.New("ASSIST_NOT_ACTIVE")
 	}
 	var args workspaceArgs
-	if p.Tool != "workspace" || p.WorkspaceSessionID != a.sessionID || json.Unmarshal(p.Args, &args) != nil || args.Root != "project" ||
+	if p.Tool != "workspace" || p.WorkspaceSessionID != a.sessionID || json.Unmarshal(p.Args, &args) != nil || (args.Operation != "workspace.system_info" && args.Operation != "system_info" && args.Root != "project") ||
 		!assistHasCapability(a.capabilities, "workspace."+strings.TrimPrefix(args.Operation, "workspace.")) {
 		return errors.New("ASSIST_SCOPE_DENIED")
 	}
@@ -230,4 +230,45 @@ func assistHasCapability(values []string, wanted string) bool {
 		}
 	}
 	return false
+}
+
+// Commands are a separate, explicitly selected permission. They are not a
+// filesystem sandbox: after approval a command has the Windows user's rights.
+func executeAssistExec(ctx context.Context, p packet, deviceID string, config agentConfig, args workspaceArgs, cwd string) packet {
+	if !validProgram(args.Program) || len(args.Argv) > 64 || args.TimeoutMS < 0 || args.TimeoutMS > 300000 {
+		return workspaceError(p, deviceID, "COMMAND_NOT_ALLOWED", "not_started")
+	}
+	for _, arg := range args.Argv {
+		if len(arg) > 4096 || strings.ContainsRune(arg, 0) {
+			return workspaceError(p, deviceID, "COMMAND_NOT_ALLOWED", "not_started")
+		}
+	}
+	timeout := args.TimeoutMS
+	if timeout == 0 {
+		timeout = 30000
+	}
+	preview := stringMustJSON(map[string]any{"program": args.Program, "argv": args.Argv, "cwd": cwd, "timeout_ms": timeout})
+	if config.assist.record != nil {
+		config.assist.record("等待本机确认命令：" + args.Program)
+	}
+	approvalCtx, cancelApproval := context.WithTimeout(ctx, 60*time.Second)
+	ok := config.assist.approve != nil && config.assist.approve(approvalCtx, "命令执行："+args.Program, "此命令以当前 Windows 用户权限运行，可读写授权目录之外的文件、访问网络或修改系统。请核对全部参数；安装、配置和服务操作只在你批准后开始。不会自动提升管理员权限。\r\n"+preview)
+	cancelApproval()
+	if !ok {
+		return workspaceError(p, deviceID, "CLIENT_DECLINED", "not_started")
+	}
+	if ctx.Err() != nil || config.assist.check(p) != nil {
+		return workspaceError(p, deviceID, "ASSIST_NOT_ACTIVE", "not_started")
+	}
+	rechecked, _, err := resolveWorkspacePath(config, args.Root, args.CWD, false)
+	if err != nil || !strings.EqualFold(filepath.Clean(rechecked), filepath.Clean(cwd)) {
+		return workspaceError(p, deviceID, "PATH_OUTSIDE_ROOT", "not_started")
+	}
+	commandCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
+	defer cancel()
+	result := runProgram(commandCtx, p, deviceID, cwd, args.Program, args.Argv)
+	if config.assist.record != nil {
+		config.assist.record(fmt.Sprintf("命令结束：%s · exit=%d · %s", args.Program, result.ExitCode, result.Error))
+	}
+	return result
 }

@@ -130,7 +130,8 @@ class CommandDispatcher {
     }
     const id = "cmd-" + randomUUID();
     const timeout = Number(timeoutMs);
-    if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 30000) {
+    const maxTimeout = deviceId.startsWith("assist-") && allowed.capability === "workspace.exec" ? 360000 : 30000;
+    if (!Number.isInteger(timeout) || timeout < 1000 || timeout > maxTimeout) {
       throw new DeviceError("INVALID_TIMEOUT");
     }
     const sentAt = this.now();
@@ -207,7 +208,7 @@ class CommandDispatcher {
     );
     const suppliedDuration = Number(value.duration_ms);
     const durationMs = Number.isFinite(suppliedDuration) && suppliedDuration >= 0
-      ? Math.min(30000, Math.floor(suppliedDuration))
+      ? Math.min(pending.capability === "workspace.exec" && pending.deviceId.startsWith("assist-") ? 360000 : 30000, Math.floor(suppliedDuration))
       : Math.max(0, this.now() - pending.sentAt);
     pending.resolve({
       v: 1, type: "result", id: value.id, device_id: pending.deviceId,

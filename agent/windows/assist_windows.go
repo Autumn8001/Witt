@@ -294,6 +294,10 @@ func (u *assistUI) authorize() {
 	caps := []string{}
 	edits := assistCall("SendMessageW", u.edit, 0xf0, 0, 0) == 1
 	for _, cap := range u.grant.Capabilities {
+		// Legacy native consent has no command/environment controls. Never grant silently.
+		if cap == "workspace.exec" || cap == "workspace.system_info" {
+			continue
+		}
 		if !edits && (cap == "workspace.write" || cap == "workspace.patch") {
 			continue
 		}

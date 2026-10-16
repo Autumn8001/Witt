@@ -49,7 +49,7 @@ class AssistSessions {
       customer_label: String(input.customer_label || "临时协助").slice(0, 100),
       state: "pending", created_at: this.now(), expires_at: this.now() + ttl * 60_000,
       pairing_expires_at: this.now() + Math.min(ttl * 60_000, 5 * 60_000), code_hash: digest(code),
-      allowed_capabilities: [...READ, ...(input.allow_edits === true ? EDIT : [])],
+      allowed_capabilities: [...READ, ...(input.allow_edits === true ? EDIT : []), ...(input.allow_environment === true ? ["workspace.system_info"] : []), ...(input.allow_commands === true ? ["workspace.exec"] : [])],
       device_id: null, workspace_root: null, workspace_id: null };
     this.sessions.set(session.assist_session_id, session); this.record(session, "session.create", null, "pending");
     return { ...this.public(session), pairing_code: `${code.slice(0, 5)}-${code.slice(5)}` };
@@ -134,7 +134,11 @@ class AssistSessions {
     if (!s) fail("SESSION_NOT_AUTHORIZED"); this.expire(s);
     if (s.state !== "active" || this.now() >= s.expires_at) fail("SESSION_NOT_ACTIVE");
     if (allowed.tool !== "workspace" || !s.workspace_id || allowed.context?.workspaceSessionId !== s.assist_session_id ||
-        allowed.args.root !== "project" || !s.allowed_capabilities.includes(allowed.capability)) fail("SESSION_SCOPE_DENIED");
+        (allowed.capability === "workspace.system_info" ? allowed.args.root !== undefined : allowed.args.root !== "project") || !s.allowed_capabilities.includes(allowed.capability)) fail("SESSION_SCOPE_DENIED");
+  }
+  commandsAllowed(deviceId) {
+    const s = this.devices.get(deviceId);
+    return !!s && s.state === "active" && this.now() < s.expires_at && s.allowed_capabilities.includes("workspace.exec");
   }
   bindWorkspace(s, chat, input = {}) {
     this.expire(s); if (s.state !== "active" || !this.public(s).connected) fail("DEVICE_OFFLINE");
@@ -160,6 +164,7 @@ class AssistSessions {
       const s = this.devices.get(args[0]);
       try {
         if (s && EDIT.includes(args[2].operation)) args[3] = 30_000;
+        if (s && args[2].operation === "workspace.exec") this.record(s, "workspace.exec.request", args[2].cwd, "awaiting_client_confirmation", { program: args[2].program, intent_sha256: digest(JSON.stringify(args[2])) });
         const result = await this.gateway.dispatcher.dispatch(...args);
         if (s) {
           let change = null;

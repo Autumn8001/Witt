@@ -268,3 +268,53 @@ other applications. Ordinary foreground activation was insufficient. Only the
 folder dialog is now topmost until dismissed; the browser remains enabled.
 Explicit Windows dialog acceptance now also checks WS_EX_TOPMOST before driving
 selection/cancel. The customer page displays version 2026.10.16.3.
+
+
+## Explicit environment / command consent — connector 2026.10.16.4
+
+The operator can request `allow_environment` (workspace.system_info) and
+`allow_commands` (workspace.exec) when creating an invitation. The customer's
+local webpage independently opts in, unchecked by default. Existing grants are
+never upgraded. The legacy `--native` consent window filters both new grants.
+
+`workspace.system_info` is host-scoped metadata, not a project path. Commands
+reuse the existing session-bound MCP and WSS protocol. A server-owned session
+lookup enables the Assist command policy; model arguments cannot enable it.
+Every command, including PowerShell diagnostics, requires local approval of the
+complete program, argv, cwd and timeout. This approval is also the separate
+confirmation for installs, configuration and service actions. It expires after
+60 seconds; execution has its own budget, default 30 seconds, max 5 minutes.
+No automatic retries, privilege escalation or persistent service installation
+is introduced. Windows may still refuse operations requiring administrator
+rights. A command is explicitly NOT confined to the file root: after consent it
+can affect anything the current Windows account can access. File APIs and cwd
+remain root-confined, including symlink/junction checks.
+
+Pause/end/expiry cancel the session context and reject new commands. A live
+Windows test cancelled a running PowerShell before its delayed file write and
+returned EXECUTION_STATE_UNKNOWN promptly. Cancellation is best effort: already
+applied system changes are not rolled back, and detached child processes or
+external installers are not guaranteed to stop. No service/installer or reboot
+lifecycle manager was added in this iteration.
+
+Audit stores command program, cwd, intent SHA-256 and outcome, not argv, command
+stdout, file content or credentials. The customer sees full arguments only in
+the local approval preview. Existing file-edit diff auditing remains unchanged.
+
+Validation on 2026-10-16:
+- PASS: 56 targeted Node checks, then all 11 workspace checks after adding the
+  trusted command budget regression (57 checks in the combined set).
+- PASS: Go suite; additional Windows direct approval/decline and in-flight
+  cancellation checks. Commands without consent did not create a marker;
+  command consent did not permit out-of-root file reads.
+- PASS: `node tests/assist-browser.cjs --commands`, isolated Linux server + real
+  Windows connector/browser, actual Grok Build with Gemini 3.8 Flash High test
+  upstream: MCP file read/patch and diff, rejected command, approved Get-Service
+  plus random stdout marker, pause/resume/revoke and process exit. Desktop and
+  mobile command confirmation were rendered, without overflow or page errors.
+- PASS: calling the ended real MCP session returned WORKSPACE_SESSION_INVALID
+  (the existing HTTP route maps this denial to 500; access was refused).
+- NOT TESTED: actual Grok upstream, clean Windows 10/VM, UAC/admin operation,
+  installing WSL/Hadoop, changing services or configuration, detached child
+  process termination, and code signing. Production model configuration was
+  not changed by the isolated test.

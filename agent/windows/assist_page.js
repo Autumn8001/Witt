@@ -18,7 +18,9 @@ async function refresh(){
  $('folder-status').textContent=s.folder_pending?'Windows 目录选择窗口已打开，请查看任务栏或按 Alt＋Tab 切换。也可取消后直接粘贴目录路径。':s.folder_error||'';
  $('service').textContent=s.server;$('operator').textContent=s.operator;$('expires').textContent=s.expires?new Date(s.expires).toLocaleString():'';
  $('edits').disabled=!s.capabilities?.includes('workspace.write');
- $('scope').textContent=`授权目录：${s.root} · 服务方：${s.operator} · 到期：${s.expires?new Date(s.expires).toLocaleString():''}`;
+ $('environment').disabled=!s.capabilities?.includes('workspace.system_info');
+ $('commands').disabled=!s.capabilities?.includes('workspace.exec');
+ $('scope').textContent=`授权目录：${s.root} · 服务方：${s.operator} · 到期：${s.expires?new Date(s.expires).toLocaleString():''} · 设备信息：${s.capabilities?.includes('workspace.system_info')?'已授权':'未授权'} · 命令执行：${s.capabilities?.includes('workspace.exec')?'已授权，逐条确认':'未授权'}`;
  $('pause').textContent=s.state==='paused'?'恢复协助':'暂停协助';$('logs').textContent=s.logs.join('\n')||'暂无操作。';
  const oldApproval=approvalID;approvalID=s.approval?.id||'';$('change').hidden=!approvalID;
  if(s.approval){$('file').textContent=s.approval.file;$('diff').textContent=s.approval.diff;if(approvalID!==oldApproval){$('change').scrollIntoView({block:'start'});$('diff').focus({preventScroll:true})}}
@@ -27,7 +29,7 @@ $('pair-form').onsubmit=e=>{e.preventDefault();action(async()=>{await api('previ
 $('re-pair').onclick=()=>{editingPair=true;refresh()};
 $('folder').onclick=()=>action(()=>api('folder'));
 $('folder-cancel').onclick=()=>action(()=>api('folder-cancel'));
-$('allow').onclick=()=>action(()=>api('authorize',{root:$('root').value,edits:$('edits').checked}));
+$('allow').onclick=()=>action(()=>api('authorize',{root:$('root').value,edits:$('edits').checked,environment:$('environment').checked,commands:$('commands').checked}));
 $('pause').onclick=()=>action(()=>api('pause'));
 for(const [id,allow]of [['accept',true],['reject',false]])$(id).onclick=()=>action(()=>api('decision',{id:approvalID,allow}));
 $('end').onclick=()=>action(async()=>{await api('end');ended=true;$('status').textContent='已结束协助，连接器正在退出。';$('pair').hidden=$('consent').hidden=$('session').hidden=$('change').hidden=true});

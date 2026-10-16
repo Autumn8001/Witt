@@ -23,7 +23,7 @@ const tools = [
   ["workspace_search", "Search UTF-8 text files below the workspace root.", { query: { type: "string", minLength: 1, maxLength: 1024 }, path: { type: "string", maxLength: 1024 }, max_results: { type: "integer", minimum: 1, maximum: 200 } }, ["query"]],
   ["workspace_write", "Write one text file with a required SHA-256 precondition. Use an empty hash only to create a missing file.", { path: { type: "string", minLength: 1, maxLength: 1024 }, content: { type: "string", maxLength: 524288 }, expected_sha256: { type: "string", maxLength: 64 } }, ["path", "content", "expected_sha256"]],
   ["workspace_patch", "Replace exactly one known text fragment after checking SHA-256.", { path: { type: "string", minLength: 1, maxLength: 1024 }, expected_sha256: { type: "string", minLength: 64, maxLength: 64 }, before: { type: "string", minLength: 1, maxLength: 524288 }, after: { type: "string", maxLength: 524288 } }, ["path", "expected_sha256", "before", "after"]],
-  ["workspace_exec", "Run an approved development program using program plus argv; never pass a shell command line.", { program: { type: "string", minLength: 1, maxLength: 256 }, argv: { type: "array", items: { type: "string", maxLength: 4096 }, maxItems: 64 }, cwd: { type: "string", maxLength: 1024 }, timeout_ms: { type: "integer", minimum: 1000, maximum: 30000 } }, ["program", "argv"]],
+  ["workspace_exec", "Run program plus argv on the connected customer device. In a command-authorized Assist session, PowerShell/system tools are available and EACH command requires customer approval on their device. Shell scripts must be passed as an explicit interpreter argument. No automatic elevation; cwd remains project-relative.", { program: { type: "string", minLength: 1, maxLength: 256 }, argv: { type: "array", items: { type: "string", maxLength: 4096 }, maxItems: 64 }, cwd: { type: "string", maxLength: 1024 }, timeout_ms: { type: "integer", minimum: 1000, maximum: allowedCapabilities?.has("workspace.exec") ? 300000 : 30000 } }, ["program", "argv"]],
   ["workspace_git_status", "Return git status for this workspace.", {}, []],
   ["workspace_git_diff", "Return git diff for this workspace.", {}, []],
   ["workspace_system_info", "Return non-sensitive system information for the connected customer device.", {}, []],
@@ -48,7 +48,7 @@ async function invoke(name, args) {
   const credential = fs.readFileSync(credentialFile, "utf8").trim();
   if (!credential || credential.length > 200) throw new Error("MCP_NOT_AUTHORIZED");
   const response = await fetch(endpoint() + "/internal/remote-workspaces/mcp", {
-    method: "POST", redirect: "error", signal: AbortSignal.timeout(6 * 60_000),
+    method: "POST", redirect: "error", signal: AbortSignal.timeout(7 * 60_000),
     headers: { Authorization: `Bearer ${credential}`, "Content-Type": "application/json" },
     body: JSON.stringify({ operation, args }),
   });

@@ -200,7 +200,14 @@ func execute(ctx context.Context, p packet, deviceID string) packet {
 
 func executeWithConfig(ctx context.Context, p packet, deviceID string, config agentConfig) packet {
 	result := packet{V: 1, Type: "result", ID: p.ID, DeviceID: deviceID, ExitCode: 1, ExecutionState: "not_started"}
-	if p.Type != "command" || p.ID == "" || p.TimeoutMS < 1000 || p.TimeoutMS > 30000 {
+	maxTimeout := 30000
+	if config.assist != nil && p.Tool == "workspace" {
+		var args workspaceArgs
+		if json.Unmarshal(p.Args, &args) == nil && (args.Operation == "workspace.exec" || args.Operation == "exec") {
+			maxTimeout = 360000
+		}
+	}
+	if p.Type != "command" || p.ID == "" || p.TimeoutMS < 1000 || p.TimeoutMS > maxTimeout {
 		result.Error = "COMMAND_NOT_ALLOWED"
 		return result
 	}

@@ -10,12 +10,13 @@ async function session(id){return (await api('/remote-assist/sessions')).session
 async function send(cid,text){return (await api('/chat/conversations/'+cid+'/messages',{text,attachmentIds:[],clientRequestId:crypto.randomUUID()})).messageId}
 async function reply(cid,mid){const r=await api('/chat/conversations/'+cid);return (r.conversation||r).messages.find(m=>m.role==='assistant'&&m.replyTo===mid&&!['queued','running'].includes(m.status))}
 (async()=>{
+ const commands=process.argv.includes('--commands');
  const report={},browser=await chromium.launch({headless:true});let proc,sid,page;
  try{
   const root=path.join(out,'browser-workspace');fs.mkdirSync(root,{recursive:true});const file=path.join(root,'verification.txt'),marker='browser-assist-'+crypto.randomBytes(8).toString('hex');fs.writeFileSync(file,marker+'\n');
   const fixture=path.join(out,'browser-fixture.json');
   if(!process.argv.includes('--lifecycle-only')){
-  const invite=await api('/remote-assist/sessions',{customer_label:'浏览器授权验收',ttl_minutes:15,allow_edits:true});sid=invite.assist_session_id;
+  const invite=await api('/remote-assist/sessions',{customer_label:'浏览器授权验收',ttl_minutes:15,allow_edits:true,allow_environment:commands,allow_commands:commands});sid=invite.assist_session_id;
   fs.writeFileSync(fixture,JSON.stringify({Server:config.server,Code:invite.pairing_code,Root:root,CAFile:config.caFile}));fs.rmSync(fixture+'.url',{force:true});
   proc=spawn(path.join(repo,'artifacts/assist-browser-test.exe'),['-test.run=^TestAssistBrowserFixture$','-test.timeout=10m'],{env:{...process.env,ASSIST_BROWSER_FIXTURE:fixture},stdio:['ignore','pipe','pipe']});let processLog='';proc.stdout.on('data',c=>processLog+=c);proc.stderr.on('data',c=>processLog+=c);
   await wait(()=>fs.existsSync(fixture+'.url'));const url=fs.readFileSync(fixture+'.url','utf8'),origin=new URL(url).origin,secret=new URL(url).hash.slice(1);
@@ -26,7 +27,7 @@ async function reply(cid,mid){const r=await api('/chat/conversations/'+cid);retu
   await page.locator('#preview').click();await page.locator('#consent').waitFor({state:'visible'});assert.equal((await session(sid)).state,'pending');
   await page.screenshot({path:path.join(out,'browser-consent-1280.png')});await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'browser-consent-390.png')});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.setViewportSize({width:1280,height:900});
   report.unauthorized='PASS: preview page does not authorize file access';
-  await page.locator('#edits').check();await page.locator('#allow').click();await wait(async()=>Boolean((await session(sid)).connected));report.web_authorization='PASS: browser Allow established actual Windows WSS';
+  await page.locator('#edits').check();if(commands){assert.equal(await page.locator('#commands').isChecked(),false);await page.locator('#environment').check();await page.locator('#commands').check()}await page.locator('#allow').click();await wait(async()=>Boolean((await session(sid)).connected));report.web_authorization='PASS: browser Allow established actual Windows WSS';
   const bound=await api('/remote-assist/sessions/'+sid+'/workspace',{model:'grok-4.7-high'}),cid=bound.conversation.id;
   let mid=await send(cid,'请通过 witt_remote_workspace MCP 的 workspace_read 读取 verification.txt，原样报告唯一校验字符串。必须真正调用远程 MCP，不使用服务器本地文件工具。');
   let answer=await wait(()=>reply(cid,mid),180000);assert.equal(answer.status,'completed');assert.ok(answer.text.includes(marker),answer.text);report.grok_read='PASS: actual Grok Build Harness / Gemini upstream -> MCP -> Windows marker';
@@ -34,11 +35,24 @@ async function reply(cid,mid){const r=await api('/chat/conversations/'+cid);retu
   await page.locator('#change').waitFor({state:'visible',timeout:180000});assert.equal(fs.readFileSync(file,'utf8'),marker+'\n');assert.ok((await page.locator('#diff').textContent()).includes(marker+'-edited'));await page.screenshot({path:path.join(out,'browser-diff.png')});
   await page.locator('#accept').click();answer=await wait(()=>reply(cid,mid),180000);assert.equal(answer.status,'completed');assert.equal(fs.readFileSync(file,'utf8'),marker+'-edited\n');
   const audit=(await api('/remote-assist/sessions/'+sid+'/audit')).audit;assert.ok(audit.some(a=>a.operation==='workspace.patch'&&a.change?.diff&&a.status==='completed'));report.web_diff='PASS: unchanged before browser approval; real patch and audit diff';
+  if(commands){
+   let commandMid=await send(cid,'使用远程 MCP workspace_exec，program=powershell.exe，argv 为 ["-NoProfile","-NonInteractive","-Command","Get-Service | Select-Object -First 1 Name,Status | ConvertTo-Json -Compress"]，检查客户 Windows 服务。客户如果拒绝这次命令，立即报告拒绝并结束本轮，不要重试。');
+   await page.locator('#change').waitFor({state:'visible',timeout:180000});assert.ok((await page.locator('#diff').textContent()).includes('Get-Service'));await page.locator('#reject').click();
+   let commandAnswer=await wait(()=>reply(cid,commandMid),180000);assert.ok(!['queued','running'].includes(commandAnswer.status));
+   report.command_decline='PASS: MCP request reached local full-argv approval; customer declined';
+   const commandMarker='approved-environment-'+crypto.randomBytes(8).toString('hex');
+   commandMid=await send(cid,`使用远程 MCP workspace_exec 申请一条 PowerShell 只读诊断：program=powershell.exe；argv=["-NoProfile","-NonInteractive","-Command","Get-Service | Select-Object -First 1 Name,Status | ConvertTo-Json -Compress; Write-Output ${commandMarker}"]。等待本机客户批准，必须真实执行，最终原样报告校验字符串。不要安装软件或修改任何配置。`);
+   await page.locator('#change').waitFor({state:'visible',timeout:180000});const preview=await page.locator('#diff').textContent();assert.ok(preview.includes('Get-Service')&&preview.includes(commandMarker));
+   await page.screenshot({path:path.join(out,'browser-command-approval-1280.png')});await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:path.join(out,'browser-command-approval-390.png')});await page.setViewportSize({width:1280,height:900});
+   await page.locator('#accept').click();commandAnswer=await wait(()=>reply(cid,commandMid),180000);assert.equal(commandAnswer.status,'completed');assert.ok(commandAnswer.text.includes(commandMarker),commandAnswer.text);
+   const commandAudit=(await api('/remote-assist/sessions/'+sid+'/audit')).audit;assert.ok(commandAudit.some(a=>a.operation==='workspace.exec'&&a.status==='CLIENT_DECLINED'));assert.ok(commandAudit.some(a=>a.operation==='workspace.exec'&&a.status==='completed'));assert.ok(commandAudit.some(a=>a.operation==='workspace.exec.request'&&a.change?.intent_sha256));
+   report.grok_command='PASS: actual Grok Build (Gemini test upstream) -> MCP -> WSS -> local browser approval -> Windows Get-Service + unique stdout marker';
+  }
   await page.locator('#pause').click();await wait(async()=>((await session(sid)).state==='paused'));report.pause='PASS: Gateway paused';await page.waitForTimeout(800);await page.locator('#pause').click();await wait(async()=>((await session(sid)).state==='active'&&(await session(sid)).connected));report.resume='PASS: explicit browser resume';
   await page.locator('#end').click();await wait(()=>proc.exitCode!==null);assert.equal(proc.exitCode,0,processLog);assert.equal((await session(sid)).state,'revoked');report.end='PASS: server revoked; browser connector process exited';
   assert.deepEqual(errors,[]);report.ui='PASS: desktop/mobile, no overflow or page errors';
   }
-  for(const mode of ['navigate','close']){
+  for(const mode of (commands?[]:['navigate','close'])){
    const next=await api('/remote-assist/sessions',{customer_label:'浏览器退出验收 '+mode,ttl_minutes:15,allow_edits:false});sid=next.assist_session_id;
    fs.writeFileSync(fixture,JSON.stringify({Server:config.server,Code:next.pairing_code,Root:root,CAFile:config.caFile}));fs.rmSync(fixture+'.url',{force:true});
    proc=spawn(path.join(repo,'artifacts/assist-browser-test.exe'),['-test.run=^TestAssistBrowserFixture$','-test.timeout=10m'],{env:{...process.env,ASSIST_BROWSER_FIXTURE:fixture},stdio:'ignore'});
@@ -50,6 +64,6 @@ async function reply(cid,mid){const r=await api('/chat/conversations/'+cid);retu
  }catch(e){report.failure=e.stack;throw e}finally{
   if(sid){try{await api('/remote-assist/sessions/'+sid+'/revoke',{})}catch{}}
   if(proc&&proc.exitCode===null){if(page){try{await page.locator('#end').click({timeout:1500});await wait(()=>proc.exitCode!==null,5000)}catch{}}if(proc.exitCode===null)proc.kill()}
-  await browser.close();fs.writeFileSync(path.join(out,process.argv.includes('--lifecycle-only')?'browser-lifecycle-results.json':'browser-results.json'),JSON.stringify(report,null,2));
+  await browser.close();fs.writeFileSync(path.join(out,commands?'browser-command-results.json':process.argv.includes('--lifecycle-only')?'browser-lifecycle-results.json':'browser-results.json'),JSON.stringify(report,null,2));
  }
 })().catch(e=>{console.error(e);process.exitCode=1});

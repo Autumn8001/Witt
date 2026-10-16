@@ -202,12 +202,14 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 8192)
 	var input struct {
-		Server string `json:"server"`
-		Code   string `json:"code"`
-		Root   string `json:"root"`
-		Edits  bool   `json:"edits"`
-		ID     string `json:"id"`
-		Allow  bool   `json:"allow"`
+		Server      string `json:"server"`
+		Code        string `json:"code"`
+		Root        string `json:"root"`
+		Edits       bool   `json:"edits"`
+		Environment bool   `json:"environment"`
+		Commands    bool   `json:"commands"`
+		ID          string `json:"id"`
+		Allow       bool   `json:"allow"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid input", 400)
@@ -343,6 +345,9 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			b.mu.Unlock()
 			caps := []string{}
 			for _, cap := range g.Capabilities {
+				if (cap == "workspace.system_info" && !input.Environment) || (cap == "workspace.exec" && !input.Commands) {
+					continue
+				}
 				if !input.Edits && (cap == "workspace.write" || cap == "workspace.patch") {
 					continue
 				}

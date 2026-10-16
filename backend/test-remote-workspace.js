@@ -181,3 +181,24 @@ test("dispatcher derives full access from the bound device", async (t) => {
  await assert.rejects(()=>dispatcher.execute(request),/INVALID_PATH/);assert.equal(calls,0);
  enabled=true;assert.equal((await dispatcher.execute(request)).status,"completed");assert.equal(calls,1);
 });
+
+test("Assist command consent policy is trusted and does not expand filesystem scope",()=>{
+  const args={program:"powershell.exe",argv:["-NoProfile","-Command","Get-Service"],timeout_ms:300000};
+  assert.throws(()=>classifyWorkspaceOperation("workspace.exec",args),/INVALID_TIMEOUT/);
+  const allowed=classifyWorkspaceOperation("workspace.exec",args,{assistCommands:true});
+  assert.equal(allowed.category,SAFE);assert.equal(allowed.reason,"CLIENT_COMMAND_APPROVAL_REQUIRED");
+  assert.throws(()=>classifyWorkspaceOperation("workspace.read",{path:"C:/Windows/win.ini"},{assistCommands:true}),/INVALID_PATH/);
+  assert.throws(()=>classifyWorkspaceOperation("workspace.exec",{...args,cwd:"../outside"},{assistCommands:true}),/INVALID_PATH/);
+  assert.throws(()=>classifyWorkspaceOperation("workspace.exec",{...args,assistCommands:true},{assistCommands:true}),/INVALID_ARGUMENTS/);
+});
+
+test("Assist dispatcher budgets local consent separately and only trusts server command grants",async()=>{
+  let granted=true,received;
+  const dispatcher=new WorkspaceDispatcher({workspaceStore:{get:()=>({...binding(),state:"active"})},
+    transport:{dispatch:async(...args)=>{received=args;return {exit_code:0}}},
+    approvals:{create:()=>{throw Error("unexpected operator approval")}},audit:{record:()=>{}},assistCommandsFor:()=>granted});
+  await dispatcher.execute({workspace_id:IDS.workspace,operation:"workspace.exec",args:{program:"powershell.exe",argv:["-Command","Get-Service"],timeout_ms:300000}});
+  assert.equal(received[3],360000);assert.equal(received[2].timeout_ms,300000);assert.equal(received[2].root,"project");assert.equal(received[4].workspaceSessionId,IDS.workspace);
+  granted=false;
+  await assert.rejects(dispatcher.execute({workspace_id:IDS.workspace,operation:"workspace.exec",args:{program:"powershell.exe",argv:[],timeout_ms:300000}}),/INVALID_TIMEOUT/);
+});

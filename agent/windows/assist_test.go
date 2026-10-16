@@ -98,3 +98,85 @@ func TestAssistRejectsWindowsJunctionEscape(t *testing.T) {
 		t.Fatalf("junction escaped: %#v", result)
 	}
 }
+
+func TestAssistCommandsNeedExplicitLocalApproval(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows command authorization")
+	}
+	root := t.TempDir()
+	a := &assistPolicy{sessionID: "command-test", expires: time.Now().Add(time.Minute), capabilities: []string{"workspace.exec", "workspace.read", "workspace.system_info"}}
+	config := agentConfig{roots: map[string]string{"project": root}, assist: a}
+	marker := filepath.Join(root, "command-marker.txt")
+	script := "[System.IO.File]::WriteAllText('command-marker.txt','approved')"
+	p := workspacePacket("exec", map[string]any{"root": "project", "program": "powershell.exe", "argv": []string{"-NoProfile", "-NonInteractive", "-Command", script}, "timeout_ms": 30000})
+	p.TimeoutMS = 90000
+	p.WorkspaceSessionID = a.sessionID
+	if r := executeWithConfig(context.Background(), p, "test", config); r.Error != "CLIENT_DECLINED" {
+		t.Fatalf("no callback: %#v", r)
+	}
+	a.approve = func(ctx context.Context, title, preview string) bool {
+		if !strings.Contains(preview, script) || !strings.Contains(preview, root[:2]) || !strings.Contains(preview, "目录之外") {
+			t.Fatal("incomplete command disclosure")
+		}
+		return false
+	}
+	if r := executeWithConfig(context.Background(), p, "test", config); r.Error != "CLIENT_DECLINED" {
+		t.Fatalf("decline: %#v", r)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatal("command executed without consent")
+	}
+	a.approve = func(context.Context, string, string) bool { return true }
+	if r := executeWithConfig(context.Background(), p, "test", config); r.Error != "" || r.ExitCode != 0 {
+		t.Fatalf("approved command: %#v", r)
+	}
+	data, _ := os.ReadFile(marker)
+	if string(data) != "approved" {
+		t.Fatal("approved command did not execute")
+	}
+	read := workspacePacket("read", map[string]any{"root": "project", "path": "../outside.txt"})
+	read.WorkspaceSessionID = a.sessionID
+	if r := executeWithConfig(context.Background(), read, "test", config); r.Error == "" {
+		t.Fatal("command grant expanded file tool scope")
+	}
+	info := workspacePacket("system_info", map[string]any{})
+	info.WorkspaceSessionID = a.sessionID
+	if r := executeWithConfig(context.Background(), info, "test", config); r.Error != "" {
+		t.Fatalf("host scoped info: %#v", r)
+	}
+	diagnostic := workspacePacket("exec", map[string]any{"root": "project", "program": "powershell.exe", "argv": []string{"-NoProfile", "-NonInteractive", "-Command", "Get-Service | Select-Object -First 3 Name,Status | ConvertTo-Json -Compress"}})
+	diagnostic.TimeoutMS = 90000
+	diagnostic.WorkspaceSessionID = a.sessionID
+	if r := executeWithConfig(context.Background(), diagnostic, "test", config); r.Error != "" || r.ExitCode != 0 || !strings.Contains(r.Stdout, "Status") {
+		t.Fatalf("real service diagnostic failed: %s/%d", r.Error, r.ExitCode)
+	}
+	a.approve = func(context.Context, string, string) bool { a.Lock(); a.paused = true; a.Unlock(); return true }
+	if r := executeWithConfig(context.Background(), diagnostic, "test", config); r.Error != "ASSIST_NOT_ACTIVE" {
+		t.Fatalf("pause during approval: %#v", r)
+	}
+}
+
+func TestAssistCancelsRunningCommand(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows cancellation")
+	}
+	root := t.TempDir()
+	a := &assistPolicy{sessionID: "cancel-test", expires: time.Now().Add(time.Minute), capabilities: []string{"workspace.exec"}, approve: func(context.Context, string, string) bool { return true }}
+	p := workspacePacket("exec", map[string]any{"root": "project", "program": "powershell.exe", "argv": []string{"-NoProfile", "-NonInteractive", "-Command", "Start-Sleep -Seconds 20; [IO.File]::WriteAllText('must-not-exist.txt','bad')"}})
+	p.WorkspaceSessionID = a.sessionID
+	p.TimeoutMS = 90000
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	time.AfterFunc(500*time.Millisecond, cancel)
+	start := time.Now()
+	result := executeWithConfig(ctx, p, "test", agentConfig{roots: map[string]string{"project": root}, assist: a})
+	if result.Error != "EXECUTION_STATE_UNKNOWN" || result.ExecutionState != "unknown" {
+		t.Fatalf("cancelled command: %#v", result)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Fatal("cancellation did not return promptly")
+	}
+	if _, err := os.Stat(filepath.Join(root, "must-not-exist.txt")); !os.IsNotExist(err) {
+		t.Fatal("cancelled command completed side effect")
+	}
+}
