@@ -28,10 +28,12 @@ var launchAssistBrowser = openAssistBrowser
 var chooseAssistFolder = pickAssistFolder
 
 type browserApproval struct {
-	ID     string `json:"id"`
-	File   string `json:"file"`
-	Diff   string `json:"diff"`
-	result chan bool
+	ID        string `json:"id"`
+	File      string `json:"file"`
+	Diff      string `json:"diff"`
+	ExpiresAt int64  `json:"expires_at"`
+	ctx       context.Context
+	result    chan bool
 }
 type assistBrowser struct {
 	mu                          sync.Mutex
@@ -43,6 +45,7 @@ type assistBrowser struct {
 	root, state, origin, secret string
 	logs                        []string
 	approval                    *browserApproval
+	notifyApproval              func(context.Context, string, string, func(bool)) error
 	folderPending               bool
 	folderError                 string
 	folderCancel                context.CancelFunc
@@ -70,7 +73,7 @@ func showAssistBrowser(options assistOptions) error {
 	if err != nil {
 		return err
 	}
-	b := &assistBrowser{options: options, root: options.Root, origin: "http://" + listener.Addr().String(), secret: assistRandom(), state: "unpaired", lastSeen: time.Now(), lastAction: time.Now(), updater: newAssistUpdater(), done: make(chan struct{})}
+	b := &assistBrowser{options: options, root: options.Root, origin: "http://" + listener.Addr().String(), secret: assistRandom(), state: "unpaired", lastSeen: time.Now(), lastAction: time.Now(), updater: newAssistUpdater(), done: make(chan struct{}), notifyApproval: notifyAssistApproval}
 	server := &http.Server{Handler: b, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
 	go func() { _ = server.Serve(listener) }()
 	if err = launchAssistBrowser(b.origin + "/#" + b.secret); err != nil {
@@ -173,7 +176,11 @@ func (b *assistBrowser) start() {
 	}()
 }
 func (b *assistBrowser) confirm(ctx context.Context, file, diff string) bool {
-	a := &browserApproval{ID: assistRandom(), File: file, Diff: diff, result: make(chan bool, 1)}
+	if ctx.Err() != nil {
+		return false
+	}
+	deadline, _ := ctx.Deadline()
+	a := &browserApproval{ID: assistRandom(), File: file, Diff: diff, ExpiresAt: deadline.UnixMilli(), ctx: ctx, result: make(chan bool, 1)}
 	b.mu.Lock()
 	if b.approval != nil {
 		b.mu.Unlock()
@@ -181,6 +188,15 @@ func (b *assistBrowser) confirm(ctx context.Context, file, diff string) bool {
 	}
 	b.approval = a
 	b.mu.Unlock()
+	notifyCtx, cancelNotify := context.WithCancel(ctx)
+	defer cancelNotify()
+	if b.notifyApproval != nil {
+		go func() {
+			if err := b.notifyApproval(notifyCtx, file, diff, func(allow bool) { b.decide(a.ID, allow) }); err != nil {
+				b.note("无法打开 Windows 确认窗口，请到连接器网页确认本次操作")
+			}
+		}()
+	}
 	defer func() {
 		b.mu.Lock()
 		if b.approval == a {
@@ -190,10 +206,38 @@ func (b *assistBrowser) confirm(ctx context.Context, file, diff string) bool {
 	}()
 	select {
 	case ok := <-a.result:
+		select {
+		case <-b.done:
+			return false
+		default:
+		}
 		return ok && ctx.Err() == nil
 	case <-ctx.Done():
+		b.note("本次操作确认超时或会话已结束；未开始执行")
 		return false
 	case <-b.done:
+		return false
+	}
+}
+
+// The native window and local webpage resolve the same single-use request.
+func (b *assistBrowser) decide(id string, allow bool) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	a := b.approval
+	if a == nil || a.ID != id || a.ctx.Err() != nil {
+		return false
+	}
+	select {
+	case <-b.done:
+		return false
+	default:
+	}
+	select {
+	case a.result <- allow:
+		b.approval = nil
+		return true
+	default:
 		return false
 	}
 }
@@ -288,17 +332,13 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/api/decision" {
-		b.mu.Lock()
-		a := b.approval
-		if a != nil && a.ID == input.ID {
-			select {
-			case a.result <- input.Allow:
-			default:
-			}
-			b.approval = nil
+		ok := b.decide(input.ID, input.Allow)
+		if !ok {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": "确认请求已过期或已处理，未重复执行"})
+		} else {
+			json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 		}
-		b.mu.Unlock()
-		json.NewEncoder(w).Encode(map[string]bool{"ok": a != nil && a.ID == input.ID})
 		return
 	}
 	b.operations.Lock()

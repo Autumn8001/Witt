@@ -398,3 +398,31 @@ paused/closed bindings, revocation during async dispatch, unexpected setup error
 and queue storage failures; 27 related Assist, workspace service/MCP, chat
 approval and SSE checks passed. This does not claim a new customer Windows/model
 E2E run. The existing 2026.10.16.5 connector binary is unchanged.
+
+### Visible local approval fix — connector 2026.10.16.6
+
+The production audit on 2026-10-16 recorded a `workspace.exec.request` at
+10:11:19.644 UTC and `CLIENT_DECLINED` at 10:12:19.910 UTC: the 60-second
+approval wait elapsed without a decision. Version .5 only rendered an inline
+approval section in the connector tab; it did not open a Windows approval
+window. A customer working in the Chloe tab could miss the section entirely.
+
+Version .6 opens a temporary, visible, topmost Windows approval window with
+the full intent and a countdown. The connector page uses a modal dialog as
+well. Both surfaces resolve one single-use approval ID; a decision on one
+surface closes the other. Closing/Escape rejects, expiry/cancellation closes
+the native window, stale decisions return HTTP 409, and Enter does not
+implicitly accept in the native window. There is no automatic approval or
+replay. A command approval timeout now returns `CLIENT_APPROVAL_TIMEOUT`;
+explicit rejection remains `CLIENT_DECLINED`.
+
+Validation: the Go suite passes, including real Windows native-window
+visibility/topmost/full-intent checks, rejected and approved `Get-Service`
+execution in a temporary test workspace, and native expiry/browser-decision
+cleanup. Playwright exercises the actual isolated local Go approval API at
+1280/390px, including modal visibility, allow, Escape rejection, expiry and
+stale-decision denial; update-page checks also pass. No new production-model
+E2E or customer environment changes are claimed. Publish this as a signed
+download/update feed without restarting the web service or current connector.
+Existing .5 users can end their session, reopen the connector and use Check
+updates/Update and reopen; no new manual download is required.

@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var assistVersion = "2026.10.16.5"
+var assistVersion = "2026.10.16.6"
 var assistReadyFile string
 
 const assistUpdateBase = "https://cpa.stellarbit.site/vault/downloads"

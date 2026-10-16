@@ -253,8 +253,15 @@ func executeAssistExec(ctx context.Context, p packet, deviceID string, config ag
 	}
 	approvalCtx, cancelApproval := context.WithTimeout(ctx, 60*time.Second)
 	ok := config.assist.approve != nil && config.assist.approve(approvalCtx, "命令执行："+args.Program, "此命令以当前 Windows 用户权限运行，可读写授权目录之外的文件、访问网络或修改系统。请核对全部参数；安装、配置和服务操作只在你批准后开始。不会自动提升管理员权限。\r\n"+preview)
+	approvalErr := approvalCtx.Err()
 	cancelApproval()
 	if !ok {
+		if ctx.Err() != nil {
+			return workspaceError(p, deviceID, "ASSIST_NOT_ACTIVE", "not_started")
+		}
+		if approvalErr == context.DeadlineExceeded {
+			return workspaceError(p, deviceID, "CLIENT_APPROVAL_TIMEOUT", "not_started")
+		}
 		return workspaceError(p, deviceID, "CLIENT_DECLINED", "not_started")
 	}
 	if ctx.Err() != nil || config.assist.check(p) != nil {

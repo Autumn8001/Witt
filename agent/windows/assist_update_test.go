@@ -78,7 +78,11 @@ func TestAssistPackagedReleaseSignature(t *testing.T) {
 func TestAssistUpdateDownloadsOnlyVerifiedHTTPSRelease(t *testing.T) {
 	pub, key, _ := ed25519.GenerateKey(rand.Reader)
 	binary := []byte("test binary")
-	raw, _ := signedAssistFixture(t, key, binary, "2026.10.16.6")
+	parts := strings.Split(assistVersion, ".")
+	build, _ := strconv.Atoi(parts[3])
+	parts[3] = strconv.Itoa(build + 1)
+	futureVersion := strings.Join(parts, ".")
+	raw, _ := signedAssistFixture(t, key, binary, futureVersion)
 	corrupt := false
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/update.json" {
@@ -118,7 +122,7 @@ func TestAssistUpdateDownloadsOnlyVerifiedHTTPSRelease(t *testing.T) {
 		t.Fatal("failed candidate marked ready")
 	}
 	corrupt = false
-	_, release := signedAssistFixture(t, key, binary, "2026.10.16.6")
+	_, release := signedAssistFixture(t, key, binary, futureVersion)
 	u.blockedHash = release.SHA256
 	if e := u.download(context.Background()); e == nil {
 		t.Fatal("failed release automatically retried")

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -130,5 +131,39 @@ func TestAssistBrowserFixture(t *testing.T) {
 	defer func() { launchAssistBrowser = openAssistBrowser }()
 	if err = showAssistBrowser(options); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Isolated local UI fixture: invokes the real approval controller and API,
+// without pairing to production or executing a customer command.
+func TestAssistApprovalUIFixture(t *testing.T) {
+	file := os.Getenv("ASSIST_APPROVAL_FIXTURE")
+	if file == "" {
+		t.Skip("explicit isolated UI fixture only")
+	}
+	b := &assistBrowser{secret: assistRandom(), state: "connected", done: make(chan struct{}), updater: newAssistUpdater()}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/fixture/approval" {
+			b.ServeHTTP(w, r)
+			return
+		}
+		if r.Method != "POST" || r.Header.Get("Origin") != b.origin || r.Header.Get("Authorization") != "Bearer "+b.secret {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+		defer cancel()
+		ok := b.confirm(ctx, "命令执行：powershell.exe", "program: powershell.exe\nargv: [\"-NoProfile\",\"-Command\",\"Get-Service\"]\ncwd: D:\\test-workspace\ntimeout_ms: 30000\n此处仅测试确认界面，不执行命令。")
+		json.NewEncoder(w).Encode(map[string]bool{"allowed": ok})
+	}))
+	defer server.Close()
+	b.origin = server.URL
+	if err := os.WriteFile(file+".url", []byte(b.origin+"/#"+b.secret), 0600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-b.done:
+	case <-time.After(time.Minute):
+		t.Fatal("approval UI fixture not stopped")
 	}
 }
