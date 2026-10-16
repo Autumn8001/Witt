@@ -645,6 +645,16 @@ var assistBuild string
 
 func main() {
 	assistArgs := os.Args[1:]
+	if handled, err := assistUpdateEntry(assistArgs); handled {
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
+	if len(assistArgs) == 2 && assistArgs[0] == "--assist-update-ready" {
+		assistReadyFile = assistArgs[1]
+		assistArgs = []string{"join"}
+	}
 	if assistBuild == "1" || strings.HasPrefix(strings.ToLower(filepath.Base(os.Args[0])), "chloe-assist") {
 		if len(assistArgs) == 0 {
 			assistArgs = []string{"join"}

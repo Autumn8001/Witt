@@ -9,8 +9,10 @@ async function api(route,body={}){
 async function action(fn){if(busy)return;busy=true;$('error').textContent='';document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();await refresh()}catch(e){$('error').textContent=e.message}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);refresh().catch(()=>{})}}
 async function refresh(){
  if(ended)return;const s=await api('status');
- const labels={unpaired:'尚未授权 · 本机文件不可访问',preview:'等待你的授权 · 本机文件不可访问',connecting:'正在建立加密连接',connected:'Connected · 已连接',paused:'Paused · 已暂停',disconnected:'Disconnected · 已断开'};
+ const labels={unpaired:'尚未授权 · 本机文件不可访问',preview:'等待你的授权 · 本机文件不可访问',updating:'正在更新，连接器将重新打开',connecting:'正在建立加密连接',connected:'Connected · 已连接',paused:'Paused · 已暂停',disconnected:'Disconnected · 已断开'};
  $('status').textContent=labels[s.state]||s.state;
+ const u=s.update||{};$('app-version').textContent=u.version||'';$('update-status').textContent=u.message||'更新不可用';$('auto-update').checked=!!u.auto;$('auto-update').disabled=!u.enabled||busy;$('update-check').disabled=!u.enabled||u.checking||busy;$('update-install').hidden=!u.ready;$('update-install').disabled=busy||s.state!=='unpaired'||s.folder_pending||u.checking;
+ if(u.ready&&s.state!=='unpaired')$('update-status').textContent+=' · 请结束协助后重新打开连接器安装';
  const before=['unpaired','preview'].includes(s.state);$('pair').hidden=s.state!=='unpaired'&&!editingPair;$('consent').hidden=s.state!=='preview'||editingPair;$('session').hidden=before;
  if(!$('server').value)$('server').value=s.server;if(!$('code').value)$('code').value=s.code;
  if(s.root!==lastRoot){if(s.root)$('root').value=s.root;lastRoot=s.root}
@@ -36,3 +38,10 @@ $('end').onclick=()=>action(async()=>{await api('end');ended=true;$('status').te
 refresh().catch(()=>{$('error').textContent='连接器不可用，请重新打开轻量连接器。'});
 setInterval(()=>{if(!ended)refresh().catch(()=>{$('status').textContent='Disconnected · 本机连接器已退出';$('change').hidden=true})},1500);
 window.addEventListener('pagehide',()=>{if(!ended)fetch('/api/end',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:'{}',keepalive:true}).catch(()=>{})});
+
+$('update-check').onclick=()=>action(()=>api('update/check'));
+$('auto-update').onchange=()=>action(()=>api('update/settings',{auto:$('auto-update').checked}));
+$('update-install').onclick=()=>action(async()=>{await api('update/install');ended=true;$('status').textContent='更新已开始，新版本将自动打开。此页面可以关闭。';document.querySelectorAll('section').forEach(s=>s.hidden=true)});
+
+let activityTimer;
+for(const id of ['code','server','root'])$(id).addEventListener('input',()=>{clearTimeout(activityTimer);activityTimer=setTimeout(()=>api('activity',{editing_pair:!!$('code').value.trim()}).catch(()=>{}),250)});

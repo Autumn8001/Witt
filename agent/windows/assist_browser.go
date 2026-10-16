@@ -50,6 +50,9 @@ type assistBrowser struct {
 	cancel                      context.CancelFunc
 	serial                      int
 	lastSeen                    time.Time
+	lastAction                  time.Time
+	updater                     *assistUpdater
+	pairDraft                   bool
 	done                        chan struct{}
 	once                        sync.Once
 }
@@ -67,13 +70,23 @@ func showAssistBrowser(options assistOptions) error {
 	if err != nil {
 		return err
 	}
-	b := &assistBrowser{options: options, root: options.Root, origin: "http://" + listener.Addr().String(), secret: assistRandom(), state: "unpaired", lastSeen: time.Now(), done: make(chan struct{})}
+	b := &assistBrowser{options: options, root: options.Root, origin: "http://" + listener.Addr().String(), secret: assistRandom(), state: "unpaired", lastSeen: time.Now(), lastAction: time.Now(), updater: newAssistUpdater(), done: make(chan struct{})}
 	server := &http.Server{Handler: b, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
 	go func() { _ = server.Serve(listener) }()
 	if err = launchAssistBrowser(b.origin + "/#" + b.secret); err != nil {
 		server.Close()
 		return err
 	}
+	if assistReadyFile != "" {
+		if err = os.WriteFile(assistReadyFile, []byte(assistVersion), 0600); err != nil {
+			server.Close()
+			return err
+		}
+	}
+	if b.updater.isAuto() {
+		go b.updater.check(context.Background())
+	}
+	lastUpdateCheck := time.Now()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
@@ -82,6 +95,13 @@ func showAssistBrowser(options assistOptions) error {
 			server.Close()
 			return nil
 		case <-ticker.C:
+			if b.updater.isAuto() {
+				if time.Since(lastUpdateCheck) > 6*time.Hour {
+					lastUpdateCheck = time.Now()
+					go b.updater.check(context.Background())
+				}
+				_ = b.applyUpdate(true)
+			}
 			b.mu.Lock()
 			stale := time.Since(b.lastSeen) > 120*time.Second
 			expired := b.grant.Expires > 0 && time.Now().UnixMilli() >= b.grant.Expires
@@ -188,7 +208,7 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" && r.URL.Path == "/" {
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(assistPage)
+		w.Write([]byte(strings.ReplaceAll(string(assistPage), "{{ASSIST_VERSION}}", assistVersion)))
 		return
 	}
 	if r.Method == "GET" && (r.URL.Path == "/app.js" || r.URL.Path == "/app.css") {
@@ -202,6 +222,8 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 8192)
 	var input struct {
+		Auto        bool   `json:"auto"`
+		PairDraft   bool   `json:"editing_pair"`
 		Server      string `json:"server"`
 		Code        string `json:"code"`
 		Root        string `json:"root"`
@@ -219,9 +241,45 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/api/status" {
 		b.mu.Lock()
 		b.lastSeen = time.Now()
-		out := map[string]any{"state": b.state, "server": b.options.Server, "code": b.options.Code, "root": b.root, "operator": b.grant.Operator, "expires": b.grant.Expires, "capabilities": b.grant.Capabilities, "logs": append([]string{}, b.logs...), "approval": b.approval, "folder_pending": b.folderPending, "folder_error": b.folderError}
+		out := map[string]any{"state": b.state, "server": b.options.Server, "code": b.options.Code, "root": b.root, "operator": b.grant.Operator, "expires": b.grant.Expires, "capabilities": b.grant.Capabilities, "logs": append([]string{}, b.logs...), "approval": b.approval, "folder_pending": b.folderPending, "folder_error": b.folderError, "update": b.updater.snapshot()}
 		b.mu.Unlock()
 		json.NewEncoder(w).Encode(out)
+		return
+	}
+
+	b.mu.Lock()
+	b.lastAction = time.Now()
+	b.mu.Unlock()
+	if r.URL.Path == "/api/activity" {
+		b.mu.Lock()
+		b.pairDraft = input.PairDraft
+		b.mu.Unlock()
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/update/") {
+		var err error
+		switch r.URL.Path {
+		case "/api/update/check":
+			if b.updater == nil {
+				err = errors.New("更新不可用")
+			} else {
+				b.updater.retryFailed()
+				go b.updater.check(context.Background())
+			}
+		case "/api/update/settings":
+			err = b.updater.setAuto(input.Auto)
+		case "/api/update/install":
+			err = b.applyUpdate(false)
+		default:
+			err = errors.New("未知更新操作")
+		}
+		if err != nil {
+			w.WriteHeader(409)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		} else {
+			json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		}
 		return
 	}
 	if r.URL.Path == "/api/end" {

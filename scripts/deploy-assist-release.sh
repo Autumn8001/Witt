@@ -25,13 +25,7 @@ node --check "$staging/web/remote-assist.js"
 mkdir -p "$staging/web/downloads"
 install -m 0644 "$binary" "$staging/web/downloads/chloe-assist.exe"
 printf '%s  chloe-assist.exe\n' "$binary_hash" > "$staging/web/downloads/SHA256SUMS.txt"
-python3 - "$staging" "$sha" "$binary_hash" <<'PYMETA'
-import sys,json,pathlib,re
-root=pathlib.Path(sys.argv[1])
-version=re.search(r'Chloe Assist · ([0-9.]+)',(root/'agent/windows/assist_page.html').read_text()).group(1)
-metadata={'version':version,'sourceCommit':sys.argv[2],'sha256':sys.argv[3],'bytes':(root/'web/downloads/chloe-assist.exe').stat().st_size,'signature':'NotSigned'}
-(root/'web/downloads/release.json').write_text(json.dumps(metadata)+'\n')
-PYMETA
+python3 "$staging/scripts/sign-assist-release.py" "$staging/web/downloads" --repo "$staging" --commit "$sha" --key /opt/witt/.git/assist-release-signing.pem
 chmod 0755 "$staging"
 mv "$staging" "$release"
 backup="$(mktemp -d "$repo/.git/assist-deploy-backup-XXXXXXXX")"

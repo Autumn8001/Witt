@@ -318,3 +318,60 @@ Validation on 2026-10-16:
   installing WSL/Hadoop, changing services or configuration, detached child
   process termination, and code signing. Production model configuration was
   not changed by the isolated test.
+
+
+## Connector operations page and updates — 2026.10.16.5
+
+The connector now opens its local operations page with connection/authorization,
+activity logs, current version, automatic-update preference, manual check and
+update/reopen controls. Preference persists in the current user's cache; no
+session credential or authorization is saved. Existing .4 clients must download
+this first updater-capable release once. There is no permanent service, login
+startup entry, Node/Python dependency or browser extension.
+
+Updates default on: check at startup and every six hours while open, download a
+verified candidate, install after 60 seconds idle only when unpaired with no
+pairing-code draft and no folder picker. Preview, connecting, active and paused
+sessions prohibit installation, including manual install requests. Turning the
+preference off prevents automatic checks/install; a check already in flight can
+finish staging. Manual checking/downloading and idle install remain available.
+Ending a session still exits; a pending verified update is rediscovered on the
+next launch. The client does not silently preserve or renew remote grants.
+
+Distribution is pinned to the official HTTPS download origin, with no redirect
+or caller-selected update URL. `update.json` is an Ed25519-signed payload that
+binds numeric version, platform, byte count and SHA-256. The connector pins the
+publisher public key; unsigned/tampered feeds, wrong platforms, oversized files,
+hash mismatches and non-newer versions cannot become update candidates. This
+publisher signature is distinct from Windows Authenticode: the executable is
+still NotSigned, and SmartScreen/Defender/UAC are not bypassed.
+
+A separate, temporary copy of the signed new executable waits for the exact old
+process/path to exit, re-verifies the candidate and old target hash, retains
+`<exe>.previous.exe`, replaces the file and starts the new local page. A startup
+readiness timeout/failure attempts restoration/relaunch of the previous file.
+A failed candidate is quarantined from automatic retry until manual Check or a
+new release. Executables need a user-writable parent directory. Multiple locked
+instances, power loss during replacement, antivirus or failed rollback can
+require reopening/restoring the backup manually; no claim of crash-proof atomic
+installation is made. Old inactive helper copies are cleaned on later startup.
+
+Release signing uses `scripts/sign-assist-release.py` (OpenSSL on the publishing
+machine only). The private Ed25519 key is outside Git, with a protected server
+copy; key mismatch aborts publication. Both full snapshot deployments and the
+client-only artifact publication must include signed update.json. Publishing a
+new connector alone does not restart the web/worker services.
+
+Validation:
+- PASS: Go suite, release tamper/wrong key/version/HTTPS/hash rejection, explicit
+  retry/quarantine and installation blocked across consent/active/paused states.
+- PASS: actual Windows executable fixture remains locked until its old process
+  exits, then replacement, startup readiness and previous-version preservation.
+  A signed invalid executable triggered restoration of the previous file.
+- PASS: Playwright against the real Go local API (`tests/assist-update-ui.cjs`):
+  desktop/mobile operations page, preference persistence, pairing draft retained,
+  unauthorized update refused and connector exit. No JS errors or overflow.
+- NOT TESTED: clean Windows VM/Windows 10, actual production-to-future-production
+  automatic upgrade, power-loss recovery, antivirus/SmartScreen interactions,
+  Authenticode, and signing-key rotation. The replacement fixture uses a test
+  publisher key and test executables, not a claimed future production release.
