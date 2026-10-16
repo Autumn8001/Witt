@@ -5,6 +5,7 @@
   const panel = document.createElement("section");
   panel.className = "customer-result-block assist-panel";
   panel.innerHTML = `<header><div><h3>临时远程协助</h3><p>客户打开轻量连接器后，在网页中配对、授权和控制协助。本次结束即失效。</p></div></header>
+    <p><a href="/vault/downloads/chloe-assist.exe" download>下载 Windows 轻量连接器</a> · <a href="/vault/downloads/SHA256SUMS.txt" target="_blank" rel="noopener">SHA-256 校验值</a><br><small>Windows x64，免安装。本测试发行版尚未进行代码签名。</small></p>
     <form data-assist-create><label class="customer-workspace-field"><span>客户称呼</span><input name="customer_label" maxlength="80" value="测试协助" required></label>
     <label class="customer-workspace-field"><span>有效期</span><select name="ttl_minutes"><option value="15">15 分钟</option><option value="30" selected>30 分钟</option><option value="60">60 分钟</option></select></label>
     <label class="assist-edit-choice"><input name="allow_edits" type="checkbox"> 允许申请代码修改（客户逐次确认差异）</label>
@@ -37,7 +38,7 @@
       const values = new FormData(form), s = await api("sessions", {customer_label:values.get("customer_label"),ttl_minutes:Number(values.get("ttl_minutes")),allow_edits:values.get("allow_edits") === "on"});
       $("[data-assist-code]").hidden = false;
       $("[data-assist-code]").textContent = `会话码：${s.pairing_code}\n5 分钟内配对。客户打开轻量连接器，浏览器将自动打开授权页。\n在网页填入服务地址：${location.origin}/vault-api\n也可预填启动：chloe-assist.exe join ${s.pairing_code} --server ${location.origin}/vault-api`;
-      status("会话码已生成。客户授权前，无法访问文件。当前尚未提供可信签名的一键下载。请求已生成，请保留本窗口的会话码。");await refresh();
+      status("会话码已生成。客户授权前，无法访问文件。请从上方下载连接器并保留此会话码；当前发行文件未签名。");await refresh();
     } catch (error) { status(error.message); } finally { button.disabled = false; }
   });
   $("[data-assist-refresh]").addEventListener("click", () => refresh().catch(e => status(e.message)));

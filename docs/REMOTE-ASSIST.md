@@ -193,6 +193,20 @@ tasks; do not expand automatically.
 
 ## Browser follow-up verification
 
+### Authorized deployment follow-up — 2026-10-16
+
+The user subsequently authorized production deployment for testing. The
+operator panel now includes HTTPS links to the separately built connector and
+its SHA-256 file, with an explicit unsigned-release label. Deployment uses
+`scripts/deploy-assist-release.sh <commit> <binary-sha256>` after transferring
+the reviewed Git snapshot and artifact. It retains the old snapshot and backs
+up the service/static configuration, verifies health and frontend/backend
+versions, and rolls back on activation failure. Existing secrets/model settings
+and the independent Worker are not provisioned or changed by this script.
+The earlier no-deployment statements describe the original development round.
+
+### Development verification boundary
+
 `tests/assist-browser.cjs` drives the real Go browser controller on the same
 non-elevated Windows 11 test machine, against the isolated Gateway and real
 server-side Grok Build harness (Gemini upstream as disclosed above).
