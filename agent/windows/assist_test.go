@@ -180,3 +180,62 @@ func TestAssistCancelsRunningCommand(t *testing.T) {
 		t.Fatal("cancelled command completed side effect")
 	}
 }
+
+func TestAssistFullSessionAccessOutsideRootWithoutPerOperationApproval(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows full-session execution")
+	}
+	root, outside := t.TempDir(), t.TempDir()
+	file := filepath.Join(outside, "external.txt")
+	os.WriteFile(file, []byte("before"), 0600)
+	a := &assistPolicy{sessionID: "full-session-test", expires: time.Now().Add(time.Minute), fullAccess: true, capabilities: []string{"workspace.read", "workspace.patch", "workspace.exec"}, approve: func(context.Context, string, string) bool {
+		t.Error("full session requested per-operation approval")
+		return false
+	}}
+	config := agentConfig{roots: map[string]string{"project": root}, assist: a, fullAccess: true}
+	run := func(op string, args map[string]any) packet {
+		p := workspacePacket(op, args)
+		p.TimeoutMS = 90000
+		if op != "exec" {
+			p.TimeoutMS = 20000
+		}
+		p.WorkspaceSessionID = a.sessionID
+		return executeWithConfig(context.Background(), p, "fixture", config)
+	}
+	r := run("read", map[string]any{"root": "project", "path": file})
+	if r.Error != "" || !strings.Contains(r.Stdout, "before") {
+		t.Fatalf("external read: %s", r.Error)
+	}
+	r = run("patch", map[string]any{"root": "project", "path": file, "expected_sha256": hashBytes([]byte("before")), "before": "before", "after": "after"})
+	if r.Error != "" {
+		t.Fatalf("external patch: %s", r.Error)
+	}
+	data, _ := os.ReadFile(file)
+	if string(data) != "after" {
+		t.Fatal("patch missing")
+	}
+	r = run("exec", map[string]any{"root": "project", "cwd": outside, "program": "powershell.exe", "argv": []string{"-NoProfile", "-NonInteractive", "-Command", "Get-Service | Select-Object -First 1 Name,Status | ConvertTo-Json -Compress; Write-Output full-session-service-query"}})
+	if r.Error != "" || !strings.Contains(r.Stdout, "full-session-service-query") {
+		t.Fatalf("full command: %s / %s", r.Error, r.Stdout)
+	}
+	a.Lock()
+	a.paused = true
+	a.Unlock()
+	r = run("read", map[string]any{"root": "project", "path": file})
+	if r.Error != "ASSIST_NOT_ACTIVE" {
+		t.Fatalf("paused full session: %s", r.Error)
+	}
+	a.Lock()
+	a.paused = false
+	a.expires = time.Now().Add(-time.Second)
+	a.Unlock()
+	r = run("read", map[string]any{"root": "project", "path": file})
+	if r.Error != "ASSIST_NOT_ACTIVE" {
+		t.Fatalf("expired full session: %s", r.Error)
+	}
+	a.fullAccess = false
+	r = run("read", map[string]any{"root": "project", "path": file})
+	if r.Error != "ASSIST_SCOPE_DENIED" {
+		t.Fatal("config alone escalated local consent")
+	}
+}

@@ -212,6 +212,10 @@ func executeWithConfig(ctx context.Context, p packet, deviceID string, config ag
 		return result
 	}
 	if config.assist != nil {
+		if config.fullAccess != config.assist.fullAccess {
+			result.Error = "ASSIST_SCOPE_DENIED"
+			return result
+		}
 		if err := config.assist.check(p); err != nil {
 			result.Error = err.Error()
 			return result

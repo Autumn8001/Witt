@@ -30,6 +30,7 @@ type assistGrant struct {
 	Operator     string   `json:"operator_label"`
 	Expires      int64    `json:"expires_at"`
 	Capabilities []string `json:"allowed_capabilities"`
+	AccessMode   string   `json:"access_mode"`
 }
 
 type assistOptions struct {
@@ -42,6 +43,7 @@ type assistPolicy struct {
 	expires      time.Time
 	capabilities []string
 	paused       bool
+	fullAccess   bool
 	approve      func(context.Context, string, string) bool
 	record       func(string)
 }
@@ -168,7 +170,12 @@ func assistChange(path, before, after string) (string, error) {
 }
 
 func executeAssistEdit(ctx context.Context, p packet, deviceID string, config agentConfig, args workspaceArgs, target string) packet {
-	if info, e := os.Stat(target); e == nil && (!info.Mode().IsRegular() || info.Size() > 32*1024) {
+	full := config.fullAccess && config.assist.fullAccess
+	limit := int64(32 * 1024)
+	if full {
+		limit = 512 * 1024
+	}
+	if info, e := os.Stat(target); e == nil && (!info.Mode().IsRegular() || info.Size() > limit) {
 		return workspaceError(p, deviceID, "ASSIST_EDIT_TOO_LARGE", "not_started")
 	}
 	beforeBytes, err := os.ReadFile(target)
@@ -191,9 +198,12 @@ func executeAssistEdit(ctx context.Context, p packet, deviceID string, config ag
 	}
 	diff, err := assistChange(args.Path, before, after)
 	if err != nil {
-		return workspaceError(p, deviceID, err.Error(), "not_started")
+		if !full {
+			return workspaceError(p, deviceID, err.Error(), "not_started")
+		}
+		diff = "差异超过展示上限；请根据修改前后 SHA-256 检查文件。"
 	}
-	if config.assist.approve == nil || !approveAssistChange(ctx, config.assist, args.Path, diff) {
+	if !full && (config.assist.approve == nil || !approveAssistChange(ctx, config.assist, args.Path, diff)) {
 		return workspaceError(p, deviceID, "CLIENT_DECLINED", "not_started")
 	}
 	if ctx.Err() != nil || config.assist.check(p) != nil {
@@ -249,20 +259,26 @@ func executeAssistExec(ctx context.Context, p packet, deviceID string, config ag
 	}
 	preview := stringMustJSON(map[string]any{"program": args.Program, "argv": args.Argv, "cwd": cwd, "timeout_ms": timeout})
 	if config.assist.record != nil {
-		config.assist.record("等待本机确认命令：" + args.Program)
+		if config.fullAccess && config.assist.fullAccess {
+			config.assist.record("按本次完整访问授权执行命令：" + args.Program)
+		} else {
+			config.assist.record("等待本机确认命令：" + args.Program)
+		}
 	}
-	approvalCtx, cancelApproval := context.WithTimeout(ctx, 60*time.Second)
-	ok := config.assist.approve != nil && config.assist.approve(approvalCtx, "命令执行："+args.Program, "此命令以当前 Windows 用户权限运行，可读写授权目录之外的文件、访问网络或修改系统。请核对全部参数；安装、配置和服务操作只在你批准后开始。不会自动提升管理员权限。\r\n"+preview)
-	approvalErr := approvalCtx.Err()
-	cancelApproval()
-	if !ok {
-		if ctx.Err() != nil {
-			return workspaceError(p, deviceID, "ASSIST_NOT_ACTIVE", "not_started")
+	if !(config.fullAccess && config.assist.fullAccess) {
+		approvalCtx, cancelApproval := context.WithTimeout(ctx, 60*time.Second)
+		ok := config.assist.approve != nil && config.assist.approve(approvalCtx, "命令执行："+args.Program, "此命令以当前 Windows 用户权限运行，可读写授权目录之外的文件、访问网络或修改系统。请核对全部参数；安装、配置和服务操作只在你批准后开始。不会自动提升管理员权限。\r\n"+preview)
+		approvalErr := approvalCtx.Err()
+		cancelApproval()
+		if !ok {
+			if ctx.Err() != nil {
+				return workspaceError(p, deviceID, "ASSIST_NOT_ACTIVE", "not_started")
+			}
+			if approvalErr == context.DeadlineExceeded {
+				return workspaceError(p, deviceID, "CLIENT_APPROVAL_TIMEOUT", "not_started")
+			}
+			return workspaceError(p, deviceID, "CLIENT_DECLINED", "not_started")
 		}
-		if approvalErr == context.DeadlineExceeded {
-			return workspaceError(p, deviceID, "CLIENT_APPROVAL_TIMEOUT", "not_started")
-		}
-		return workspaceError(p, deviceID, "CLIENT_DECLINED", "not_started")
 	}
 	if ctx.Err() != nil || config.assist.check(p) != nil {
 		return workspaceError(p, deviceID, "ASSIST_NOT_ACTIVE", "not_started")

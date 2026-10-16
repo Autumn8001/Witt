@@ -1,7 +1,7 @@
 "use strict";
 // The browser fragment is never sent in HTTP requests or to the gateway.
 const token=location.hash.slice(1);history.replaceState(null,"",location.pathname);
-const $=id=>document.getElementById(id);let approvalID="",busy=false,ended=false,editingPair=false,lastRoot=null;
+const $=id=>document.getElementById(id);let approvalID="",busy=false,ended=false,editingPair=false,lastRoot=null,accessMode="workspace";
 const defaultTitle=document.title;
 function closeApproval(){if($('change').open)$('change').close();document.title=defaultTitle;approvalID=''}
 async function api(route,body={}){
@@ -13,6 +13,7 @@ async function refresh(){
  if(ended)return;const s=await api('status');
  const labels={unpaired:'尚未授权 · 本机文件不可访问',preview:'等待你的授权 · 本机文件不可访问',updating:'正在更新，连接器将重新打开',connecting:'正在建立加密连接',connected:'Connected · 已连接',paused:'Paused · 已暂停',disconnected:'Disconnected · 已断开'};
  $('status').textContent=labels[s.state]||s.state;
+ accessMode=s.access_mode||'workspace';const full=accessMode==='full';$('limited-options').hidden=full;$('full-consent').hidden=!full;$('allow').textContent=full?'允许本次完整访问并连接':'允许并连接';$('root-label').textContent=full?'默认工作目录（可访问其他本地目录）':'允许访问的目录';
  const u=s.update||{};$('app-version').textContent=u.version||'';$('update-status').textContent=u.message||'更新不可用';$('auto-update').checked=!!u.auto;$('auto-update').disabled=!u.enabled||busy;$('update-check').disabled=!u.enabled||u.checking||busy;$('update-install').hidden=!u.ready;$('update-install').disabled=busy||s.state!=='unpaired'||s.folder_pending||u.checking;
  if(u.ready&&s.state!=='unpaired')$('update-status').textContent+=' · 请结束协助后重新打开连接器安装';
  const before=['unpaired','preview'].includes(s.state);$('pair').hidden=s.state!=='unpaired'&&!editingPair;$('consent').hidden=s.state!=='preview'||editingPair;$('session').hidden=before;
@@ -24,7 +25,7 @@ async function refresh(){
  $('edits').disabled=!s.capabilities?.includes('workspace.write');
  $('environment').disabled=!s.capabilities?.includes('workspace.system_info');
  $('commands').disabled=!s.capabilities?.includes('workspace.exec');
- $('scope').textContent=`授权目录：${s.root} · 服务方：${s.operator} · 到期：${s.expires?new Date(s.expires).toLocaleString():''} · 设备信息：${s.capabilities?.includes('workspace.system_info')?'已授权':'未授权'} · 命令执行：${s.capabilities?.includes('workspace.exec')?'已授权，逐条确认':'未授权'}`;
+ $('scope').textContent=full?`本次完整访问 · 所有本地目录及命令，无逐条审批 · 默认工作目录：${s.root} · 到期：${s.expires?new Date(s.expires).toLocaleString():''}`:`授权目录：${s.root} · 服务方：${s.operator} · 到期：${s.expires?new Date(s.expires).toLocaleString():''} · 设备信息：${s.capabilities?.includes('workspace.system_info')?'已授权':'未授权'} · 命令执行：${s.capabilities?.includes('workspace.exec')?'已授权，逐条确认':'未授权'}`;
  $('pause').textContent=s.state==='paused'?'恢复协助':'暂停协助';$('logs').textContent=s.logs.join('\n')||'暂无操作。';
  const oldApproval=approvalID;approvalID=s.approval?.id||'';
  if(s.approval){$('file').textContent=s.approval.file;$('diff').textContent=s.approval.diff;
@@ -39,7 +40,7 @@ $('pair-form').onsubmit=e=>{e.preventDefault();action(async()=>{await api('previ
 $('re-pair').onclick=()=>{editingPair=true;refresh()};
 $('folder').onclick=()=>action(()=>api('folder'));
 $('folder-cancel').onclick=()=>action(()=>api('folder-cancel'));
-$('allow').onclick=()=>action(()=>api('authorize',{root:$('root').value,edits:$('edits').checked,environment:$('environment').checked,commands:$('commands').checked}));
+$('allow').onclick=()=>action(()=>api('authorize',{access_mode:accessMode,root:$('root').value,edits:$('edits').checked,environment:$('environment').checked,commands:$('commands').checked}));
 $('pause').onclick=()=>action(()=>api('pause'));
 for(const [id,allow]of [['accept',true],['reject',false]])$(id).onclick=()=>action(()=>api('decision',{id:approvalID,allow}));
 $('change').addEventListener('cancel',e=>{e.preventDefault();$('reject').click()});

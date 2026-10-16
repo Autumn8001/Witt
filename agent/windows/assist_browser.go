@@ -165,7 +165,7 @@ func (b *assistBrowser) start() {
 	b.state = "connecting"
 	b.mu.Unlock()
 	go func() {
-		_ = c.connect(ctx, g, agentConfig{roots: map[string]string{"project": root}, assist: p, dialer: c.dialer})
+		_ = c.connect(ctx, g, agentConfig{roots: map[string]string{"project": root}, assist: p, fullAccess: p.fullAccess, dialer: c.dialer})
 		cancel()
 		b.mu.Lock()
 		current := b.serial == serial
@@ -276,6 +276,7 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Commands    bool   `json:"commands"`
 		ID          string `json:"id"`
 		Allow       bool   `json:"allow"`
+		AccessMode  string `json:"access_mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid input", 400)
@@ -285,7 +286,7 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/api/status" {
 		b.mu.Lock()
 		b.lastSeen = time.Now()
-		out := map[string]any{"state": b.state, "server": b.options.Server, "code": b.options.Code, "root": b.root, "operator": b.grant.Operator, "expires": b.grant.Expires, "capabilities": b.grant.Capabilities, "logs": append([]string{}, b.logs...), "approval": b.approval, "folder_pending": b.folderPending, "folder_error": b.folderError, "update": b.updater.snapshot()}
+		out := map[string]any{"state": b.state, "server": b.options.Server, "code": b.options.Code, "root": b.root, "operator": b.grant.Operator, "expires": b.grant.Expires, "capabilities": b.grant.Capabilities, "access_mode": b.grant.AccessMode, "logs": append([]string{}, b.logs...), "approval": b.approval, "folder_pending": b.folderPending, "folder_error": b.folderError, "update": b.updater.snapshot()}
 		b.mu.Unlock()
 		json.NewEncoder(w).Encode(out)
 		return
@@ -372,6 +373,9 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			b.client = c
 			b.options = options
 			b.grant = g
+			if g.AccessMode == "full" && b.root == "" {
+				b.root, _ = os.UserHomeDir()
+			}
 			b.state = "preview"
 			b.mu.Unlock()
 		case "/api/folder":
@@ -441,21 +445,31 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			b.mu.Lock()
 			g, c := b.grant, b.client
 			b.mu.Unlock()
+			full := input.AccessMode == "full" && g.AccessMode == "full"
+			if g.AccessMode == "full" && !full {
+				return errors.New("请点击允许本次完整访问，或取消本次协助")
+			}
+			if full && !assistHasCapability(g.Capabilities, "workspace.full_access") {
+				return errors.New("完整访问授权信息不一致，请重新配对")
+			}
 			caps := []string{}
 			for _, cap := range g.Capabilities {
-				if (cap == "workspace.system_info" && !input.Environment) || (cap == "workspace.exec" && !input.Commands) {
+				if !full && ((cap == "workspace.system_info" && !input.Environment) || (cap == "workspace.exec" && !input.Commands)) {
 					continue
 				}
-				if !input.Edits && (cap == "workspace.write" || cap == "workspace.patch") {
+				if !full && !input.Edits && (cap == "workspace.write" || cap == "workspace.patch") {
 					continue
 				}
 				caps = append(caps, cap)
 			}
 			var grant assistGrant
-			if err = c.request(r.Context(), "/assist/authorize", "", map[string]any{"pair_ticket": g.Ticket, "workspace_root": root, "allowed_capabilities": caps}, &grant); err != nil {
+			if err = c.request(r.Context(), "/assist/authorize", "", map[string]any{"pair_ticket": g.Ticket, "workspace_root": root, "allowed_capabilities": caps, "access_mode": input.AccessMode, "consent_version": 2}, &grant); err != nil {
 				return err
 			}
-			p := &assistPolicy{sessionID: grant.SessionID, expires: time.UnixMilli(grant.Expires), capabilities: grant.Capabilities, approve: b.confirm, record: func(s string) {
+			if full && (grant.AccessMode != "full" || !assistHasCapability(grant.Capabilities, "workspace.full_access")) {
+				return errors.New("服务器未确认完整访问，请重新配对")
+			}
+			p := &assistPolicy{sessionID: grant.SessionID, expires: time.UnixMilli(grant.Expires), capabilities: grant.Capabilities, fullAccess: full, approve: b.confirm, record: func(s string) {
 				b.note(s)
 				if strings.HasPrefix(s, "Connected") {
 					b.mu.Lock()
@@ -471,6 +485,9 @@ func (b *assistBrowser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			b.root = root
 			b.mu.Unlock()
 			b.note("已授权目录：" + root)
+			if full {
+				b.note("已授权本次完整访问：所有本地目录及命令，使用当前 Windows 用户权限，无逐条审批")
+			}
 			b.start()
 		case "/api/pause":
 			if state != "connected" && state != "connecting" && state != "paused" {

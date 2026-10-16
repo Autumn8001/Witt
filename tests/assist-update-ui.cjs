@@ -11,7 +11,7 @@ const wait=async(fn,ms=15000)=>{const end=Date.now()+ms;while(Date.now()<end){if
   await wait(()=>fs.existsSync(fixture+'.url'));const url=fs.readFileSync(fixture+'.url','utf8'),origin=new URL(url).origin,secret=new URL(url).hash.slice(1);
   assert.equal((await fetch(origin+'/api/update/install',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:'{}'})).status,403);
   page=await browser.newPage({viewport:{width:1280,height:920}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(url);
-  await wait(async()=>await page.locator('#app-version').textContent()==='2026.10.16.6');
+  await wait(async()=>await page.locator('#app-version').textContent()==='2026.10.16.7');
   if(await page.locator('#auto-update').isChecked())await page.locator('#auto-update').uncheck();
   await wait(async()=>{const r=await fetch(origin+'/api/status',{method:'POST',headers:{Origin:origin,Authorization:'Bearer '+secret,'Content-Type':'application/json'},body:'{}'});return (await r.json()).update.auto===false});
   assert.equal(await page.locator('#update-install').isVisible(),false);

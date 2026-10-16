@@ -9,6 +9,7 @@ const path = require("node:path");
 
 const READ = Object.freeze(["workspace.list", "workspace.stat", "workspace.read", "workspace.search"]);
 const EDIT = Object.freeze(["workspace.write", "workspace.patch"]);
+const FULL = Object.freeze([...READ, ...EDIT, "workspace.read_image", "workspace.git_status", "workspace.git_diff", "workspace.system_info", "workspace.exec", "workspace.full_access"]);
 const fail = (code) => { throw Object.assign(new Error(code), { code }); };
 const digest = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const isAssist = (id) => typeof id === "string" && id.startsWith("assist-");
@@ -43,13 +44,15 @@ class AssistSessions {
     if ([...this.sessions.values()].filter(s => s.operator_id === operator.userId && !["revoked", "expired"].includes(s.state)).length >= 10) fail("SESSION_LIMIT");
     const ttl = input.ttl_minutes === undefined ? 30 : input.ttl_minutes;
     if (!Number.isInteger(ttl) || ttl < 1 || ttl > 60) fail("INVALID_EXPIRY");
+    if (input.access_mode !== undefined && !["workspace", "full"].includes(input.access_mode)) fail("INVALID_ACCESS_MODE");
     const code = crypto.randomBytes(5).toString("hex").toUpperCase();
     const session = { assist_session_id: crypto.randomUUID(), operator_id: operator.userId,
       operator_label: String(operator.label || "Chloe 操作者").slice(0, 100),
       customer_label: String(input.customer_label || "临时协助").slice(0, 100),
       state: "pending", created_at: this.now(), expires_at: this.now() + ttl * 60_000,
       pairing_expires_at: this.now() + Math.min(ttl * 60_000, 5 * 60_000), code_hash: digest(code),
-      allowed_capabilities: [...READ, ...(input.allow_edits === true ? EDIT : []), ...(input.allow_environment === true ? ["workspace.system_info"] : []), ...(input.allow_commands === true ? ["workspace.exec"] : [])],
+      access_mode: input.access_mode === "full" ? "full" : "workspace",
+      allowed_capabilities: input.access_mode === "full" ? [...FULL] : [...READ, ...(input.allow_edits === true ? EDIT : []), ...(input.allow_environment === true ? ["workspace.system_info"] : []), ...(input.allow_commands === true ? ["workspace.exec"] : [])],
       device_id: null, workspace_root: null, workspace_id: null };
     this.sessions.set(session.assist_session_id, session); this.record(session, "session.create", null, "pending");
     return { ...this.public(session), pairing_code: `${code.slice(0, 5)}-${code.slice(5)}` };
@@ -74,7 +77,8 @@ class AssistSessions {
     const ticket = crypto.randomBytes(32).toString("base64url");
     this.tickets.set(digest(ticket), { session: s, expires: Math.min(s.pairing_expires_at, this.now() + 120_000) });
     return { pair_ticket: ticket, operator_label: s.operator_label, service_name: "Chloe Remote Assist",
-      assist_session_id: s.assist_session_id, expires_at: s.expires_at, allowed_capabilities: s.allowed_capabilities };
+      assist_session_id: s.assist_session_id, expires_at: s.expires_at, allowed_capabilities: s.allowed_capabilities,
+      access_mode: s.access_mode || "workspace", minimum_connector_version: s.access_mode === "full" ? "2026.10.16.7" : null };
   }
   authorize(input) {
     const hash = digest(String(input.pair_ticket || "")), ticket = this.tickets.get(hash);
@@ -84,6 +88,10 @@ class AssistSessions {
     if (typeof root !== "string" || root.length > 1024 || !/^[A-Za-z]:[\\/]/.test(root) || /[\x00-\x1f]/.test(root) || root.slice(2).includes(":")) fail("INVALID_ROOT");
     const caps = input.allowed_capabilities;
     if (!Array.isArray(caps) || new Set(caps).size !== caps.length || !READ.every(c => caps.includes(c)) || caps.some(c => !s.allowed_capabilities.includes(c))) fail("INVALID_CAPABILITIES");
+    // Old connectors cannot express this consent and must never silently gain it.
+    if (s.access_mode === "full" && (input.access_mode !== "full" || input.consent_version !== 2)) fail("CONNECTOR_UPDATE_REQUIRED");
+    if (s.access_mode === "full" && !FULL.every(c => caps.includes(c))) fail("INVALID_CAPABILITIES");
+    if (s.access_mode !== "full" && input.access_mode === "full") fail("INVALID_ACCESS_MODE");
     const token = crypto.randomBytes(32).toString("base64url");
     s.device_id = `assist-${crypto.randomUUID()}`; s.token_hash = digest(token); s.code_hash = null;
     s.workspace_root = root; s.allowed_capabilities = [...caps]; s.state = "active";
@@ -140,6 +148,10 @@ class AssistSessions {
     const s = this.devices.get(deviceId);
     return !!s && s.state === "active" && this.now() < s.expires_at && s.allowed_capabilities.includes("workspace.exec");
   }
+  fullAccessAllowed(deviceId) {
+    const s = this.devices.get(deviceId);
+    return !!s && s.state === "active" && this.now() < s.expires_at && s.access_mode === "full" && s.allowed_capabilities.includes("workspace.full_access");
+  }
   bindWorkspace(s, chat, input = {}) {
     this.expire(s); if (s.state !== "active" || !this.public(s).connected) fail("DEVICE_OFFLINE");
     if (s.workspace_id) return { workspace: this.workspaceStore.get(s.workspace_id), conversation: chat.publicConversation(chat.readConversation(s.conversation_id)) };
@@ -164,7 +176,7 @@ class AssistSessions {
       const s = this.devices.get(args[0]);
       try {
         if (s && EDIT.includes(args[2].operation)) args[3] = 30_000;
-        if (s && args[2].operation === "workspace.exec") this.record(s, "workspace.exec.request", args[2].cwd, "awaiting_client_confirmation", { program: args[2].program, intent_sha256: digest(JSON.stringify(args[2])) });
+        if (s && args[2].operation === "workspace.exec") this.record(s, "workspace.exec.request", args[2].cwd, this.fullAccessAllowed(s.device_id) ? "session_authorized" : "awaiting_client_confirmation", { program: args[2].program, intent_sha256: digest(JSON.stringify(args[2])) });
         const result = await this.gateway.dispatcher.dispatch(...args);
         if (s) {
           let change = null;

@@ -7,6 +7,7 @@ const { WorkspaceStore } = require("./remote-workspace");
 const { AssistSessions, READ, EDIT } = require("./remote-assist/session-service");
 const { createRemoteAssist } = require("./remote-assist");
 const { GrokBuildAdapter } = require("./runtime/grok-build-adapter");
+const { ChatService } = require("./chat-service");
 const operator = {userId:"operator-one",label:"测试服务方",admin:true};
 function fixture(t) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),"chloe-assist-test-"));let now=Date.now();
@@ -23,6 +24,40 @@ function grant(sessions,allowEdits=true){
   const grant=sessions.authorize({pair_ticket:preview.pair_ticket,workspace_root:"D:/assist-test",allowed_capabilities:preview.allowed_capabilities});
   return {invite,preview,grant,session:sessions.sessions.get(invite.assist_session_id)};
 }
+
+test("full-session access needs new local consent and never upgrades a legacy grant", t => {
+  const {sessions,gateway,advance}=fixture(t);
+  const invite=sessions.create(operator,{access_mode:"full"});
+  assert.equal(sessions.fullAccessAllowed("assist-unknown"),false);
+  let p=sessions.preview(invite.pairing_code);
+  assert.equal(p.access_mode,"full");
+  assert.throws(()=>sessions.authorize({pair_ticket:p.pair_ticket,workspace_root:"D:/test",allowed_capabilities:p.allowed_capabilities}),/CONNECTOR_UPDATE_REQUIRED/);
+  p=sessions.preview(invite.pairing_code);
+  const g=sessions.authorize({pair_ticket:p.pair_ticket,workspace_root:"D:/test",allowed_capabilities:p.allowed_capabilities,access_mode:"full",consent_version:2});
+  const s=sessions.sessions.get(g.assist_session_id);s.workspace_id=s.assist_session_id;
+  assert.equal(sessions.fullAccessAllowed(g.device_id),true);
+  assert.ok(gateway.registry.definition(g.device_id).capabilities.includes("workspace.full_access"));
+  const allowed={tool:"workspace",capability:"workspace.read",args:{root:"project",path:"C:/outside/test.txt"},context:{workspaceSessionId:g.assist_session_id}};
+  sessions.guardDevice(g.device_id,allowed);
+  assert.throws(()=>sessions.guardDevice(g.device_id,{...allowed,context:{workspaceSessionId:"other"}}),/SCOPE_DENIED/);
+  sessions.transition(s,"paused");assert.equal(sessions.fullAccessAllowed(g.device_id),false);
+  assert.throws(()=>sessions.guardDevice(g.device_id,allowed),/NOT_ACTIVE/);
+  sessions.transition(s,"active");assert.equal(sessions.fullAccessAllowed(g.device_id),true);
+  advance(61*60_000);sessions.sweep();assert.equal(sessions.fullAccessAllowed(g.device_id),false);
+  assert.throws(()=>sessions.guardDevice(g.device_id,allowed),/NOT_ACTIVE/);
+  const legacy=grant(sessions);
+  assert.equal(sessions.fullAccessAllowed(legacy.grant.device_id),false);
+});
+
+test("full Assist prompt describes session consent without contradictory per-command approval", () => {
+  const text=ChatService.prototype.buildDeveloperInstructions.call({
+    remoteWorkspaceBinding:()=>({device_id:"assist-test",display_path:"D:/default"}),
+    remoteWorkspaceService:{fullAccessFor:()=>true},
+  },{id:"test"});
+  assert.match(text,/文件修改和命令无需逐条审批/);
+  assert.match(text,/默认工作位置/);
+  assert.doesNotMatch(text,/每条命令必须经客户本机确认|文件工具仍只访问授权目录|只能使用根目录内的相对路径/);
+});
 test("pairing needs explicit authorization, is single-use and never grants full access or exec",t=>{
   const {sessions,gateway}=fixture(t);const invite=sessions.create(operator,{allow_edits:true});
   assert.equal(gateway.registry.list().length,0);

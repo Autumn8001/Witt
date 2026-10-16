@@ -295,7 +295,7 @@ const remoteWorkspaceDispatcher = new WorkspaceDispatcher({
   workspaceStore: remoteWorkspaceStore, transport: remoteAssist.transport,
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
   assistCommandsFor: (deviceId) => remoteAssist.sessions.commandsAllowed(deviceId),
-  fullAccessFor: (deviceId) => deviceGateway.registry.describe(deviceId)?.capabilities?.includes("workspace.full_access") === true,
+  fullAccessFor: (deviceId) => deviceId.startsWith("assist-") ? remoteAssist.sessions.fullAccessAllowed(deviceId) : deviceGateway.registry.describe(deviceId)?.capabilities?.includes("workspace.full_access") === true,
 });
 const remoteWorkspaceService = new RemoteWorkspaceService({
   workspaceStore: remoteWorkspaceStore, dispatcher: remoteWorkspaceDispatcher,

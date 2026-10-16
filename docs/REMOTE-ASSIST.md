@@ -426,3 +426,35 @@ E2E or customer environment changes are claimed. Publish this as a signed
 download/update feed without restarting the web service or current connector.
 Existing .5 users can end their session, reopen the connector and use Check
 updates/Update and reopen; no new manual download is required.
+
+### Full-session consent — connector 2026.10.16.7
+
+At the owner's explicit request, new operator invitations use `access_mode:
+"full"`. The customer sees one scope explanation and one Allow full access
+button instead of separate file/environment/command checkboxes. Consent grants
+all local paths accessible to the current Windows user and command execution
+for this temporary session; the selected directory is a default cwd. There
+is no per-operation approval in this mode and no automatic administrator
+elevation. Legacy restricted invitations retain their original policy.
+
+The server requires a full invitation plus explicit `access_mode:"full"` and
+consent protocol version 2 from the local connector. Old clients get
+`CONNECTOR_UPDATE_REQUIRED`, not an implicit grant. Server dispatch derives full
+access from the active, unexpired session; the connector independently binds
+full access to the locally accepted grant. Tool parameters cannot enable it.
+Both file edits and commands still validate session identity and current state,
+retain hashes/diffs and operation records, and do not replay uncertain work.
+Full-mode text editing accepts up to the existing 512KiB tool limit; if the
+diff exceeds the display budget it records an omission message and before/after
+hashes. Pause, revoke, expiry and disconnect retain their original semantics.
+MCP descriptions and harness instructions now reflect full consent without the
+contradictory limited-root/per-command instructions.
+
+Validation: Go suite passed, including external-directory read/patch and real
+Windows Get-Service execution without approval callbacks plus pause/expiry
+denial. `tests/assist-full-session.cjs` verifies a real isolated HTTPS gateway,
+browser consent (desktop/mobile), WSS Windows connector and standard stdio MCP
+discovery/read/patch/exec against temporary files outside the default root;
+pause and revoke deny new calls and the connector exits. No production model
+request was made in this fixture (model E2E: NOT TESTED). Related Node tests
+cover legacy grants, old-client rejection, full scope isolation and prompts.
