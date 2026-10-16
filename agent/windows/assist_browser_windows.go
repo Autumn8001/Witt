@@ -26,6 +26,7 @@ var assistPickerCallback = syscall.NewCallback(func(hwnd uintptr, message uint32
 			ready.(chan uintptr) <- hwnd
 		}
 		assistCall("ShowWindow", hwnd, 5)
+		assistCall("SetWindowPos", hwnd, 0, 0, 0, 0, 0, 0x43)
 		assistCall("BringWindowToTop", hwnd)
 		assistCall("SetForegroundWindow", hwnd)
 	}
@@ -55,7 +56,14 @@ func pickAssistFolder(ctx context.Context) (string, error) {
 		case <-finished:
 		}
 	}()
-	b := assistBrowse{Owner: assistCall("GetForegroundWindow"), Callback: assistPickerCallback, Param: key, Display: &buffer[0], Title: assistStr("选择本次允许访问的工作区目录"), Flags: 0x41}
+	// A modal shell picker must not disable the customer's browser window:
+	// cancellation and manual entry on the webpage must remain usable.
+	owner := assistCall("CreateWindowExW", 0x80, uintptr(unsafe.Pointer(assistStr("STATIC"))), uintptr(unsafe.Pointer(assistStr("Chloe Assist"))), 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0)
+	if owner == 0 {
+		return "", errors.New("无法打开目录选择窗口，请手动粘贴目录路径")
+	}
+	defer assistCall("DestroyWindow", owner)
+	b := assistBrowse{Owner: owner, Callback: assistPickerCallback, Param: key, Display: &buffer[0], Title: assistStr("选择本次允许访问的工作区目录"), Flags: 0x41}
 	id, _, _ := assistShell.NewProc("SHBrowseForFolderW").Call(uintptr(unsafe.Pointer(&b)))
 	if id == 0 {
 		if ctx.Err() != nil {

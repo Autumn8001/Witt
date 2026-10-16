@@ -238,8 +238,8 @@ or unfinished. No production configuration/service has been changed.
 The original browser connector synchronously waited for an unowned shell folder
 picker while disabling every web button. A real running connector on the test
 Windows machine was confirmed to have that visible shell dialog behind the
-browser. The picker now uses the foreground window as its owner and requests
-foreground activation when initialized. Opening it returns immediately to the
+browser. The picker now uses a connector-owned window (so the browser remains enabled),
+raises the dialog and requests foreground activation when initialized. Opening it returns immediately to the
 webpage; status polling exposes pending/error state, cancellation is available,
 and a 90-second deadline closes an abandoned picker. Ending the connector also
 cancels the picker. Late picker results cannot change an authorized root, and
@@ -253,3 +253,8 @@ browser-renamed downloads also open the customer webpage.
 
 The download artifact can be updated separately from the server snapshot;
 this client-only fix does not require restarting the production service.
+
+`node tests/assist-folder-ui.cjs` also passed against the real local Windows
+picker: web buttons stay enabled, manual input survives polling, web cancellation
+works and the connector host exits. Its consent form is exposed by a test-only
+status-response override; no production session is authorized by this test.
