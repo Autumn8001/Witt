@@ -26,7 +26,10 @@ var assistPickerCallback = syscall.NewCallback(func(hwnd uintptr, message uint32
 			ready.(chan uintptr) <- hwnd
 		}
 		assistCall("ShowWindow", hwnd, 5)
-		assistCall("SetWindowPos", hwnd, 0, 0, 0, 0, 0, 0x43)
+		// Windows can refuse foreground activation for a browser-launched
+		// background thread. Keep only the explicit folder dialog topmost
+		// until it is dismissed; never make the browser or connector topmost.
+		assistCall("SetWindowPos", hwnd, ^uintptr(0), 0, 0, 0, 0, 0x43)
 		assistCall("BringWindowToTop", hwnd)
 		assistCall("SetForegroundWindow", hwnd)
 	}

@@ -39,6 +39,11 @@ func TestAssistRealFolderDialog(t *testing.T) {
 				if syscall.UTF16ToString(class) != "#32770" {
 					return 1
 				}
+				// The browser may own foreground focus. A real dialog must
+				// still be visible above it, not merely exist behind it.
+				if assistCall("GetWindowLongPtrW", hwnd, ^uintptr(19))&0x8 == 0 {
+					return 1
+				}
 				if accept {
 					assistCall("SendMessageW", hwnd, 0x467, 1, uintptr(unsafe.Pointer(assistStr(root))))
 					assistCall("PostMessageW", hwnd, 0x111, 1, 0)

@@ -258,3 +258,13 @@ this client-only fix does not require restarting the production service.
 picker: web buttons stay enabled, manual input survives polling, web cancellation
 works and the connector host exits. Its consent form is exposed by a test-only
 status-response override; no production session is authorized by this test.
+
+
+### Foreground follow-up — connector 2026.10.16.3
+
+A repeated report was verified against the actual downloaded binary: its hash
+matched bb41940, and its real shell dialog existed on-screen but was behind
+other applications. Ordinary foreground activation was insufficient. Only the
+folder dialog is now topmost until dismissed; the browser remains enabled.
+Explicit Windows dialog acceptance now also checks WS_EX_TOPMOST before driving
+selection/cancel. The customer page displays version 2026.10.16.3.
