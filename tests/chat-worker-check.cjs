@@ -8,6 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { ChatService } = require("../backend/chat-service");
 const { ConversationStore } = require("../backend/sqlite-store");
+const { RemoteWorkspaceService } = require("../backend/remote-workspace-service");
 
 const uuid = () => crypto.randomUUID();
 const turnKey = (conversationId, messageId) => `${conversationId}:${messageId}`;
@@ -119,6 +120,92 @@ async function waitFor(predicate, message, timeoutMs = 1500) {
   }
   assert.fail(message);
 }
+
+for (const state of ["paused", "closed"]) {
+  test(`queued ${state} remote workspace fails only its turn and the next valid turn starts`, async (t) => {
+    const fx = fixture(t);
+    await fx.service.recovery;
+    const conversation = fx.service.createConversation("stale assist", "gemini-3.8-flash-high");
+    const failed = appendTurn(conversation);
+    fx.service.store.save(conversation, { immediate: true });
+    fx.service.remoteWorkspaceService = {
+      bindingForConversation: (id) => id === conversation.id ? { state } : null,
+      runtimeFor: RemoteWorkspaceService.prototype.runtimeFor,
+    };
+    let remoteStarts = 0;
+    fx.service.runAntigravityTurn = async () => { remoteStarts += 1; };
+    await fx.runNextActual();
+    const stored = fx.service.readConversation(conversation.id, { forceFresh: true });
+    assert.equal(stored.messages.find((m) => m.id === failed.user.id).status, "failed");
+    const result = stored.messages.find((m) => m.id === failed.assistant.id);
+    assert.equal(result.status, "failed");
+    assert.match(result.text, /远程工作区当前不可用/);
+    assert.match(result.text, /不会自动重试/);
+    assert.equal(remoteStarts, 0);
+    assert.equal(fx.workerClient.starts.length, 0, "remote task must not fall back to server tools");
+    assert.equal(fx.service.runningNext, false);
+
+    const valid = fx.service.createConversation("healthy next turn", "gemini-3.8-flash-high");
+    appendTurn(valid);
+    fx.service.store.save(valid, { immediate: true });
+    fx.service.runNext = fx.runNextActual;
+    await waitFor(() => fx.workerClient.starts.length === 1, "queue should continue after stale turn");
+    assert.equal(fx.workerClient.starts[0].conversationId, valid.id);
+    assert.equal(remoteStarts, 0);
+  });
+}
+
+test("authorization revoked during async dispatch fails cleanly without launching a harness", async (t) => {
+  const fx = fixture(t);
+  await fx.service.recovery;
+  const conversation = fx.service.createConversation("revocation race", "gemini-3.8-flash-high");
+  const turn = appendTurn(conversation);
+  fx.service.store.save(conversation, { immediate: true });
+  const binding = { state: "active" };
+  fx.service.remoteWorkspaceService = {
+    bindingForConversation: () => binding,
+    runtimeFor(b) {
+      if (b.state !== "active") return RemoteWorkspaceService.prototype.runtimeFor.call(this, b);
+      return { cwd: fx.root };
+    },
+  };
+  fx.workerClient.isAvailable = async () => { binding.state = "closed"; return true; };
+  fx.service.antigravityAdapter = () => { assert.fail("revoked session must not create adapter"); };
+  await fx.runNextActual();
+  const result = fx.service.readConversation(conversation.id, { forceFresh: true })
+    .messages.find((m) => m.id === turn.assistant.id);
+  assert.equal(result.status, "failed");
+  assert.match(result.text, /远程工作区当前不可用/);
+  assert.equal(fx.service.active, null);
+  assert.equal(fx.workerClient.starts.length, 0);
+});
+
+test("unexpected dispatch errors fail the turn without leaking error details or retrying", async (t) => {
+  const fx = fixture(t);
+  await fx.service.recovery;
+  const conversation = fx.service.createConversation("dispatch failure", "gemini-3.8-flash-high");
+  const turn = appendTurn(conversation);
+  fx.service.store.save(conversation, { immediate: true });
+  fx.service.effectiveWorkDir = () => { throw new Error("private-path-and-credential"); };
+  await fx.runNextActual();
+  const result = fx.service.readConversation(conversation.id, { forceFresh: true })
+    .messages.find((m) => m.id === turn.assistant.id);
+  assert.equal(result.status, "failed");
+  assert.match(result.text, /本轮任务调度失败/);
+  assert.doesNotMatch(result.text, /private-path-and-credential/);
+  assert.equal(fx.service.active, null);
+  assert.equal(fx.service.runningNext, false);
+});
+
+test("queue storage failure is contained at the timer entry point without automatic retry", async (t) => {
+  const fx = fixture(t);
+  await fx.service.recovery;
+  let calls = 0;
+  fx.service.nextQueued = () => { calls += 1; throw new Error("storage unavailable"); };
+  await assert.doesNotReject(fx.runNextActual());
+  assert.equal(calls, 1);
+  assert.equal(fx.service.runningNext, false);
+});
 
 function requestResult(service, invoke) {
   const res = {};

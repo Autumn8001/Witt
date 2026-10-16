@@ -3005,10 +3005,19 @@ class ChatService {
   }
 
   async runNext() {
-    await this.recovery;
+    try { await this.recovery; }
+    catch {
+      console.error("[ChatService] Queue recovery failed; dispatch stopped");
+      return;
+    }
     if (this.runningNext) return;
     this.runningNext = true;
-    try { await this.runNextInternal(); } finally { this.runningNext = false; }
+    try { await this.runNextInternal(); }
+    catch {
+      // Timers invoke this method without awaiting it. Persistence/recovery
+      // failures must not become unhandled rejections or trigger a retry loop.
+      console.error("[ChatService] Queue dispatch failed; automatic retry stopped");
+    } finally { this.runningNext = false; }
   }
 
   async runNextInternal() {
@@ -3029,6 +3038,30 @@ class ChatService {
     }
     const queued = this.nextQueued();
     if (!queued) return;
+    try {
+      await this.runQueuedTurn(queued);
+    } catch (error) {
+      const inactiveWorkspace = ["WORKSPACE_NOT_ACTIVE", "WORKSPACE_SESSION_INVALID",
+        "SESSION_SCOPE_DENIED", "DEVICE_OFFLINE"].includes(error?.code);
+      const message = inactiveWorkspace
+        ? "远程工作区当前不可用（授权可能已暂停、结束或过期）。请在连接器中检查连接与授权，恢复后再手动提交。本轮不会自动重试。"
+        : "本轮任务调度失败，未自动重试。请先检查工作区和操作记录，再决定是否重新提交。";
+      console.error(`[ChatService] Turn dispatch failed: ${inactiveWorkspace ? error.code : "TURN_DISPATCH_FAILED"}`);
+      if (this.active?.messageId === queued.assistant.id) {
+        this.failActive(message);
+      } else {
+        // Re-read so a pause/revoke or streamed update during an await is kept.
+        const latest = this.readConversation(queued.conversation.id);
+        const assistant = latest?.messages.find((item) => item.id === queued.assistant.id);
+        const user = latest?.messages.find((item) => item.id === queued.user.id);
+        if (assistant && ["queued", "running"].includes(assistant.status)) {
+          this.finishRun(latest, user, assistant, false, "", message);
+        }
+      }
+    }
+  }
+
+  async runQueuedTurn(queued) {
     const { conversation, user, assistant } = queued;
     if (!this.profileAllowed(conversation)) {
       const completedAt = new Date().toISOString();

@@ -375,3 +375,26 @@ Validation:
   automatic upgrade, power-loss recovery, antivirus/SmartScreen interactions,
   Authenticode, and signing-key rotation. The replacement fixture uses a test
   publisher key and test executables, not a claimed future production release.
+
+### Inactive workspace dispatch crash fix (2026-10-16)
+
+Production journal confirmed an uncaught `WORKSPACE_NOT_ACTIVE` at
+`ChatService.effectiveWorkDir` on 2026-10-16 07:35:38 UTC. The associated Assist
+audit recorded revocation at 03:25:20 UTC; submitting another message in its old
+conversation reached runtime setup before a turn error boundary, terminated
+Node and caused nginx 502 responses. The restart recovery message was a
+consequence of that crash, not evidence of a model-provider failure.
+
+Queued-turn setup and dispatch now have a per-turn error boundary. Inactive
+workspace errors fail the original turn with a connection/authorization message;
+the queue proceeds without falling back to server tools or replaying the failed
+task. The timer-facing scheduler also contains recovery/storage exceptions and
+stops rather than creating an automatic retry loop. Logs use fixed error codes,
+not raw error messages containing paths or credentials. Existing authorization,
+pause, expiry and revocation checks remain enforced.
+
+Validation: 12 chat-worker checks, including five new regressions covering
+paused/closed bindings, revocation during async dispatch, unexpected setup errors
+and queue storage failures; 27 related Assist, workspace service/MCP, chat
+approval and SSE checks passed. This does not claim a new customer Windows/model
+E2E run. The existing 2026.10.16.5 connector binary is unchanged.
