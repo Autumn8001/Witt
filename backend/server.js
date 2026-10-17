@@ -290,7 +290,8 @@ const remoteWorkspaceStore = new WorkspaceStore(remoteWorkspaceDir);
 const remoteWorkspaceAudit = new WorkspaceAuditStore(remoteWorkspaceDir);
 const remoteWorkspaceApprovals = new ApprovalGate();
 const remoteAssist = createRemoteAssist({ gateway: deviceGateway, workspaceStore: remoteWorkspaceStore,
-  auditDirectory: path.join(remoteWorkspaceDir, "assist"), chatFor, readJsonBody, sendJson });
+  auditDirectory: path.join(remoteWorkspaceDir, "assist"), chatFor, readJsonBody, sendJson,
+  prepareWorkspace: binding => remoteWorkspaceService.prepareRuntimeFor(binding) });
 const remoteWorkspaceDispatcher = new WorkspaceDispatcher({
   workspaceStore: remoteWorkspaceStore, transport: remoteAssist.transport,
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
@@ -303,6 +304,9 @@ const remoteWorkspaceService = new RemoteWorkspaceService({
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
   runtimeDir: path.join(remoteWorkspaceDir, "runtime"), apiBase: `http://127.0.0.1:${port}`,
   antigravityBin: harnessOptions.antigravity.bin || "/root/.local/bin/agy",
+  // Explicit test injection only; never changes the production launch path.
+  cliRuntimeFactory: process.env.NODE_ENV === "test" && process.env.ASSIST_TEST_DIR && process.env.WITT_ASSIST_TEST_CLI_FACTORY
+    ? require(path.resolve(process.env.WITT_ASSIST_TEST_CLI_FACTORY)) : null,
   notifyApproval: (binding, approval) => {
     const services = [chatService, ...userChatServices.values()];
     const chat = services.find((service) => service?.readConversation(binding.conversation_id));

@@ -27,7 +27,7 @@ function start(backendPort){
    fs.stat(file,(err,st)=>{if(err||!st.isFile()){res.writeHead(404);res.end();return;}res.writeHead(200,{"Content-Type":mime});fs.createReadStream(file).pipe(res);});return;
   }
   const target=req.url.replace(/^\/vault-api(?=\/)/,"");
-  const proxy=http.request({host:"127.0.0.1",port:backendPort,path:target,method:req.method,headers:{...req.headers,host:"localhost:"+backendPort}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});
+  const proxy=http.request({host:"127.0.0.1",port:backendPort,path:target,method:req.method,headers:{...req.headers,"x-forwarded-proto":"https"}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});
   proxy.on("error",()=>{res.writeHead(502);res.end();});req.pipe(proxy);
  });
  tls.on("upgrade",(req,socket,head)=>{

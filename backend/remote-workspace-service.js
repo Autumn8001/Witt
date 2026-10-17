@@ -35,12 +35,16 @@ class RemoteWorkspaceService {
     this.approvalTtlMs = options.approvalTtlMs || 5 * 60_000;
     this.notifyApproval = options.notifyApproval || (() => { throw new RemoteWorkspaceServiceError("APPROVAL_UI_UNAVAILABLE"); });
     this.sessions = new Map();
+    this.cliRuntimes = new Map();
+    this.cliPreparing = new Map();
+    this.closed = false;
+    this.cliRuntimeFactory = options.cliRuntimeFactory || null;
     this.waiters = new Map();
     fs.mkdirSync(this.runtimeDir, { recursive: true, mode: 0o700 });
   }
 
   fullAccessFor(binding) {
-    return this.dispatcher.fullAccessFor?.(binding?.device_id) === true;
+    return !!binding && this.dispatcher.fullAccessFor?.(binding.device_id) === true;
   }
 
   bindingForConversation(conversationId) {
@@ -49,6 +53,9 @@ class RemoteWorkspaceService {
 
   runtimeFor(binding) {
     if (!binding || binding.state !== "active") throw new RemoteWorkspaceServiceError("WORKSPACE_NOT_ACTIVE");
+    if (this.cliRuntimes.has(binding.workspace_id)) return this.cliRuntimes.get(binding.workspace_id);
+    if (this.cliRuntimeFactory && binding.harness_id === "google-antigravity")
+      throw new RemoteWorkspaceServiceError("ISOLATED_CLI_NOT_READY");
     const existing = this.sessions.get(binding.workspace_id);
     if (existing) return existing;
     const directory = path.join(this.runtimeDir, binding.workspace_id);
@@ -165,9 +172,39 @@ class RemoteWorkspaceService {
     return staged;
   }
 
+  async prepareRuntimeFor(binding) {
+    if (!this.cliRuntimeFactory || binding.harness_id !== "google-antigravity") return this.runtimeFor(binding);
+    if (this.closed) throw new RemoteWorkspaceServiceError("SERVER_SHUTDOWN");
+    if (this.cliRuntimes.has(binding.workspace_id)) return this.cliRuntimes.get(binding.workspace_id);
+    if (this.cliPreparing.has(binding.workspace_id)) return this.cliPreparing.get(binding.workspace_id);
+    if (binding.state !== "active") throw new RemoteWorkspaceServiceError("WORKSPACE_NOT_ACTIVE");
+    const preparing = Promise.resolve().then(async () => {
+      const runtime = await this.cliRuntimeFactory(binding, (operation, args) => this.executeBinding(binding.workspace_id, operation, args), {
+        fullAccessFor: () => this.fullAccessFor(this.workspaceStore.get(binding.workspace_id)),
+      });
+      try {
+        if (runtime?.remoteCli?.isolated !== true || !runtime.geminiBin || !runtime.cwd || !runtime.home)
+          throw new RemoteWorkspaceServiceError("ISOLATED_REMOTE_CLI_REQUIRED");
+        if (this.closed || this.workspaceStore.get(binding.workspace_id)?.state !== "active")
+          throw new RemoteWorkspaceServiceError("WORKSPACE_NOT_ACTIVE");
+        const value = Object.freeze({ ...runtime, workspaceId: binding.workspace_id, assistSession: true });
+        this.cliRuntimes.set(binding.workspace_id, value);
+        return value;
+      } catch (error) { await runtime?.close?.(); throw error; }
+    }).finally(() => this.cliPreparing.delete(binding.workspace_id));
+    this.cliPreparing.set(binding.workspace_id, preparing);
+    return preparing;
+  }
+
   async executeMcp(secret, operation, args) {
     const binding = this.authenticate(secret);
     if (!binding) throw new RemoteWorkspaceServiceError("WORKSPACE_SESSION_INVALID");
+    return this.executeBinding(binding.workspace_id, operation, args);
+  }
+
+  async executeBinding(workspaceId, operation, args) {
+    const binding = this.workspaceStore.get(workspaceId);
+    if (!binding || binding.state !== "active") throw new RemoteWorkspaceServiceError("WORKSPACE_NOT_ACTIVE");
     const first = await this.dispatcher.execute({ workspace_id: binding.workspace_id, operation, args });
     if (first.status !== "approval_required") return first.result;
     await this.waitForApproval(binding, first.approval);
@@ -212,6 +249,9 @@ class RemoteWorkspaceService {
   }
 
   close() {
+    this.closed = true;
+    for (const runtime of this.cliRuntimes.values()) Promise.resolve(runtime.close?.()).catch(() => {});
+    this.cliRuntimes.clear();
     for (const waiter of this.waiters.values()) {
       clearTimeout(waiter.timer);
       waiter.reject(new RemoteWorkspaceServiceError("SERVER_SHUTDOWN"));

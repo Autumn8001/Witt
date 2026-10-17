@@ -108,8 +108,8 @@ function parseGrokEvent(payload) {
 // ---------------------------------------------------------------------------
 // Antigravity CLI -- `agy -p ... --output-format stream-json`
 // Schema taken from the official headless docs: one `init`, then any number of
-// `step_update`, then exactly one `result`. Behaviour is NOT verified live
-// because the published binary cannot execute on this host.
+// `step_update`, then exactly one `result`. The native run_command / CommandLine
+// ACTIVE/DONE shape is verified with official agy 1.2.14 in the opt-in Web test.
 // ---------------------------------------------------------------------------
 function parseAntigravityStep(step, conversationId) {
   if (!step || typeof step !== "object") {
@@ -124,8 +124,7 @@ function parseAntigravityStep(step, conversationId) {
   };
   const tool = step.tool_info || step.toolInfo || step.tool_call || step.toolCall;
   if (tool && typeof tool === "object") {
-    // Field names inside tool_info were not published in the sections we could
-    // read, so accept the plausible spellings instead of guessing one.
+    // Keep earlier input spellings alongside native tool_info.parameters.
     const rawStatus = firstString(tool.status, step.state);
     const status = ({ DONE: "completed", ERROR: "failed", FAILED: "failed", CANCELLED: "cancelled", ACTIVE: "running" })[rawStatus] || rawStatus;
     const output = tool.output ?? tool.result ?? step.tool_output ?? step.toolOutput;

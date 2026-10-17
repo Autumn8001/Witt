@@ -80,7 +80,9 @@ class AntigravityAdapter {
     this.printTimeoutMs = Number(options.printTimeoutMs || 5 * 60 * 1000);
     this.stdinSessions = options.stdinSessions === true;
     this.remoteWorkspace = options.remoteWorkspace || null;
-    this.skipPermissions = options.skipPermissions === true;
+    this.remoteCli = this.remoteWorkspace?.remoteCli || null;
+    if (this.remoteCli && this.remoteCli.isolated !== true) throw Error("ISOLATED_REMOTE_CLI_REQUIRED");
+    this.skipPermissions = options.skipPermissions === true && !this.remoteCli;
     this.runAsAdmin = options.runAsAdmin === true && this.skipPermissions;
     this.logger = options.logger || new RuntimeLogger({ enabled: false });
     this.children = new Set();
@@ -99,6 +101,7 @@ class AntigravityAdapter {
     if (this.apiKeyEnv && this.apiKeyValue) env[this.apiKeyEnv] = this.apiKeyValue;
     if (this.baseUrl) env.GOOGLE_GEMINI_BASE_URL = this.baseUrl;
     if (this.remoteWorkspace?.home) env.HOME = this.remoteWorkspace.home;
+    if (this.remoteCli) env.CHLOE_REMOTE_SOCKET = this.remoteCli.socketPath;
     // Never inherit an admin marker from the parent process. The launcher only
     // honors this marker when the trusted caller selected full-access mode.
     env.CHLOE_AGY_ADMIN_EXECUTION = this.runAsAdmin ? "1" : "0";
@@ -273,7 +276,7 @@ class AntigravityAdapter {
   formatToolCall(event, cwd) {
     const tool = redactHarnessText(event.tool || "工具调用", 90);
     const rawInput = event.input && typeof event.input === "object" ? event.input : {};
-    const command = [rawInput.command, rawInput.cmd, rawInput.shell_command, rawInput.script]
+    const command = [rawInput.CommandLine, rawInput.command, rawInput.cmd, rawInput.shell_command, rawInput.script]
       .find((value) => typeof value === "string" && value.trim());
     const safeCommand = command ? redactHarnessText(command, 4000) : null;
     const isCommand = Boolean(command) || /terminal|shell|command|exec/i.test(tool);

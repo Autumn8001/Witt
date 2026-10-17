@@ -27,6 +27,42 @@ function setup(t) {
   return { directory, store, audit };
 }
 
+test("CLI preparation deduplicates and fails closed if revoked during startup", async t => {
+  const { directory, store, audit } = setup(t);
+  const binding = { ...store.get(ids.workspace), harness_id: "google-antigravity" };
+  let release, creates = 0, closes = 0;
+  const ready = new Promise(resolve => { release = resolve; });
+  const service = new RemoteWorkspaceService({ workspaceStore: store, audit, approvals: new ApprovalGate(),
+    dispatcher: {}, runtimeDir: path.join(directory, "runtime"), cliRuntimeFactory: async () => {
+      creates++; await ready;
+      return { cwd: "/work", home: "/home/assist", geminiBin: "/isolated/agy",
+        remoteCli: { isolated: true }, close: async () => { closes++; } };
+    } });
+  assert.throws(() => service.runtimeFor(binding), /ISOLATED_CLI_NOT_READY/);
+  const first = service.prepareRuntimeFor(binding), second = service.prepareRuntimeFor(binding);
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(creates, 1);
+  store.setState(ids.workspace, "closed"); release();
+  await assert.rejects(first, /WORKSPACE_NOT_ACTIVE/);
+  await assert.rejects(second, /WORKSPACE_NOT_ACTIVE/);
+  assert.equal(closes, 1); assert.equal(service.cliRuntimes.size, 0);service.close();
+});
+
+test("full-session CLI reuses live consent without weakening native harness isolation", async t => {
+  const { directory, store, audit } = setup(t);
+  const binding = { ...store.get(ids.workspace), harness_id: "google-antigravity" };
+  let full = true, policy;
+  const service = new RemoteWorkspaceService({ workspaceStore: store, audit, approvals: new ApprovalGate(),
+    dispatcher: { fullAccessFor: device => device === binding.device_id && full }, runtimeDir: path.join(directory, "runtime"),
+    cliRuntimeFactory: async (_binding, _execute, authorization) => {
+      policy = authorization;
+      return { cwd: "/work", home: "/home/assist", geminiBin: "/isolated/agy", remoteCli: { isolated: true } };
+    } });
+  const runtime = await service.prepareRuntimeFor(binding);
+  assert.equal(runtime.remoteCli.isolated, true);assert.equal(policy.fullAccessFor(), true);
+  full = false;assert.equal(policy.fullAccessFor(), false);
+  assert.equal(service.fullAccessFor(null), false);service.close();
+});
+
 test("Remote Workspace MCP credential is isolated to one immutable binding and confirmation resumes the same request", async (t) => {
   const { directory, store, audit } = setup(t);
   const sent = [];

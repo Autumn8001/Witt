@@ -2914,6 +2914,23 @@ class ChatService {
   buildDeveloperInstructions(conversation) {
     const remote = this.remoteWorkspaceBinding(conversation);
     if (remote) {
+      if (this.remoteWorkspaceService.runtimeFor?.(remote)?.remoteCli) {
+        const fullAccess = this.remoteWorkspaceService.fullAccessFor(remote) === true;
+        return [
+          "你是 Chloe 的远程开发助手，通过 Google Antigravity 原生 run_command 终端工具调用 chloe-remote CLI。",
+          fullAccess
+            ? `客户已一次性明确允许本次会话完整访问。默认工作目录：${remote.display_path || remote.root_alias}，也可使用 Windows 绝对路径；不能切换会话或设备。`
+            : `当前客户授权的 Windows 根目录：${remote.display_path || remote.root_alias}。仅使用项目相对路径，不能切换会话或设备。`,
+          "先运行 chloe-remote --help；使用 read/list/search 理解项目。修改使用 patch/write 的 JSON 参数和刚读取的 expected_sha256，保留实际修改差异。",
+          fullAccess
+            ? "本次完整会话已获客户授权，文件修改和命令无需逐条审批，不要反复要求客户点击允许；不要声称会出现逐条确认弹窗。安装、配置或危险操作先说明影响，执行权限受当前 Windows 用户权限限制，不自动提权。"
+            : "文件修改会在客户本机确认差异；每条 Windows 命令由客户本机审批，安装、配置或危险操作必须先说明影响并单独获准。",
+          "命令使用 chloe-remote exec <program> '<JSON argv array>' [cwd]。",
+          "服务器本地工作目录是隔离的运行空间，不是客户项目。不要使用本地文件工具或 MCP 替代 chloe-remote；不要读取服务器凭据、其他客户或本次会话未经授权的文件。",
+          "CLI 已预置在 PATH，直接调用 chloe-remote，不需要 which、安装工具或探测宿主环境。",
+          "暂停、撤销、到期后立即停止。写入或命令断线结果不明时不能自动重放；只报告实际工具结果，禁止展示凭据。简洁中文回答。",
+        ].join("\n");
+      }
       const fullAccess = this.remoteWorkspaceService?.fullAccessFor(remote) === true;
       return [
         "你是 Chloe 的开发助手。Chloe 是当前应用的名称；内部 witt_* MCP 工具名和服务标识保持不变，不代表其他人的 Witt 实例。",
@@ -3598,12 +3615,14 @@ class ChatService {
         this.addActivity(liveAssistant, "plan", plan.label, "running");
       } else if (event.type === "tool_call" || event.type === "tool_call_update") {
         const callId = event.id || `tool-${event.stepIndex || Date.now()}`;
-        const existing = liveAssistant.stream?.find((entry) => entry.id === callId);
-        if (event.type === "tool_call") {
+        let existing = liveAssistant.stream?.find((entry) => entry.id === callId);
+        // Headless events can first expose a tool after it has completed.
+        if (event.type === "tool_call" || !existing) {
           const presented = sanitizeHarnessContent(adapter.formatToolCall(event, workDir));
-          this.upsertStream(liveAssistant, callId, presented);
+          existing = this.upsertStream(liveAssistant, callId, presented);
           this.addActivity(liveAssistant, presented.kind, presented.label, "running");
-        } else if (existing) {
+        }
+        if (event.type === "tool_call_update" && existing) {
           const patch = adapter.formatToolUpdate(event, existing);
           this.upsertStream(liveAssistant, callId, patch);
           this.addActivity(liveAssistant, patch.kind || existing.kind, existing.label,

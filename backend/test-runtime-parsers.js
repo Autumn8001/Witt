@@ -203,7 +203,7 @@ test("antigravity does not bypass permissions unless explicitly configured", () 
   assert.equal(bypass.buildArgs({ prompt: "hello" }).includes("--dangerously-skip-permissions"), true);
 });
 
-test("antigravity tool_info parsing is defensive and flagged unverified", () => {
+test("antigravity tool_info parsing preserves the native tool input", () => {
   const call = parseAntigravityEvent({
     event: "step_update",
     step_update: { conversation_id: "c-3", step_index: 1, state: "ACTIVE",
@@ -211,7 +211,7 @@ test("antigravity tool_info parsing is defensive and flagged unverified", () => 
   });
   assert.equal(call.type, "tool_call");
   assert.equal(call.tool, "read_file");
-  assert.equal(call.unverifiedShape, true);
+  assert.deepEqual(call.input, { path: "a" });
 });
 
 // --------------------------------------------------------------------------

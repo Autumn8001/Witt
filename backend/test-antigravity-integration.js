@@ -5,6 +5,18 @@ const { EventEmitter } = require("node:events");
 const test = require("node:test");
 const { ChatService } = require("./chat-service");
 
+test("isolated Antigravity CLI retains native permissions even for a full-access conversation", () => {
+  const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
+  assert.throws(() => new AntigravityAdapter({ remoteWorkspace: { remoteCli: {} } }), /ISOLATED_REMOTE_CLI_REQUIRED/);
+  const adapter = new AntigravityAdapter({ skipPermissions: true, runAsAdmin: true,
+    remoteWorkspace: { home: "/home/assist", remoteCli: { isolated: true, socketPath: "/channel/control.sock" } } });
+  assert.equal(adapter.buildArgs({ prompt: "test", skipPermissions: true }).includes("--dangerously-skip-permissions"), false);
+  assert.equal(adapter.childEnv().CHLOE_AGY_ADMIN_EXECUTION, "0");
+  assert.equal(adapter.childEnv().CHLOE_REMOTE_SOCKET, "/channel/control.sock");
+  assert.equal(adapter.formatToolCall({ tool: "run_command", input: { CommandLine: "chloe-remote read README.md" } }).details.command,
+    "chloe-remote read README.md");
+});
+
 test("Antigravity permissions follow only the conversation access mode", () => {
   const service = Object.create(ChatService.prototype);
   service.harnessOptions = { antigravity: { skipPermissions: true } };
@@ -184,4 +196,22 @@ test("Antigravity tool DONE updates match the original step and complete reads",
   const adapter = new AntigravityAdapter({ bin: "agy" });
   assert.equal(adapter.formatToolUpdate(end).status, "completed");
   assert.deepEqual(adapter.buildArgs({ prompt: "image", addDirs: ["/attachments"] }).slice(0, 2), ["--add-dir", "/attachments"]);
+});
+
+test("a terminal tool first reported as DONE is retained in Chloe", async () => {
+  const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
+  const turn = makeTurn({ events: [{ type: "tool_call_update", id: "tool-5", tool: "run_command",
+    status: "completed", input: { CommandLine: "chloe-remote read README.md" }, output: "windows-marker" }],
+    result: { ok: true, text: "done" } });
+  const adapter = new AntigravityAdapter();
+  // Keep the fake process, exercising the real presentation of native events.
+  const fake = turn.service.antigravityAdapter();
+  fake.formatToolCall = adapter.formatToolCall.bind(adapter);
+  fake.formatToolUpdate = adapter.formatToolUpdate.bind(adapter);
+  const upsert = turn.service.upsertStream;
+  turn.service.upsertStream = (message, id, fields) => Object.assign(upsert(message, id, fields), fields);
+  await turn.run();
+  const entry = turn.assistant.stream.find(e => e.id === "tool-5");
+  assert.equal(entry.kind, "command");assert.equal(entry.status, "completed");
+  assert.equal(entry.details.output, "windows-marker");
 });

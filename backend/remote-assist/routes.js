@@ -1,6 +1,6 @@
 "use strict";
 
-function createAssistRoutes({ sessions, chatFor, readJsonBody, sendJson }) {
+function createAssistRoutes({ sessions, chatFor, readJsonBody, sendJson, prepareWorkspace }) {
   const json = (req) => new Promise((resolve, reject) => readJsonBody(req, 8192, (e, b) => e ? reject(e) : resolve(b || {})));
   const bearer = req => String(req.headers.authorization || "").replace(/^Bearer /, "");
   const handle = (req, res, work) => {
@@ -33,7 +33,11 @@ function createAssistRoutes({ sessions, chatFor, readJsonBody, sendJson }) {
       const m = url.pathname.match(/^\/remote-assist\/sessions\/([a-f0-9-]{36})\/(workspace|revoke|audit)$/);
       if (m) {
         const s = sessions.owned(m[1], principal);
-        if (req.method === "POST" && m[2] === "workspace") return sessions.bindWorkspace(s, chatFor(principal), await json(req));
+        if (req.method === "POST" && m[2] === "workspace") {
+          const result = sessions.bindWorkspace(s, chatFor(principal), await json(req));
+          await prepareWorkspace?.(result.workspace);
+          return result;
+        }
         if (req.method === "POST" && m[2] === "revoke") return sessions.transition(s, "revoked");
         if (req.method === "GET" && m[2] === "audit") return {audit:sessions.audit(s)};
       }

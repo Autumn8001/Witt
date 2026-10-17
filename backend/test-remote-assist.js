@@ -58,6 +58,17 @@ test("full Assist prompt describes session consent without contradictory per-com
   assert.match(text,/默认工作位置/);
   assert.doesNotMatch(text,/每条命令必须经客户本机确认|文件工具仍只访问授权目录|只能使用根目录内的相对路径/);
 });
+
+test("Antigravity full-session CLI instructions do not ask for per-operation approval", () => {
+  const text = ChatService.prototype.buildDeveloperInstructions.call({
+    remoteWorkspaceBinding: () => ({device_id:"assist-test",display_path:"D:/default"}),
+    remoteWorkspaceService: {runtimeFor:()=>({remoteCli:{isolated:true}}),fullAccessFor:()=>true},
+  },{id:"test"});
+  assert.match(text,/一次性明确允许本次会话完整访问/);
+  assert.match(text,/文件修改和命令无需逐条审批/);
+  assert.match(text,/Windows 绝对路径/);
+  assert.doesNotMatch(text,/每条 Windows 命令由客户本机审批|客户会在本机确认差异|仅使用项目相对路径/);
+});
 test("pairing needs explicit authorization, is single-use and never grants full access or exec",t=>{
   const {sessions,gateway}=fixture(t);const invite=sessions.create(operator,{allow_edits:true});
   assert.equal(gateway.registry.list().length,0);
