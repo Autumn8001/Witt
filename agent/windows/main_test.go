@@ -188,7 +188,11 @@ func TestCapabilitiesAndRegistration(t *testing.T) {
 	if registration.AgentVersion != version || registration.V != 1 {
 		t.Fatalf("unexpected registration identity: %#v", registration)
 	}
-	for _, capability := range []string{"system.hostname", "system.info", "filesystem.list", "filesystem.read", "workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.write", "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info", "screen.capture"} {
+	expected := []string{"system.hostname", "system.info", "filesystem.list", "filesystem.read", "workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.write", "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info"}
+	if runtime.GOOS == "windows" {
+		expected = append(expected, "screen.capture")
+	}
+	for _, capability := range expected {
 		if !containsString(registration.Capabilities, capability) {
 			t.Errorf("registration omitted capability %q", capability)
 		}
