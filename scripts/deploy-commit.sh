@@ -109,7 +109,8 @@ for attempt in {1..20}; do
       if [[ "$worker_exec" == *"$release/backend/worker-service.js"* ]]; then
         echo "Worker already uses snapshot $sha; it was left running."
       else
-        echo "Worker remains on its current snapshot; it was left running. After its active tasks finish, run: $repo/scripts/upgrade-worker.sh $sha"
+        echo "Synchronizing Worker to snapshot $sha after its active tasks drain..."
+        bash "$repo/scripts/upgrade-worker.sh" "$sha"
       fi
     else
       echo "Worker service is not installed; this web deployment did not install or start it."

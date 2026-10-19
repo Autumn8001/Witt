@@ -27,6 +27,9 @@ elif [[ "$url" == *"/admin/status" ]]; then
     invalid-count) printf '%s\n' '{"ok":true,"draining":true,"runningCount":"0"}' ;;
     *) printf '%s\n' '{"ok":true,"draining":true,"runningCount":0}' ;;
   esac
+elif [[ "$url" == *"/admin/resume" ]]; then
+  printf '%s\n' 'resume' >> "$MOCK_CURL_LOG"
+  printf '%s\n' '{"ok":true,"draining":false,"runningCount":1}'
 elif [[ "$url" == *"/health" ]]; then
   printf '%s\n' '{"ok":true,"activeCount":0,"draining":false}'
 else
@@ -55,13 +58,16 @@ run_case() {
   local mode="$1"
   local expected_rc="$2"
   local expected_restart="$3"
+  local expected_resume="$4"
   local case_dir="$temp/case-$mode"
   mkdir -p "$case_dir"
   local rc=0
   : > "$case_dir/systemctl.log"
+  : > "$case_dir/curl.log"
   if env \
     MOCK_CURL_MODE="$mode" \
     MOCK_SYSTEMCTL_LOG="$case_dir/systemctl.log" \
+    MOCK_CURL_LOG="$case_dir/curl.log" \
     WITT_RELEASES_ROOT="$temp/releases" \
     WITT_WORKER_SOCKET="$case_dir/worker.sock" \
     WITT_WORKER_DROPIN="$case_dir/10-release.conf" \
@@ -101,11 +107,20 @@ run_case() {
       return 1
     fi
   fi
+  if [[ "$expected_resume" == yes ]]; then
+    grep -q '^resume$' "$case_dir/curl.log" || {
+      echo "$mode: expected Worker admission to resume" >&2
+      return 1
+    }
+  elif [[ -s "$case_dir/curl.log" ]]; then
+    echo "$mode: Worker admission unexpectedly changed" >&2
+    return 1
+  fi
 }
 
-run_case drain-fail 1 no
-run_case status-fail 1 no
-run_case invalid-count 1 no
-run_case timeout 1 no
-run_case idle 0 yes
-echo "worker upgrade checks passed (drain failure, status loss, invalid count, timeout, idle restart)"
+run_case drain-fail 1 no no
+run_case status-fail 1 no no
+run_case invalid-count 1 no no
+run_case timeout 1 no yes
+run_case idle 0 yes no
+echo "worker upgrade checks passed (drain failure, status loss, invalid count, timeout resume, idle restart)"

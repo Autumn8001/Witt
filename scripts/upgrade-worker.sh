@@ -62,6 +62,11 @@ if (not isinstance(data, dict) or data.get("ok") is not True
 '
 }
 
+resume_worker() {
+  "$curl_bin" --silent --show-error --fail --max-time 5 \
+    --unix-socket "$socket" -X POST http://localhost/admin/resume >/dev/null 2>&1 || true
+}
+
 echo "Requesting Worker drain before switching to $sha..."
 if ! drain_reply="$("$curl_bin" --silent --show-error --fail --max-time 5 \
   --unix-socket "$socket" -X POST http://localhost/admin/drain)"; then
@@ -99,7 +104,8 @@ while (( elapsed <= timeout_seconds )); do
 done
 
 if [[ "$drained" -ne 1 ]]; then
-  echo "Worker drain timed out after ${timeout_seconds}s; active work was not stopped and the Worker remains in draining mode. No restart was attempted. Re-run this command after tasks finish." >&2
+  resume_worker
+  echo "Worker drain timed out after ${timeout_seconds}s; active work was not stopped. The Worker was returned to service and no restart was attempted. Re-run this command after tasks finish." >&2
   exit 1
 fi
 

@@ -69,6 +69,19 @@ function antigravityFailureReason(eventError, result = {}) {
   return redactHarnessText(eventError || result.errorType || "failed", 200);
 }
 
+function emptyHarnessResponseReason(harnessName, lastTool, result = {}) {
+  const tool = lastTool?.label || "工具调用";
+  const toolState = lastTool?.status === "completed" ? "已完成" : "执行状态未确认";
+  const processState = result.code === 0
+    ? `${harnessName} CLI 进程正常结束`
+    : `${harnessName} CLI 进程异常结束`;
+  return `${processState}，但在${tool}（${toolState}）后未返回最终回复；请先检查工作区后再决定是否重试。`;
+}
+
+function emptyGrokResponseReason(lastTool, result = {}) {
+  return emptyHarnessResponseReason("Grok Build", lastTool, result);
+}
+
 function settleWithin(promise, timeoutMs) {
   let timer;
   return Promise.race([
@@ -109,6 +122,7 @@ class TurnInstance {
     this.handle = null;
     this.error = null;
     this.text = "";
+    this.lastTool = null;
     this.interruptRequested = false;
     this.startedAt = new Date().toISOString();
     this.completedAt = null;
@@ -220,6 +234,35 @@ class TurnInstance {
     const entry = { type, label, status, createdAt: new Date().toISOString() };
     assistant.activity.push(entry);
     return entry;
+  }
+
+  trackTool(id, presented) {
+    this.lastTool = {
+      id,
+      label: String(presented?.label || "调用工具").slice(0, 160),
+      status: presented?.status || "running",
+    };
+  }
+
+  emptyFinalResponseFailure(harnessName, result) {
+    const reason = emptyHarnessResponseReason(harnessName, this.lastTool, result);
+    this.worker.logger.log({
+      harness: this.harnessId,
+      sessionId: result.sessionId || null,
+      model: this.model,
+      event: "empty_final_response",
+      durationMs: result.durationMs,
+      errorType: "empty_final_response",
+      detail: {
+        lastTool: this.lastTool ? { label: this.lastTool.label, status: this.lastTool.status } : null,
+        process: {
+          code: result.code,
+          signal: result.signal || null,
+          invalidLineCount: Array.isArray(result.invalidLines) ? result.invalidLines.length : 0,
+        },
+      },
+    });
+    return reason;
   }
 
   async appendGitChanges(assistant) {
@@ -526,11 +569,13 @@ class TurnInstance {
         const safePresented = sanitizeHarnessContent(presented);
         this.addActivity(assistant, safePresented.kind, safePresented.label, "running");
         const callId = event.id || `tool-${event.stepIndex || Date.now()}`;
+        this.trackTool(callId, safePresented);
         this.upsertStream(assistant, callId, safePresented);
         this.emitEvent("tool_call", safePresented);
         if (event.output !== undefined || ["completed", "failed", "error", "cancelled"].includes(event.status)) {
           const patch = this.adapter.formatToolUpdate(event, safePresented);
           this.upsertStream(assistant, callId, patch);
+          this.trackTool(callId, { ...safePresented, ...patch });
           if (patch.status === "completed") {
             this.addActivity(assistant, safePresented.kind, `${safePresented.label} (已完成)`, "completed");
           }
@@ -542,6 +587,7 @@ class TurnInstance {
         };
         const patch = this.adapter.formatToolUpdate(event, existing);
         this.upsertStream(assistant, callId, patch);
+        this.trackTool(callId, { ...existing, ...patch });
         this.addActivity(assistant, patch.kind || "tool", patch.status === "completed"
           ? `${existing.label}（已完成）` : `${existing.label}（${patch.status === "failed" ? "失败" : "执行中"}）`,
         patch.status);
@@ -606,7 +652,7 @@ class TurnInstance {
       return;
     }
     if (!this.text) {
-      this.finish("failed", "Google Antigravity 未产生有效回复");
+      this.finish("failed", this.emptyFinalResponseFailure("Google Antigravity", result));
       return;
     }
 
@@ -685,11 +731,23 @@ class TurnInstance {
       } else if (event.type === "tool_call") {
         const presented = this.adapter.formatToolCall(event, this.workDir);
         const safePresented = sanitizeHarnessContent(presented);
+        const callId = event.id || `tool-${Date.now()}`;
+        this.trackTool(callId, safePresented);
         this.addActivity(assistant, safePresented.kind, safePresented.label, "running");
-        this.upsertStream(assistant, event.id || `tool-${Date.now()}`, safePresented);
+        this.upsertStream(assistant, callId, safePresented);
         this.emitEvent("tool_call", safePresented);
       } else if (event.type === "tool_call_update") {
-        // tool update
+        const callId = event.id || this.lastTool?.id || `tool-${Date.now()}`;
+        const existing = assistant.stream?.find((entry) => entry.id === callId) || {
+          kind: "tool", label: "调用工具：Grok Build", details: {},
+        };
+        const patch = this.adapter.formatToolUpdate(event, existing);
+        this.upsertStream(assistant, callId, patch);
+        this.trackTool(callId, { ...existing, ...patch });
+        this.addActivity(assistant, patch.kind || "tool", patch.status === "completed"
+          ? `${existing.label}（已完成）` : `${existing.label}（${patch.status === "failed" ? "失败" : "执行中"}）`,
+        patch.status);
+        this.emitEvent("tool_call_update", { id: callId, ...patch });
       } else if (event.type === "error") {
         this.error = redactHarnessText(event.error || "运行失败", 200);
         this.addActivity(assistant, "error", "Grok Build 返回错误事件", "failed");
@@ -733,7 +791,7 @@ class TurnInstance {
       return;
     }
     if (!this.text) {
-      this.finish("failed", "Grok Build 未产生有效回复");
+      this.finish("failed", this.emptyFinalResponseFailure("Grok Build", result));
       return;
     }
 
@@ -906,6 +964,14 @@ class WorkerService {
       const runningCount = [...this.activeTurns.values()].filter((t) => t.status === "running").length;
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, draining: true, runningCount }));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/admin/resume") {
+      this.draining = false;
+      const runningCount = [...this.activeTurns.values()].filter((t) => t.status === "running").length;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, draining: false, runningCount }));
       return;
     }
 
@@ -1111,6 +1177,8 @@ module.exports = {
   WorkerService,
   TurnInstance,
   antigravityFailureReason,
+  emptyHarnessResponseReason,
+  emptyGrokResponseReason,
   serializeGitBaseline,
   deserializeGitBaseline,
 };
