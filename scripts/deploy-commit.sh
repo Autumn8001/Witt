@@ -28,6 +28,22 @@ if [[ ! -d "$release" ]]; then
   node --check "$staging/backend/server.js"
   node --check "$staging/backend/chat-service.js"
   (cd "$staging/backend" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)
+  # Downloads are separately built release artifacts, never tracked binaries.
+  # Keep a compatible published connector through ordinary frontend releases.
+  previous="$(systemctl show witt.service -p WorkingDirectory --value)"
+  python3 - "$previous" "$staging" <<'PY'
+import hashlib, json, pathlib, re, shutil, sys
+previous, staging = map(pathlib.Path, sys.argv[1:])
+assert re.fullmatch(r'/opt/witt/\.git/witt-releases/[0-9a-f]{40}', str(previous))
+source = staging / 'agent/windows/assist_update.go'
+if source.exists():
+    downloads = previous / 'web/downloads'
+    metadata = json.loads((downloads / 'release.json').read_text())
+    version = re.search(r'var assistVersion = "([0-9.]+)"', source.read_text()).group(1)
+    assert metadata['version'] == version, 'Connector changed: use deploy-assist-release.sh with a new build'
+    assert hashlib.sha256((downloads / 'chloe-assist.exe').read_bytes()).hexdigest() == metadata['sha256']
+    shutil.copytree(downloads, staging / 'web/downloads')
+PY
   mv "$staging" "$release"
 fi
 # mktemp creates staging with mode 0700. Nginx workers must be able to

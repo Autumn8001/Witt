@@ -19,6 +19,7 @@ class WorkspaceDispatcher {
     this.audit = options.audit;
     this.now = options.now || (() => Date.now());
     this.timeoutMs = options.timeoutMs ?? 20_000;
+    this.assistCommandsFor = options.assistCommandsFor || (() => false);
     this.fullAccessFor = options.fullAccessFor || (() => false);
   }
 
@@ -26,7 +27,8 @@ class WorkspaceDispatcher {
     const binding = this.workspaceStore.get(workspace_id);
     if (!binding) throw new WorkspaceDispatchError("WORKSPACE_NOT_FOUND");
     if (binding.state !== "active") throw new WorkspaceDispatchError("WORKSPACE_NOT_ACTIVE");
-    const classified = classifyWorkspaceOperation(operation, args, { fullAccess: this.fullAccessFor(binding.device_id) === true });
+    const assistCommands = this.assistCommandsFor(binding.device_id) === true;
+    const classified = classifyWorkspaceOperation(operation, args, { fullAccess: this.fullAccessFor(binding.device_id) === true, assistCommands });
     const started = this.now();
     const audit = (status) => this.audit.record({ workspace_id: binding.workspace_id, device_id: binding.device_id,
       operation: classified.operation, path: operationPath(classified.args), category: classified.category,
@@ -46,12 +48,15 @@ class WorkspaceDispatcher {
       catch (error) { audit("approval_rejected"); throw error; }
     }
     try {
+      const { timeout_ms: executionTimeout, ...deviceArgs } = classified.args;
       const commandArgs = {
         operation: classified.operation,
-        ...classified.args,
+        ...deviceArgs,
+        ...(assistCommands && operation === "workspace.exec" ? { timeout_ms: executionTimeout || 30_000 } : {}),
         ...(classified.operation === "workspace.system_info" ? {} : { root: binding.root_alias }),
       };
-      const result = await this.transport.dispatch(binding.device_id, "workspace", commandArgs, this.timeoutMs, {
+      const result = await this.transport.dispatch(binding.device_id, "workspace", commandArgs,
+        assistCommands && operation === "workspace.exec" ? (executionTimeout || 30_000) + 60_000 : this.timeoutMs, {
         workspaceSessionId: binding.workspace_id,
         ...(approval_id ? { approval: { id: approval_id, confirmed: true } } : {}),
       });

@@ -14,5 +14,11 @@ test('workspace listing exposes only owned conversations and public binding fiel
   route.handlePublic({method:'GET'},{},new URL('http://test/remote-workspaces'),{admin:true});assert.equal(response.status,200);assert.equal(response.body.workspaces.length,1);assert.equal(response.body.workspaces[0].title,'Private task');assert.equal(response.body.workspaces[0].harness_session_id,undefined);assert.equal(response.body.workspaces[0].customer_id,undefined);
   route.handlePublic({method:'POST'},{},new URL('http://test/remote-workspaces/'+own.workspace_id+'/pause'),{admin:true});assert.equal(store.get(own.workspace_id).state,'paused');
   route.handlePublic({method:'POST'},{},new URL('http://test/remote-workspaces/'+own.workspace_id+'/resume'),{admin:true});assert.equal(store.get(own.workspace_id).state,'active');assert.equal(store.get(other.workspace_id).state,'active');
+  const remove=id=>route.handlePublic({method:'DELETE'},{},new URL('http://test/remote-workspaces/'+id),{admin:true});
+  remove(other.workspace_id);assert.equal(response.status,404);
+  remove(own.workspace_id);assert.equal(response.status,409);
+  store.setState(own.workspace_id,'closed');remove(own.workspace_id);assert.equal(response.status,200);
+  assert.equal(store.list().some(w=>w.workspace_id===own.workspace_id),false);
+  assert.equal(store.getByConversation(own.conversation_id).state,'closed');
  }finally{store.close();fs.rmSync(dir,{recursive:true,force:true})}
 });

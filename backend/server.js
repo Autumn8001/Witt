@@ -23,6 +23,7 @@ const { createDeviceRoutes } = require("./routes/devices");
 const { WorkspaceStore, WorkspaceAuditStore, ApprovalGate, WorkspaceDispatcher } = require("./remote-workspace");
 const { RemoteWorkspaceService } = require("./remote-workspace-service");
 const { createRemoteWorkspaceRoutes } = require("./routes/remote-workspaces");
+const { createRemoteAssist } = require("./remote-assist");
 const { WorkerClient } = require("./worker-client");
 
 const host = "127.0.0.1";
@@ -288,13 +289,17 @@ const remoteWorkspaceDir = process.env.WITT_REMOTE_WORKSPACE_DIR || path.join(au
 const remoteWorkspaceStore = new WorkspaceStore(remoteWorkspaceDir);
 const remoteWorkspaceAudit = new WorkspaceAuditStore(remoteWorkspaceDir);
 const remoteWorkspaceApprovals = new ApprovalGate();
+const remoteAssist = createRemoteAssist({ gateway: deviceGateway, workspaceStore: remoteWorkspaceStore,
+  auditDirectory: path.join(remoteWorkspaceDir, "assist"), chatFor, readJsonBody, sendJson });
 const remoteWorkspaceDispatcher = new WorkspaceDispatcher({
-  workspaceStore: remoteWorkspaceStore, transport: deviceGateway.dispatcher,
+  workspaceStore: remoteWorkspaceStore, transport: remoteAssist.transport,
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
-  fullAccessFor: (deviceId) => deviceGateway.registry.describe(deviceId)?.capabilities?.includes("workspace.full_access") === true,
+  assistCommandsFor: (deviceId) => remoteAssist.sessions.commandsAllowed(deviceId),
+  fullAccessFor: (deviceId) => deviceId.startsWith("assist-") ? remoteAssist.sessions.fullAccessAllowed(deviceId) : deviceGateway.registry.describe(deviceId)?.capabilities?.includes("workspace.full_access") === true,
 });
 const remoteWorkspaceService = new RemoteWorkspaceService({
   workspaceStore: remoteWorkspaceStore, dispatcher: remoteWorkspaceDispatcher,
+  capabilitiesFor: deviceId => deviceGateway.registry.describe(deviceId)?.capabilities || [],
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
   runtimeDir: path.join(remoteWorkspaceDir, "runtime"), apiBase: `http://127.0.0.1:${port}`,
   antigravityBin: harnessOptions.antigravity.bin || "/root/.local/bin/agy",
@@ -421,6 +426,7 @@ function chatFor(principal) {
 const { handleDevelopmentWorkflow, handleDevelopmentWorkflowAction, developmentWorkflow } =
   createDevelopmentRoutes({ chatFor, sendJson, readJsonBody });
 const deviceRoutes = createDeviceRoutes({ gateway: deviceGateway, sendJson, authorized });
+const assistRoutes = remoteAssist.routes;
 const remoteWorkspaceRoutes = createRemoteWorkspaceRoutes({
   gateway: deviceGateway, service: remoteWorkspaceService, chatFor, runtimeProfiles, sendJson, readJsonBody,
 });
@@ -859,6 +865,7 @@ const httpServer = http.createServer((req, res) => {
     sendJson(res, 404, { error: "交互预览不存在或已失效" });
     return;
   }
+  if (assistRoutes.handleCustomer(req, res, url)) return;
   if (remoteWorkspaceRoutes.handleInternal(req, res, url)) return;
   if (deviceRoutes.handleInternal(req, res, url)) return;
   const legacyAuthorized = authorized(req);
@@ -876,6 +883,7 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
   if (cpaQuotaRoutes(req, res, url, principal)) return;
+  if (assistRoutes.handleOperator(req, res, url, principal)) return;
   if (remoteWorkspaceRoutes.handlePublic(req, res, url, principal)) return;
   if (deviceRoutes.handlePublic(req, res, url, principal)) return;
   if (url.pathname === "/failover/claim") {

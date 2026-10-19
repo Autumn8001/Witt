@@ -25,7 +25,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
     .filter((profile) => ["grok-build", "codex", "google-antigravity"].includes(profile.harness))
     .filter((profile, index, all) => all.findIndex((item) => (item.model || item.id) === (profile.model || profile.id)) === index)
     .map((profile) => ({ id: profile.model || profile.id, name: profile.name, harness: profile.harness, reasoning: profile.reasoning }));
-  const options = () => gateway.registry.list().map((device) => ({
+  const options = () => gateway.registry.list().filter(device => !device.device_id.startsWith("assist-")).map((device) => ({
     customer_id: gateway.registry.definition(device.device_id)?.customerId || device.customer_name || device.device_id,
     full_access: device.capabilities.includes("workspace.full_access"),
     device_id: device.device_id, device_label: device.label, status: device.status,
@@ -69,7 +69,7 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
     }
     if (req.method === "POST" && url.pathname === "/remote-workspaces") {
       readJsonBody(req, 16 * 1024, (error, body) => {
-        if (error || !plainObject(body) || !validDeviceId(body.device_id) || typeof body.root_alias !== "string") {
+        if (error || !plainObject(body) || String(body.device_id).startsWith("assist-") || !validDeviceId(body.device_id) || typeof body.root_alias !== "string") {
           sendJson(res, 400, { error: "INVALID_ARGUMENTS" }); return;
         }
         const described = gateway.registry.describe(body.device_id);
@@ -99,9 +99,23 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
       });
       return true;
     }
+    const removal = url.pathname.match(/^\/remote-workspaces\/([a-f0-9-]{36})$/);
+    if (removal && req.method === "DELETE") {
+      const workspace = service.workspaceStore.get(removal[1]);
+      if (!workspace || !chatFor(principal).readConversation(workspace.conversation_id)) {
+        sendJson(res, 404, { error: "WORKSPACE_NOT_FOUND" }); return true;
+      }
+      if (workspace.state !== "closed") { sendJson(res, 409, { error: "WORKSPACE_NOT_CLOSED" }); return true; }
+      service.workspaceStore.remove(workspace.workspace_id);
+      sendJson(res, 200, { deleted: true }); return true;
+    }
     const state = url.pathname.match(/^\/remote-workspaces\/([a-f0-9-]{36})\/(pause|resume|close)$/);
     if (state && req.method === "POST") {
       try {
+        const workspace = service.workspaceStore.get(state[1]);
+        if (!workspace || !chatFor(principal).readConversation(workspace.conversation_id)) {
+          sendJson(res, 404, { error: "WORKSPACE_NOT_FOUND" }); return true;
+        }
         const next = state[2] === "pause" ? "paused" : state[2] === "resume" ? "active" : "closed";
         sendJson(res, 200, { workspace: service.workspaceStore.setState(state[1], next) });
       } catch (error) { sendJson(res, 400, { error: error.code || "WORKSPACE_STATE_FAILED" }); }

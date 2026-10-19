@@ -79,6 +79,9 @@ class WorkspaceStore {
       );
       CREATE INDEX IF NOT EXISTS remote_workspaces_device_idx ON remote_workspaces(device_id, state);
     `);
+    if (!this.db.prepare("PRAGMA table_info(remote_workspaces)").all().some(column => column.name === "removed_at")) {
+      this.db.exec("ALTER TABLE remote_workspaces ADD COLUMN removed_at TEXT");
+    }
     this.selectById = this.db.prepare("SELECT * FROM remote_workspaces WHERE workspace_id = ?");
     this.selectByConversation = this.db.prepare("SELECT * FROM remote_workspaces WHERE conversation_id = ?");
     this.insert = this.db.prepare(`INSERT INTO remote_workspaces (
@@ -138,7 +141,15 @@ class WorkspaceStore {
   }
 
   list() {
-    return this.db.prepare("SELECT * FROM remote_workspaces ORDER BY updated_at DESC LIMIT 100").all().map(parseRow);
+    return this.db.prepare("SELECT * FROM remote_workspaces WHERE removed_at IS NULL ORDER BY updated_at DESC LIMIT 100").all().map(parseRow);
+  }
+
+  remove(workspaceId) {
+    const record = this.get(workspaceId);
+    if (!record) throw new WorkspaceStoreError("WORKSPACE_NOT_FOUND");
+    if (record.state !== "closed") throw new WorkspaceStoreError("WORKSPACE_NOT_CLOSED");
+    // Retain the closed binding so opening its old chat can never execute locally.
+    this.db.prepare("UPDATE remote_workspaces SET removed_at = ? WHERE workspace_id = ? AND state = 'closed'").run(this.now(), record.workspace_id);
   }
 
   close() { this.db.close(); }

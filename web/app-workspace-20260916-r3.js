@@ -874,77 +874,14 @@
     const models = remote && state.runtimeProfiles.length
       ? state.runtimeProfiles.map((profile) => ({ id: profile.model, displayName: runtimeProfileDisplayName(profile) }))
       : capabilityModels;
-    const remoteLocked = false;
-
-    // 远程工作区环境锁定横幅
-    let lockedBanner = menu.querySelector(".quick-locked-banner");
-    if (remote) {
-      if (!lockedBanner) {
-        lockedBanner = document.createElement("div");
-        lockedBanner.className = "quick-locked-banner";
-        menu.prepend(lockedBanner);
-      }
-      lockedBanner.hidden = false;
-      const devLabel = remote.deviceLabel || remote.deviceId || "远程电脑";
-      const pathLabel = remote.displayPath || remote.rootAlias || "工作区目录";
-      lockedBanner.innerHTML = `
-        <div class="quick-locked-head">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <strong>远程工作区 · 环境已锁定</strong>
-        </div>
-        <p class="quick-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可访问项目外文件。" : "当前会话已绑定设备与项目范围。"}模型可以切换。</p>
-        <div class="quick-locked-tags">
-          <span>设备：<b>${escapeHtml(devLabel)}</b></span>
-          <span>范围：<b>${escapeHtml(pathLabel)}</b></span>
-          <span>Harness：<b>Grok Build</b></span>
-        </div>
-      `;
-    } else if (lockedBanner) {
-      lockedBanner.hidden = true;
-    }
-
-    const expandBtn = $("#quickModelExpand");
-    if (expandBtn) {
-      expandBtn.disabled = remoteLocked;
-      expandBtn.classList.toggle("locked", remoteLocked);
-      expandBtn.title = remoteLocked ? "远程工作区已固定模型" : "展开选择模型";
-    }
-
-    $("#quickModelCurrent").textContent = remoteLocked
-      ? `${modelDisplayName(selectedModel)}（已锁定）`
-      : modelDisplayName(selectedModel);
-
-    $("#quickModelOptions").innerHTML = models.map((model) => {
+    const check = '<svg class="ph-icon quick-selection-check" aria-hidden="true" viewBox="0 0 256 256"><use href="#ph-check"></use></svg>';
+    $("#quickModelOptions").innerHTML = [...new Map(models.map(model => [model.id, model])).values()].map(model => {
       const selected = model.id === selectedModel;
-      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="quick-model-option-btn ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}" ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
-        <span class="quick-option-dot" aria-hidden="true"></span>
-        <span class="quick-option-label">${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span>
-        <i class="quick-option-check">${selected ? "✓" : ""}</i>
-      </button>`;
+      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="quick-model-option-btn ${selected ? "selected" : ""}"><span>${escapeHtml(modelNames[model.id] || model.displayName || model.id)}</span>${selected ? check : ""}</button>`;
     }).join("");
-
-    const efforts = availableReasoningEfforts().slice().reverse();
-    $("#quickReasoningOptions").innerHTML = efforts.map((effort) => {
+    $("#quickReasoningOptions").innerHTML = availableReasoningEfforts().map(effort => {
       const selected = effort === selectedReasoning;
-      const meta = reasoningMeta[effort] || { label: effort, code: effort.toUpperCase(), description: "" };
-      const shortLabel = quickReasoningNames[effort] || meta.label || effort;
-      return `
-        <button type="button"
-          class="quick-reasoning-card ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}"
-          data-quick-reasoning="${escapeHtml(effort)}"
-          role="radio"
-          aria-checked="${selected}"
-          ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
-          <span class="reasoning-radio-dot" aria-hidden="true"></span>
-          <div class="reasoning-card-content">
-            <div class="reasoning-card-title-row">
-              <strong class="reasoning-card-name">${escapeHtml(shortLabel)} · ${escapeHtml(meta.label)}推理</strong>
-              <code class="reasoning-card-code">${escapeHtml(meta.code)}</code>
-            </div>
-            <small class="reasoning-card-desc">${escapeHtml(meta.description)}</small>
-          </div>
-        </button>
-      `;
+      return `<button type="button" data-quick-reasoning="${escapeHtml(effort)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(quickReasoningNames[effort] || effort)}</span>${selected ? check : ""}</button>`;
     }).join("");
   }
 
@@ -2140,14 +2077,18 @@
     menu.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12))}px`;
   }
 
-  function setQuickModelMenu(open) {
+  function setQuickModelMenu(open, mode = "models") {
     const menu = $("#quickModelMenu");
-    const expanded = Boolean(open);
-    menu.classList.toggle("open", expanded);
-    menu.classList.remove("models-open");
-    menu.setAttribute("aria-hidden", String(!expanded));
-    $("#modelButton").setAttribute("aria-expanded", String(expanded));
-    $("#quickModelExpand").setAttribute("aria-expanded", "false");
+    const reasoning = mode === "reasoning";
+    menu.dataset.mode = mode;
+    menu.classList.toggle("open", Boolean(open));
+    menu.setAttribute("aria-hidden", String(!open));
+    menu.setAttribute("aria-label", reasoning ? "推理强度" : "选择模型");
+    $("#quickPickerTitle").textContent = reasoning ? "推理强度" : "选择模型";
+    $("#quickModelOptions").hidden = reasoning;
+    $("#quickReasoningOptions").hidden = !reasoning;
+    $("#modelButton").setAttribute("aria-expanded", String(Boolean(open) && !reasoning));
+    $("#focusReasoningButton").setAttribute("aria-expanded", String(Boolean(open) && reasoning));
     positionComposerMenu(menu);
   }
 
@@ -4403,7 +4344,13 @@
   for (const id of ["focusWelcomeRuntime", "focusContextSettings", "focusRuntimeButton"]) {
     document.getElementById(id)?.addEventListener("click", openSettings);
   }
-  $("#focusReasoningButton")?.addEventListener("click", () => $("#modelButton").click());
+  $("#focusReasoningButton")?.addEventListener("click", () => {
+    if (state.busy) { toast("当前任务完成后再切换推理强度"); return; }
+    state.draftModel = state.model; state.draftReasoning = state.reasoning;
+    renderQuickModelPicker();
+    const menu = $("#quickModelMenu");
+    setQuickModelMenu(!(menu.classList.contains("open") && menu.dataset.mode === "reasoning"), "reasoning");
+  });
   const contextToggle = $("#focusContextToggle");
   function closeFocusContext() {
     $(".focus-context")?.classList.remove("open");
@@ -5331,14 +5278,7 @@
     state.draftReasoning = state.reasoning;
     state.draftAccessMode = state.accessMode;
     updateModelControls();
-    setQuickModelMenu(!$("#quickModelMenu").classList.contains("open"));
-  });
-  $("#quickModelExpand").addEventListener("click", () => {
-    const menu = $("#quickModelMenu");
-    const open = !menu.classList.contains("models-open");
-    menu.classList.toggle("models-open", open);
-    $("#quickModelExpand").setAttribute("aria-expanded", String(open));
-    positionComposerMenu(menu);
+    setQuickModelMenu(!($("#quickModelMenu").classList.contains("open") && $("#quickModelMenu").dataset.mode === "models"));
   });
   $("#quickModelOptions").addEventListener("click", (event) => {
     const model = event.target.closest("[data-quick-model]")?.dataset.quickModel;

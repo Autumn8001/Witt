@@ -299,13 +299,21 @@
         const device = state.devices.find(device => deviceId(device) === workspace.device_id);
         const label = device?.device_label || device?.label || workspace.device_id;
         const stateLabel = paused ? "已暂停" : active ? (isOnline(device) ? "可继续" : "设备离线") : "已关闭";
-        return `<article class="environment-workspace"><div><strong>${escape(workspace.title || "远程开发")}</strong><small>${escape(label)} · ${escape(stateLabel)}</small><code>${escape(workspace.display_path)}</code><small>${escape(workspace.model_id)}</small></div><div class="environment-workspace-actions"><button type="button" data-open-workspace="${escape(workspace.conversation_id)}">${active && isOnline(device) ? "继续开发" : "查看对话"}</button>${active || paused ? `<button type="button" data-workspace-state="${active ? "pause" : "resume"}" data-workspace-id="${escape(workspace.workspace_id)}">${active ? "暂停" : "恢复"}</button><button type="button" data-workspace-state="close" data-workspace-id="${escape(workspace.workspace_id)}">关闭</button>` : ""}</div></article>`;
+        return `<article class="environment-workspace"><div><strong>${escape(workspace.title || "远程开发")}</strong><small>${escape(label)} · ${escape(stateLabel)}</small><code>${escape(workspace.display_path)}</code><small>${escape(workspace.model_id)}</small></div><div class="environment-workspace-actions"><button type="button" data-open-workspace="${escape(workspace.conversation_id)}">${active && isOnline(device) ? "继续开发" : "查看对话"}</button>${active || paused ? `<button type="button" data-workspace-state="${active ? "pause" : "resume"}" data-workspace-id="${escape(workspace.workspace_id)}">${active ? "暂停" : "恢复"}</button><button type="button" data-workspace-state="close" data-workspace-id="${escape(workspace.workspace_id)}">关闭</button>` : `<button type="button" data-delete-workspace="${escape(workspace.workspace_id)}">删除记录</button>`}</div></article>`;
       }).join("") : '<p class="customer-muted">还没有远程工作区。选择下方设备与项目，开始第一项开发任务。</p>';
     } catch (error) { host.textContent = `工作区暂时无法读取：${error.message}`; }
   }
   root.addEventListener("click", async event => {
     const open = event.target.closest("[data-open-workspace]");
     if (open) { closeSheet(); window.DropVault?.openConversation?.(open.dataset.openWorkspace); return; }
+    const remove = event.target.closest("[data-delete-workspace]");
+    if (remove) {
+      if (remove.disabled || !confirm("删除这条已关闭的工作区记录？聊天记录和远程文件会保留。")) return;
+      remove.disabled = true;
+      try { await call(`remote-workspaces/${encodeURIComponent(remove.dataset.deleteWorkspace)}`, { method: "DELETE" }); await refreshWorkspaces(); }
+      catch (error) { setStatus(error.message, "error"); remove.disabled = false; }
+      return;
+    }
     const action = event.target.closest("[data-workspace-state]");
     if (!action || action.disabled) return;
     if (action.dataset.workspaceState === "close" && !confirm("关闭这个远程工作区？关闭后无法恢复，已有对话仍可查看。")) return;

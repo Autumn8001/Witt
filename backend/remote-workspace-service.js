@@ -25,6 +25,7 @@ class RemoteWorkspaceService {
     }
     this.workspaceStore = options.workspaceStore;
     this.dispatcher = options.dispatcher;
+    this.capabilitiesFor = options.capabilitiesFor || (() => null);
     this.approvals = options.approvals;
     this.audit = options.audit;
     this.runtimeDir = options.runtimeDir;
@@ -66,6 +67,8 @@ class RemoteWorkspaceService {
       JSON.stringify({ ...geminiSettings, modelProvider: "gemini",
         permissions: { ...geminiSettings.permissions,
           allow: ["mcp(witt_remote_workspace/*)"] } }) + "\n", { mode: 0o600 });
+    const capabilities = binding.device_id.startsWith("assist-") ? (this.capabilitiesFor(binding.device_id) || []) : null;
+    const capabilityEnv = capabilities ? {WITT_REMOTE_WORKSPACE_CAPABILITIES: JSON.stringify(capabilities)} : {};
     const secret = crypto.randomBytes(32).toString("base64url");
     const credentialFile = path.join(directory, "mcp-session-token");
     fs.writeFileSync(credentialFile, `${secret}\n`, { mode: 0o600 });
@@ -74,6 +77,11 @@ class RemoteWorkspaceService {
       `command = ${JSON.stringify(process.execPath)}`,
       `args = [${JSON.stringify(this.mcpProgram)}]`,
       "enabled = true",
+      "[mcp_servers.witt_remote_workspace.env]",
+      'WITT_REMOTE_WORKSPACE_MCP_ENABLED = "1"',
+      `WITT_REMOTE_WORKSPACE_MCP_API = ${JSON.stringify(this.apiBase)}`,
+      `WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE = ${JSON.stringify(credentialFile)}`,
+      ...(capabilities ? [`WITT_REMOTE_WORKSPACE_CAPABILITIES = ${JSON.stringify(JSON.stringify(capabilities))}`] : []),
       "",
     ].join("\n");
     fs.writeFileSync(path.join(configDir, "config.toml"), config, { mode: 0o600 });
@@ -85,6 +93,7 @@ class RemoteWorkspaceService {
           WITT_REMOTE_WORKSPACE_MCP_ENABLED: "1",
           WITT_REMOTE_WORKSPACE_MCP_API: this.apiBase,
           WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE: credentialFile,
+          ...capabilityEnv,
         },
       } },
     }, null, 2) + "\n", { mode: 0o600 });
@@ -113,9 +122,10 @@ class RemoteWorkspaceService {
       'mcp_servers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_MCP_ENABLED="1"',
       `mcp_servers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_MCP_API=${JSON.stringify(this.apiBase)}`,
       `mcp_servers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE=${JSON.stringify(credentialFile)}`,
+      ...(capabilities ? [`mcp_servers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_CAPABILITIES=${JSON.stringify(JSON.stringify(capabilities))}`] : []),
     ];
     const value = Object.freeze({
-      workspaceId: binding.workspace_id, cwd: directory, secret, credentialFile,
+      workspaceId: binding.workspace_id, assistSession: binding.device_id.startsWith("assist-"), capabilities, cwd: directory, secret, credentialFile,
       apiBase: this.apiBase, home: directory, geminiBin, codexConfigOverrides,
     });
     this.sessions.set(binding.workspace_id, value);

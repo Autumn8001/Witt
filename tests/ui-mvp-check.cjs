@@ -59,7 +59,7 @@ test("only serviceable runtime profiles can be selected and harness defaults to 
 
 test("static first paint and settings placeholder are Grok-only", () => {
   assert.match(html, /id="modelLabel">Grok 4\.7 High</);
-  assert.match(html, /id="quickModelCurrent">Grok 4\.7 High</);
+  assert.match(html, /id="quickPickerTitle">选择模型</);
   assert.match(html, /data-model="grok-4\.7-high"/);
   assert.doesNotMatch(html, /data-model="gpt-6-astra"/);
 });

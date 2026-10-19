@@ -115,7 +115,6 @@ try {
   console.log("--> Composer model, settings entry, and multiline input");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator("#modelButton").click();
-  await page.locator("#quickModelExpand").click();
   const solOption = page.locator('[data-quick-model="gpt-6.1-sol"]');
   await solOption.click();
   assert.match(await page.locator("#modelLabel").textContent(), /GPT-6\.1 Sol/, "Selecting a model must update composer label");

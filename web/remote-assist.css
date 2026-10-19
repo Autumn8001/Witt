@@ -1,0 +1,15 @@
+.assist-panel { margin-block: 20px; }
+.assist-panel h3, .assist-panel h4 { margin-block: 0 10px; }
+.assist-panel p { line-height: 1.6; overflow-wrap: anywhere; }
+.assist-edit-choice { display: flex; align-items: baseline; gap: 8px; margin-block: 16px; }
+.assist-session { padding-block: 20px; border-top: 1px solid var(--focus-line, #d8d6c8); }
+.assist-panel button { min-height: 40px; margin: 4px 8px 4px 0; padding: 8px 12px; border: 1px solid var(--focus-line, #d8d6c8); border-radius: 8px; background: var(--focus-surface, #fffdf8); color: inherit; font: inherit; cursor: pointer; }
+.assist-panel button.customer-start-workspace { background: var(--focus-accent); color: var(--focus-surface); border-color: var(--focus-accent); }
+.assist-panel button:disabled { opacity: .5; cursor: default; }
+.assist-panel button:not(:disabled):hover { background: #ececde; color: #27351d; }
+.assist-panel :focus-visible { outline: 2px solid #53613e; outline-offset: 3px; }
+.assist-panel pre { max-width: 100%; max-height: 340px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.assist-panel details { margin-block: 12px; }
+
+.assist-panel form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.assist-panel form p,.assist-panel form>button{grid-column:1/-1}.assist-panel .customer-workspace-field{min-width:0}.assist-panel select,.assist-panel input{width:100%;min-height:42px;box-sizing:border-box}.assist-panel [data-assist-code]{padding:14px;border-radius:8px;background:var(--focus-selection);font-size:13px;line-height:1.8}.assist-panel a{color:var(--focus-accent)}
+@media(max-width:600px){.assist-panel form{grid-template-columns:1fr}.assist-panel form p{margin:0}}

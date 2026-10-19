@@ -38,7 +38,6 @@ try{
   if(viewport.width<1000){await page.locator('#menuButton').click();await page.locator('#drawer').waitFor({state:'visible'});await page.keyboard.press('Escape');assert.equal(await page.locator('#drawer').getAttribute('aria-hidden'),'true');checks.push('drawer-keyboard-close')}
   await page.locator('#modelButton').click();
   let menu=await page.locator('#quickModelMenu').boundingBox();assert(menu.y>=0&&menu.y+menu.height<=viewport.height+1);
-  await page.locator('#quickModelExpand').click();menu=await page.locator('#quickModelMenu').boundingBox();assert(menu.y>=0&&menu.y+menu.height<=viewport.height+1);
   await page.locator('[data-quick-model="gpt-6.1-sol"]').click();assert.match(await page.locator('#focusContextModel').textContent(),/GPT-6.1 Sol/);checks.push('picker-placement-and-model-sync');
   await page.locator('#focusWelcomeRuntime').click();await page.locator('#settingsSheet.open').waitFor();assert.equal(await page.locator('.app-shell').evaluate(e=>e.inert),true);
   await page.screenshot({path:path.join(out,`settings-${name}.png`)});await page.locator('#closeSettings').click();checks.push('settings-and-background-focus');

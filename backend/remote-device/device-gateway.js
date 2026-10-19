@@ -11,6 +11,8 @@ class DeviceGateway {
       file: options.configFile || process.env.WITT_DEVICE_CONFIG || "/root/.witt/devices.json",
     });
     this.now = options.now || Date.now;
+    this.onDisconnect = options.onDisconnect || (() => {});
+    this.canConnect = options.canConnect || (() => true);
     this.dispatcher = options.dispatcher || new CommandDispatcher(this.registry, { now: this.now });
     this.wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES, perMessageDeflate: false });
     this.sweepTimer = setInterval(() => this.sweep(), 20000);
@@ -26,7 +28,7 @@ class DeviceGateway {
       const deviceId = req.headers["x-witt-device-id"];
       const authorization = String(req.headers.authorization || "");
       const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-      if (!this.registry.authenticate(deviceId, token)) {
+      if (!this.registry.authenticate(deviceId, token) || !this.canConnect(deviceId)) {
         socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
         socket.destroy();
         return;
@@ -93,7 +95,7 @@ class DeviceGateway {
     ws.on("close", () => {
       clearTimeout(registerTimer);
       this.dispatcher.disconnect(session);
-      this.registry.remove(deviceId, session);
+      if (this.registry.remove(deviceId, session)) this.onDisconnect(deviceId);
     });
     ws.on("error", () => {});
   }
