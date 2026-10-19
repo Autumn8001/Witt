@@ -53,6 +53,17 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
   function handlePublic(req, res, url, principal) {
     if (url.pathname !== "/remote-workspaces" && !url.pathname.startsWith("/remote-workspaces/")) return false;
     if (!principal.admin) { sendJson(res, 403, { error: "admin_required" }); return true; }
+    if (req.method === "GET" && url.pathname === "/remote-workspaces") {
+      const chat = chatFor(principal);
+      const workspaces = service.workspaceStore.list().flatMap((workspace) => {
+        const conversation = chat.readConversation(workspace.conversation_id);
+        if (!conversation) return [];
+        return [{ workspace_id: workspace.workspace_id, conversation_id: workspace.conversation_id,
+          title: conversation.title, device_id: workspace.device_id, display_path: workspace.display_path,
+          model_id: workspace.model_id, state: workspace.state, updated_at: workspace.updated_at }];
+      });
+      sendJson(res, 200, { workspaces }); return true;
+    }
     if (req.method === "GET" && url.pathname === "/remote-workspaces/options") {
       sendJson(res, 200, { devices: options() }); return true;
     }

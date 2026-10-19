@@ -208,9 +208,34 @@
     older.textContent = state.loadingOlder ? "正在加载…" : `加载更早消息${Number.isFinite(state.active?.messageOffset) ? `（还有 ${state.active.messageOffset} 条）` : ""}`;
   }
 
-  function requestWorkspaceOverview() {
-    $("#workspaceOverviewContent").textContent = state.workspaceFeatures ? "正在检查连接…" : "此功能需要支持工作区的新客户端，当前安装版本暂不支持。";
-    if (state.workspaceFeatures) bridge()?.requestWorkspaceOverview?.();
+  let serviceOverviewRequest = 0;
+  async function requestWorkspaceOverview() {
+    const request = ++serviceOverviewRequest;
+    const host = $("#workspaceOverviewContent");
+    host.textContent = "正在检查服务器服务…";
+    const refresh = $("#refreshWorkspace");
+    refresh.disabled = true;
+    try {
+      const response = await fetch("/vault-api/servers/overview", { credentials: "same-origin", cache: "no-store" });
+      if (!response.ok) throw new Error(response.status === 403 ? "当前账号没有查看服务器状态的权限。" : "服务器状态读取失败，请重试。");
+      const payload = await response.json();
+      if (request !== serviceOverviewRequest) return;
+      const labels = { healthy: "运行正常", degraded: "需要关注", down: "不可用", unknown: "未确认" };
+      const section = (title, rows) => `<section class="workspace-section"><h3>${title}</h3>${(rows || []).map(row => {
+        const status = Object.hasOwn(labels, row.status) ? row.status : "unknown";
+        const latency = Number(row.detail?.latencyMs);
+        const extra = Number.isFinite(latency) ? `${latency} ms` : row.detail?.health || row.detail?.active || "";
+        return `<article><div><strong>${escapeHtml(row.name === "witt" ? "Chloe" : row.name)}</strong>${extra ? `<small>${escapeHtml(extra)}</small>` : ""}</div><span class="service-state" data-status="${status}">${labels[status]}</span></article>`;
+      }).join("") || "<p>暂无检查结果</p>"}</section>`;
+      let webui = "";
+      try {
+        const url = new URL(payload.openWebuiUrl);
+        if (["https:", "http:"].includes(url.protocol)) webui = `<a class="workspace-webui" href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer"><span><strong>Open WebUI</strong><small>打开独立的 AI 服务工作台</small></span>${focusIcon("arrow-up-right")}</a>`;
+      } catch {}
+      host.innerHTML = `<div class="workspace-host"><strong>${escapeHtml(payload.host || "当前服务器")}</strong><small>${escapeHtml(payload.platform || "")}</small></div>${webui || '<p class="workspace-checked">Open WebUI 链接尚未配置。</p>'}` + section("应用与服务", payload.http || payload.services) + section("容器", payload.containers) + section("系统服务", payload.units) + `<p class="workspace-checked">检查时间：${escapeHtml(payload.checkedAt ? new Date(payload.checkedAt).toLocaleString("zh-CN") : "未知")} · 打开页面时检查</p>`;
+    } catch (error) {
+      if (request === serviceOverviewRequest) host.textContent = error.message || "检查失败，请重试。";
+    } finally { if (request === serviceOverviewRequest) refresh.disabled = false; }
   }
 
   function openWorkspaceOverview() {
@@ -927,8 +952,7 @@
     const runtime = state.capabilities?.runtime || {};
     const codexAccounts = $("#codexAccountsButton");
     if (codexAccounts && state.capabilities?.runtime) {
-      codexAccounts.hidden = runtime.codex?.available !== true ||
-        (!state.admin && state.allowedCodexProfiles.length < 2);
+      codexAccounts.hidden = true;
     }
     if (state.harness && state.harness !== "auto" && runtime[state.harness]?.available === false) {
       state.harness = "auto";
@@ -3078,7 +3102,7 @@
     const files = (message.attachments || []).map(attachmentHtml).join("");
     const identity = message.role === "user"
       ? '<span class="focus-message-avatar">我</span><strong>你</strong>'
-      : `<span class="focus-message-avatar assistant-avatar"><img src="/vault/assets/focus/brand.svg?v=2" alt=""></span><strong>Chloe</strong><span class="focus-message-model">${escapeHtml(modelDisplayName(message.model || state.model))}</span>`;
+      : `<span class="focus-message-avatar assistant-avatar"><svg class="focus-brand-mark" aria-hidden="true" viewBox="0 0 40 40"><use href="#chloe-brand"></use></svg></span><strong>Chloe</strong><span class="focus-message-model">${escapeHtml(modelDisplayName(message.model || state.model))}</span>`;
     const head = `<header class="focus-message-head">${identity}</header>`;
     if (message.role === "user") {
       return `${head}<div class="bubble">${message.text
@@ -3747,7 +3771,7 @@
         applyPrincipalPolicy(payload.principal);
         $("#adminSettingsButton").hidden = !state.admin;
         $("#customerDevicesButton").hidden = !state.admin;
-        $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
+        $("#codexAccountsButton").hidden = true;
         hideActivation();
         bridge()?.requestCapabilities?.();
         void loadRuntimeExtras();
@@ -3774,7 +3798,7 @@
       applyPrincipalPolicy(payload.principal);
       $("#adminSettingsButton").hidden = !state.admin;
       $("#customerDevicesButton").hidden = !state.admin;
-      $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
+      $("#codexAccountsButton").hidden = true;
       $("#inviteCode").value = "";
       hideActivation();
       bridge()?.requestCapabilities?.();

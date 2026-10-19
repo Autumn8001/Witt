@@ -52,7 +52,8 @@ test("only serviceable runtime profiles can be selected and harness defaults to 
   assert.match(app, /state\.harness = "auto";/);
   assert.match(app, /state\.draftReasoning = selected\.reasoning;/);
   assert.match(app, /state\.activeId, state\.model, state\.reasoning, state\.accessMode, state\.harness/);
-  assert.match(app, /runtime\.codex\?\.available !== true/);
+  // Account management is intentionally parked in the Focus navigation.
+  assert.match(app, /codexAccounts\.hidden = true/);
   assert.match(app, /if \(harness && harness !== "codex"\)/);
 });
 

@@ -137,6 +137,10 @@ class WorkspaceStore {
     return this.get(record.workspace_id);
   }
 
+  list() {
+    return this.db.prepare("SELECT * FROM remote_workspaces ORDER BY updated_at DESC LIMIT 100").all().map(parseRow);
+  }
+
   close() { this.db.close(); }
 }
 
