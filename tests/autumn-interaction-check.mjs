@@ -1,4 +1,5 @@
-import http from "node:http";
+import {startWorkspaceFixture,ids,makeConversation} from "./support/workspace-fixture.mjs";
+const now=new Date().toISOString();
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,148 +11,16 @@ const root = path.resolve(__dirname, "..");
 const requireFromBackend = createRequire(path.join(root, "backend", "package.json"));
 const { chromium } = requireFromBackend("playwright");
 const webDir = path.join(root, "web");
-const outputDir = path.join(__dirname, "artifacts", "chloe-autumn");
+const outputDir = path.join(__dirname, "artifacts", "chloe-focus");
 const mimeTypes = {
   ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
   ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".png": "image/png",
   ".webp": "image/webp", ".json": "application/json",
 };
 
-const ids = {
-  one: "00000000-0000-4000-8000-000000000001",
-  two: "00000000-0000-4000-8000-000000000002",
-  three: "00000000-0000-4000-8000-000000000003",
-};
-const now = new Date().toISOString();
-const makeConversation = (id, title, project, lastMessage, hasAttachments = false) => ({
-  id, title, project, lastMessage, hasAttachments, updatedAt: now,
-  model: "grok-4.7-high", reasoning: "medium", accessMode: "danger-full-access",
-  harness: "grok-build", workDir: "", messages: [], taskStatus: { state: "idle", label: "已完成" },
-});
-let conversations = [];
-let nextId = 10;
-const eventStreams = new Map();
-
-function sendJson(res, data, status = 200) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(data));
-}
-
-const server = http.createServer(async (req, res) => {
-  const requestUrl = new URL(req.url, "http://localhost");
-  const pathname = requestUrl.pathname;
-
-  if (pathname === "/__test/seed" && req.method === "POST") {
-    const chunks = [];
-    for await (const chunk of req) chunks.push(chunk);
-    conversations = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    return sendJson(res, { ok: true });
-  }
-  if (pathname === "/vault-api/version.json" || pathname === "/vault/version.json" || pathname === "/version.json") {
-    return sendJson(res, { ok: true, version: "3.2.7", frontendSha: "abcdef" });
-  }
-  if (pathname === "/vault-api/auth/status") {
-    return sendJson(res, { authenticated: true, admin: true, principal: { admin: true, label: "管理员" }, clientMode: "browser" });
-  }
-  if (pathname === "/vault-api/chat/capabilities") {
-    return sendJson(res, {
-      models: [
-        { id: "grok-4.7-high", name: "Grok 4.7 High", harness: "grok-build", reasoning: ["low", "medium", "high", "ultra"] },
-        { id: "gpt-6.1-sol", name: "GPT-6.1 Sol", harness: "codex", reasoning: ["low", "medium", "high", "ultra"] },
-      ],
-      harnesses: [{ id: "grok-build", name: "Grok Build" }, { id: "codex", name: "Codex" }],
-      runtime: {},
-    });
-  }
-  if (/^\/vault-api\/chat\/conversations\/[^/]+\/events$/.test(pathname)) {
-    const id = pathname.split("/")[4];
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-    res.write(": ready\n\n");
-    const streams = eventStreams.get(id) || new Set();
-    streams.add(res);
-    eventStreams.set(id, streams);
-    req.on("close", () => {
-      streams.delete(res);
-      if (!streams.size) eventStreams.delete(id);
-    });
-    return;
-  }
-  if (pathname === "/vault-api/chat/conversations" && req.method === "POST") {
-    const chunks = [];
-    for await (const chunk of req) chunks.push(chunk);
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    const id = `00000000-0000-4000-8000-${String(nextId++).padStart(12, "0")}`;
-    const conversation = {
-      ...makeConversation(id, "新对话", "未分组", ""),
-      model: body.model || "grok-4.7-high",
-      reasoning: body.reasoning || "medium",
-      accessMode: body.accessMode || "danger-full-access",
-      workDir: body.workDir || "",
-      codexProfile: body.codexProfile || "default",
-    };
-    conversations.unshift(conversation);
-    return sendJson(res, { conversation });
-  }
-  if (pathname === "/vault-api/chat/conversations" && req.method === "GET") {
-    const query = (requestUrl.searchParams.get("q") || "").trim().toLocaleLowerCase();
-    const project = requestUrl.searchParams.get("project") || "";
-    const attachments = requestUrl.searchParams.get("attachments") === "1";
-    const results = conversations.filter((item) =>
-      (!query || `${item.title} ${item.lastMessage || ""}`.toLocaleLowerCase().includes(query)) &&
-      (!project || item.project === project) && (!attachments || item.hasAttachments));
-    return sendJson(res, { conversations: results });
-  }
-  if (/^\/vault-api\/chat\/conversations\/[^/]+\/messages$/.test(pathname) && req.method === "POST") {
-    const id = pathname.split("/")[4];
-    const conversation = conversations.find((item) => item.id === id);
-    if (!conversation) return sendJson(res, { error: "Conversation not found" }, 404);
-    const chunks = [];
-    for await (const chunk of req) chunks.push(chunk);
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    const createdAt = new Date().toISOString();
-    conversation.messages = [
-      ...(conversation.messages || []),
-      { id: `user-${Date.now()}`, role: "user", text: body.text || "", createdAt, status: "completed" },
-      { id: `assistant-${Date.now()}`, role: "assistant", text: "Mock assistant 已收到并完成这条消息。", createdAt, status: "completed" },
-    ];
-    conversation.lastMessage = "Mock assistant 已收到并完成这条消息。";
-    conversation.taskStatus = { state: "completed", label: "执行完成" };
-    conversation.updatedAt = createdAt;
-    const result = { conversation, clientRequestId: body.clientRequestId || "" };
-    for (const stream of eventStreams.get(id) || []) {
-      stream.write(`event: snapshot\ndata: ${JSON.stringify({ conversation })}\n\n`);
-    }
-    return sendJson(res, result);
-  }
-  if (pathname.startsWith("/vault-api/chat/conversations/")) {
-    const id = pathname.split("/")[4];
-    const conversation = conversations.find((item) => item.id === id);
-    return conversation
-      ? sendJson(res, { conversation })
-      : sendJson(res, { error: "Conversation not found" }, 404);
-  }
-  if (pathname.startsWith("/vault-api/")) return sendJson(res, { ok: true });
-
-  let filePath = pathname.replace(/^\/vault/, "") || "/index.html";
-  if (filePath === "/") filePath = "/index.html";
-  filePath = path.join(webDir, filePath);
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-    res.writeHead(200, { "Content-Type": mimeTypes[path.extname(filePath)] || "application/octet-stream" });
-    fs.createReadStream(filePath).pipe(res);
-    return;
-  }
-  console.error("Missing resource requested:", req.url);
-  res.writeHead(404, { "Content-Type": "text/plain" });
-  res.end("Not Found");
-});
-
+const {server,url,close}=await startWorkspaceFixture();
 await fs.promises.mkdir(outputDir, { recursive: true });
-await new Promise((resolve) => server.listen(0, resolve));
-const url = `http://localhost:${server.address().port}/vault/`;
+
 console.log(`[Interaction Suite] Test server running at ${url}`);
 
 const browser = await chromium.launch({ headless: true });
@@ -187,7 +56,8 @@ try {
   ];
   await page.evaluate(async () => {
     await document.fonts.ready;
-    const backgroundUrl = getComputedStyle(document.querySelector(".chloe-bg-layer")).backgroundImage
+    const background = document.querySelector(".chloe-bg-layer");
+    const backgroundUrl = (background ? getComputedStyle(background).backgroundImage : "none")
       .match(/url\(["']?(.*?)["']?\)/)?.[1];
     if (backgroundUrl) {
       const image = new Image();
@@ -348,5 +218,5 @@ try {
   console.log("Autumn interaction checks passed.");
 } finally {
   await browser.close();
-  await new Promise((resolve) => server.close(resolve));
+  await close();
 }

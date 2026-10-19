@@ -138,17 +138,37 @@
     return item.project || "未分组";
   }
 
-  const autumnHistoryIcons = ["leaf", "acorn", "sprout", "document-leaf"];
-  function autumnHistoryIcon(item) {
-    const seed = String(item?.id || item?.title || "history");
-    let hash = 0;
-    for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-    const icon = autumnHistoryIcons[hash % autumnHistoryIcons.length];
-    return `<svg class="autumn-history-icon autumn-history-${icon}" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${icon}"></use></svg>`;
+  // Verified Phosphor Regular symbols are embedded in index.html.
+  function focusIcon(name) {
+    return `<svg class="ph-icon" viewBox="0 0 256 256" aria-hidden="true"><use href="#ph-${name}"></use></svg>`;
   }
 
-  function autumnPinnedIcon() {
-    return '<svg class="autumn-history-icon autumn-history-leaf" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
+  function renderFocusContext() {
+    const remote = activeRemoteWorkspace(state.active);
+    const project = projectName(state.workDir);
+    const environment = remote ? `远程 · ${remote.deviceLabel || remote.deviceId || "受控设备"}` : "服务器环境";
+    const path = remote?.displayPath || remote?.rootAlias || state.workDir || "未绑定工作目录";
+    const capability = selectedModelCapability();
+    const harnessId = state.harness === "auto" ? capability?.harness : state.harness;
+    const harness = (state.capabilities?.harnesses || []).find((item) => item.id === harnessId)?.name ||
+      ({ "grok-build": "Grok Build", codex: "Codex", antigravity: "Antigravity" }[harnessId]) || "自动";
+    const values = {
+      focusProjectName: project, focusComposerProject: project, focusContextProject: project,
+      focusComposerAccess: accessNames[state.accessMode] || state.accessMode,
+      focusContextPath: path, focusHomePath: path, focusContextEnvironment: environment, focusHomeEnvironment: environment,
+      focusContextModel: modelDisplayName(state.model), focusContextHarness: harness,
+      focusContextReasoning: reasoningNames[state.reasoning] || state.reasoning,
+      focusContextAccess: accessNames[state.accessMode] || state.accessMode,
+      focusContextStatus: pendingApproval() ? "等你确认" : state.active?.taskStatus?.label || (state.busy ? "处理中" : state.active?.messages?.length ? "查看对话记录" : "尚未开始"),
+      focusContextNote: remote ? "当前会话已绑定受控设备与允许目录。" : state.active?.messages?.length ? "执行范围以当前工作目录和权限配置为准。" : "描述任务后，执行进度会显示在这里。",
+    };
+    for (const [id, value] of Object.entries(values)) {
+      const element = document.getElementById(id);
+      if (element) { element.textContent = value || "未提供"; element.title = element.textContent; }
+    }
+    const hasTask = Boolean(state.active?.messages?.length || state.optimisticMessage || state.busy || pendingApproval());
+    document.body.classList.toggle("focus-has-task", hasTask);
+    document.querySelector("#focusProjectButton")?.setAttribute("aria-label", `当前项目：${project}`);
   }
 
   function refreshHistorySearch() {
@@ -179,8 +199,9 @@
     strip.dataset.state = status.state;
     const isIdle = status.state === "idle" || status.label === "准备就绪";
     const displayLabel = isIdle ? "尚未开始" : status.label;
-    strip.innerHTML = `<span class="task-state-tree"><svg class="task-state-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree-mini"></use></svg></span><strong>${escapeHtml(displayLabel)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : '<svg class="task-strip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>'}`;
+    strip.innerHTML = `<span class="task-state-dot" aria-hidden="true"></span><strong>${escapeHtml(displayLabel)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : '<svg class="task-strip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>'}`;
     strip.querySelector("#jumpToApproval")?.addEventListener("click", () => $("#approvalDock")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+    renderFocusContext();
     const older = $("#loadOlderMessages");
     older.hidden = !state.workspaceFeatures || !state.active?.hasMore;
     older.disabled = state.loadingOlder;
@@ -226,6 +247,8 @@
     if (!shell || !composer) return;
     const height = Math.ceil(composer.getBoundingClientRect().height);
     if (height > 0) shell.style.setProperty("--composer-inset", `${height}px`);
+    positionComposerMenu($("#quickModelMenu"));
+    positionComposerMenu($("#attachmentMenu"));
   }
 
   function watchComposerInset() {
@@ -1144,7 +1167,7 @@
   function projectName(workDir) {
     const remote = activeRemoteWorkspace(state.active);
     if (remote) return `远程 · ${remote.displayPath || remote.rootAlias || "工作区"}`;
-    return projects[String(workDir || "")] || "自定义项目";
+    return projects[String(workDir || "")] || String(workDir || "").replace(/\\/g, "/").split("/").filter(Boolean).at(-1) || "自定义项目";
   }
 
   function formatTokens(value) {
@@ -1248,6 +1271,7 @@
   }
 
   function updateModelControls() {
+    renderFocusContext();
     const remote = activeRemoteWorkspace(state.active);
     const envPill = $("#composerEnvPill");
     if (envPill) {
@@ -2072,6 +2096,23 @@
     $("#settingsSheet").setAttribute("aria-hidden", "false");
   }
 
+  function positionComposerMenu(menu) {
+    if (!menu?.classList.contains("open")) return;
+    const rect = $("#composer").getBoundingClientRect();
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const above = Math.max(0, rect.top - 20);
+    const below = Math.max(0, viewportHeight - rect.bottom - 20);
+    const available = Math.max(above, below);
+    menu.style.position = "fixed";
+    menu.style.bottom = "auto";
+    menu.style.width = `${Math.min(360, window.innerWidth - 32)}px`;
+    menu.style.maxHeight = `${Math.min(540, Math.max(120, available), viewportHeight - 24)}px`;
+    const height = menu.getBoundingClientRect().height;
+    const top = above >= height || above >= below ? rect.top - height - 9 : rect.bottom + 9;
+    menu.style.top = `${Math.max(12, Math.min(top, viewportHeight - height - 12))}px`;
+    menu.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12))}px`;
+  }
+
   function setQuickModelMenu(open) {
     const menu = $("#quickModelMenu");
     const expanded = Boolean(open);
@@ -2080,6 +2121,7 @@
     menu.setAttribute("aria-hidden", String(!expanded));
     $("#modelButton").setAttribute("aria-expanded", String(expanded));
     $("#quickModelExpand").setAttribute("aria-expanded", "false");
+    positionComposerMenu(menu);
   }
 
   function applySettings({ closeSheet = true, announce = true } = {}) {
@@ -2344,7 +2386,7 @@
       $("#actionDetailTitle").textContent = entry.kind === "thought" ? "思考过程详情"
         : entry.kind === "tool" ? "工具执行详情" : "命令执行详情";
       $("#actionDetailContent").innerHTML = `
-        <div class="detail-summary"><span>${entry.kind === "command" ? "⌘" : "✦"}</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || details.workDir || (entry.kind === "thought" ? "深度思考与分析" : "未提供工作目录"))}</small></div></div>
+        <div class="detail-summary"><span>${focusIcon(entry.kind === "command" ? "terminal-window" : "cpu")}</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || details.workDir || (entry.kind === "thought" ? "深度思考与分析" : "未提供工作目录"))}</small></div></div>
         ${entry.kind === "thought" ? "" : detailBlock(entry.kind === "tool" ? "工具" : "完整命令", details.command || details.tool || entry.label, "command")}
         ${failure ? detailBlock("失败原因", failure, "failure") : ""}
         ${detailBlock(entry.kind === "thought" ? "思考内容" : "执行输出", details.thought || details.output || "该操作没有输出", "output")}`;
@@ -2424,10 +2466,10 @@
       ? conversations.map((conversation) => `
         <article class="conversation-row ${conversation.id === state.activeId ? "active" : ""}" data-id="${conversation.id}">
           <button class="conversation-open" data-open="${conversation.id}">
-            <span class="conversation-mark">${conversation.busy ? '<i></i>' : autumnHistoryIcon(conversation)}</span>
-            <span>${state.workspaceFeatures ? `<span class="history-project-label">${escapeHtml(historyProjectName(conversation))}</span>` : ""}<strong>${pinned.has(conversation.id) ? `<span class="conversation-pin" aria-label="已置顶">${autumnPinnedIcon()}</span>` : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.searchSnippet || conversation.lastMessage || "暂无消息")}</small></span>
+            <span class="conversation-mark">${conversation.busy ? '<i></i>' : focusIcon("chat-circle")}</span>
+            <span>${state.workspaceFeatures ? `<span class="history-project-label">${escapeHtml(historyProjectName(conversation))}</span>` : ""}<strong>${pinned.has(conversation.id) ? `<span class="conversation-pin" aria-label="已置顶">${focusIcon("push-pin")}</span>` : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.searchSnippet || conversation.lastMessage || "暂无消息")}</small></span>
           </button>
-          <button class="conversation-more" data-archive="${conversation.id}" aria-label="移除对话">•••</button>
+          <button class="conversation-more" data-archive="${conversation.id}" aria-label="移除对话">${focusIcon("dots-three")}</button>
         </article>`).join("")
       : `<div class="drawer-empty">${q || selectedProject || attachments ? "没有匹配的对话" : "还没有历史对话"}</div>`;
   }
@@ -2708,7 +2750,7 @@
     const activities = visibleActivities(message);
     if (!activities.length) return "";
     const latest = activities.at(-1);
-    const icon = latest.type === "command" ? "⌘" : latest.type === "file" ? "◇" : latest.type === "web" ? "◎" : "✦";
+    const icon = focusIcon(latest.type === "command" ? "terminal-window" : latest.type === "file" ? "file-code" : latest.type === "web" ? "globe" : "cpu");
     return `<details class="activity" ${message.status === "running" ? "open" : ""}>
       <summary><span class="${message.status}">${icon}</span><b>${escapeHtml(latest.label)}</b><i></i></summary>
       <div>${activities.map((item) => `<p><span class="${item.status}"></span>${escapeHtml(item.label)}</p>`).join("")}</div>
@@ -2716,9 +2758,7 @@
   }
 
   function streamActionHtml(message, entry) {
-    const icon = entry.kind === "command" ? "⌘"
-      : entry.kind === "file" ? "◇"
-      : entry.kind === "web" ? "◎" : "✦";
+    const icon = focusIcon(entry.kind === "command" ? "terminal-window" : entry.kind === "file" ? "file-code" : entry.kind === "web" ? "globe" : "cpu");
     const detailAttributes = entry.hasDetails
       ? `data-stream-detail="${escapeHtml(entry.id)}" data-message-id="${escapeHtml(message.sourceMessageId || message.id)}"`
       : "";
@@ -2970,7 +3010,7 @@
         const statusText = running ? "正在执行" : failed ? `${failed} 项未完成` : "执行完成";
         rendered.push(`<details class="stream-action-group ${groupStatus}" ${message.status === "running" ? "open" : ""}>
           <summary>
-            <span class="stream-group-icon">⌘</span>
+            <span class="stream-group-icon">${focusIcon("terminal-window")}</span>
             <span class="stream-group-copy"><strong>${escapeHtml(streamGroupLabel(actionBuffer))}</strong><small>${statusText} · 点击${message.status === "running" ? "收起" : "展开"}详情</small></span>
             <span class="stream-group-tail"><i></i><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></span>
           </summary>
@@ -3021,19 +3061,23 @@
     const resultText = finalEntry?.text || message.text || (failed ? "任务未完成。" : "任务已完成。");
     const processSummary = processHtml ? `<details class="completed-process ${message.status || "completed"}">
       <summary>
-        <span class="completed-process-mark" aria-hidden="true">${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>
+        <span class="completed-process-mark" aria-hidden="true">${focusIcon(failed ? "warning-circle" : interrupted ? "pause" : "check")}</span>
         <span class="completed-process-copy"><strong>${stateLabel}</strong><small>${processCount ? `${processCount} 项 · ` : ""}${duration}</small></span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
       </summary>
       <div class="completed-process-body">${processHtml}</div>
-    </details>` : (failed || interrupted) ? `<div class="completed-runtime ${message.status || "completed"}"><span>${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>${stateLabel} · ${duration}</div>` : "";
+    </details>` : (failed || interrupted) ? `<div class="completed-runtime ${message.status || "completed"}"><span>${focusIcon(failed ? "warning-circle" : interrupted ? "pause" : "check")}</span>${stateLabel} · ${duration}</div>` : "";
     return `${processSummary}<div class="completed-result"><div class="stream-message final ${message.status || "completed"}">${textHtml(resultText)}</div></div>`;
   }
 
   function messageInnerHtml(message) {
     const files = (message.attachments || []).map(attachmentHtml).join("");
+    const identity = message.role === "user"
+      ? '<span class="focus-message-avatar">我</span><strong>你</strong>'
+      : `<span class="focus-message-avatar assistant-avatar"><img src="/vault/assets/focus/brand.svg" alt=""></span><strong>Chloe</strong><span class="focus-message-model">${escapeHtml(modelDisplayName(message.model || state.model))}</span>`;
+    const head = `<header class="focus-message-head">${identity}</header>`;
     if (message.role === "user") {
-      return `<div class="bubble">${message.text
+      return `${head}<div class="bubble">${message.text
         ? `<div class="user-message-copy"><div class="user-message-rich">${textHtml(message.text)}</div></div>
           <button type="button" class="user-message-toggle" aria-expanded="false" hidden>展开全文</button>`
         : ""}${files ? `<div class="message-files">${files}</div>` : ""}</div>
@@ -3047,7 +3091,7 @@
       .filter((image) => image.source === "delivery" || !streamedImageIds.has(image.id))
       .map((image) => inlineImageHtml(image, "delivery-image"))
       .join("");
-    return `<div class="assistant-body">
+    return `${head}<div class="assistant-body">
       ${["completed", "failed", "interrupted"].includes(message.status)
         ? completedMessageHtml(message) : streamHtml(message)}
       ${artifactPreviewHtml(message)}
@@ -3316,7 +3360,7 @@
       ));
     });
     $("#welcome").hidden = orderedMessages.length > 0;
-    $("#chatTitle").textContent = state.active?.title || "Chloe";
+    $("#chatTitle").textContent = state.active?.title || "新对话";
     const liveIds = new Set(orderedMessages.map((message) => message.id));
     let changed = false;
     list.querySelectorAll(":scope > .message").forEach((node) => {
@@ -3411,8 +3455,8 @@
     $(".composer").classList.toggle("has-active-turn", busy);
     refreshActionButton();
     $("#composerHint").textContent = busy
-      ? "处理中 · 你可以继续补充要求"
-      : "由你服务器上的 AI Harness 处理 · 重要操作会先确认";
+      ? "处理中 · 可继续补充要求"
+      : "由当前 Harness 处理 · 重要操作会先确认";
   }
 
   function hasComposerContent() {
@@ -3450,6 +3494,7 @@
     menu.setAttribute("aria-hidden", String(!expanded));
     $(".composer-wrap").classList.toggle("menu-open", expanded);
     $("#attachButton").setAttribute("aria-expanded", String(expanded));
+    positionComposerMenu(menu);
   }
 
   function selectConversation(id) {
@@ -4312,6 +4357,74 @@
     $("#dialogLayer").setAttribute("aria-hidden", "true");
   }
 
+  const focusEnvironment = () => {
+    closeDrawer();
+    if (state.admin && !$("#customerDevicesButton").hidden) $("#customerDevicesButton").click();
+    else openWorkspaceOverview();
+  };
+  for (const id of ["focusWelcomeEnvironment", "focusEnvironmentButton", "focusHomeEnvironmentButton"]) {
+    document.getElementById(id)?.addEventListener("click", focusEnvironment);
+  }
+  for (const id of ["focusProjectButton", "focusDirectoryButton"]) {
+    document.getElementById(id)?.addEventListener("click", () => {
+      if (activeRemoteWorkspace(state.active)) { focusEnvironment(); return; }
+      openProject();
+    });
+  }
+  $("#focusWelcomeProjects")?.addEventListener("click", openWorkspaceOverview);
+  for (const id of ["focusWelcomeRuntime", "focusContextSettings", "focusRuntimeButton"]) {
+    document.getElementById(id)?.addEventListener("click", openSettings);
+  }
+  $("#focusReasoningButton")?.addEventListener("click", () => $("#modelButton").click());
+  const contextToggle = $("#focusContextToggle");
+  function closeFocusContext() {
+    $(".focus-context")?.classList.remove("open");
+    $("#focusContextBackdrop").hidden = true;
+    contextToggle?.setAttribute("aria-expanded", "false");
+  }
+  contextToggle?.addEventListener("click", () => {
+    const open = !$(".focus-context").classList.contains("open");
+    $(".focus-context").classList.toggle("open", open);
+    $("#focusContextBackdrop").hidden = !open;
+    contextToggle.setAttribute("aria-expanded", String(open));
+    if (open) $("#focusContextSettings").focus();
+  });
+  $("#focusContextBackdrop")?.addEventListener("click", closeFocusContext);
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if ($(".focus-context")?.classList.contains("open")) { closeFocusContext(); contextToggle?.focus(); }
+    if ($("#drawer").classList.contains("open")) { closeDrawer(); $("#menuButton").focus(); }
+  });
+  // Existing overlays retain their close handlers; synchronize focus and background access.
+  let focusedBeforeOverlay = null;
+  let activeOverlay = null;
+  const overlaySelector = '.settings-sheet.open,.project-sheet.open,.profile-sheet.open,.delivery-sheet.open,.action-detail-sheet.open,.local-ssh-sheet.open,.workspace-overview.open,.image-viewer.open,.dialog-layer.open,.auth-gate.open';
+  function syncFocusOverlay() {
+    const overlays = [...document.querySelectorAll(overlaySelector)];
+    const overlay = overlays.at(-1);
+    const mobileDrawer = $("#drawer").classList.contains("open");
+    if (overlay !== activeOverlay) {
+      if (overlay) {
+        if (!activeOverlay) focusedBeforeOverlay = document.activeElement;
+        overlay.querySelector('button:not([disabled]),input:not([disabled]),[tabindex="0"]')?.focus();
+      } else focusedBeforeOverlay?.focus();
+      activeOverlay = overlay || null;
+    }
+    $(".app-shell").inert = Boolean(overlay || mobileDrawer);
+    $("#drawer").inert = Boolean(overlay) || (window.innerWidth < 1000 && !mobileDrawer) || document.body.classList.contains("sidebar-collapsed");
+  }
+  new MutationObserver(syncFocusOverlay).observe(document.body, {subtree:true,attributes:true,attributeFilter:["class"]});
+  window.addEventListener("resize", () => { closeFocusContext(); syncFocusOverlay(); syncComposerInset(); });
+  document.addEventListener("keydown", (event) => {
+    const overlay = activeOverlay || ($("#drawer").classList.contains("open") ? $("#drawer") : null);
+    if (event.key !== "Tab" || !overlay) return;
+    const controls = [...overlay.querySelectorAll('button:not([disabled]),input:not([disabled]),select,textarea,a[href],[tabindex="0"]')].filter(el => el.getClientRects().length);
+    if (!controls.length) return;
+    if (event.shiftKey && (document.activeElement === controls[0] || !overlay.contains(document.activeElement))) { event.preventDefault(); controls.at(-1).focus(); }
+    else if (!event.shiftKey && (document.activeElement === controls.at(-1) || !overlay.contains(document.activeElement))) { event.preventDefault(); controls[0].focus(); }
+  });
+  syncFocusOverlay();
+
   $("#menuButton").addEventListener("click", openDrawer);
   $("#newChatButton").addEventListener("click", () => {
     setChatMoreMenu(false);
@@ -4953,7 +5066,8 @@
   });
   $("#attachPhotoButton").addEventListener("click", () => {
     setAttachmentMenu(false);
-    bridge()?.pickFiles?.();
+    if (document.body.classList.contains("web-browser")) bridge()?.pickFiles?.("image/*");
+    else bridge()?.pickFiles?.();
   });
   $("#attachFileButton").addEventListener("click", () => {
     setAttachmentMenu(false);
@@ -5196,6 +5310,7 @@
     const open = !menu.classList.contains("models-open");
     menu.classList.toggle("models-open", open);
     $("#quickModelExpand").setAttribute("aria-expanded", String(open));
+    positionComposerMenu(menu);
   });
   $("#quickModelOptions").addEventListener("click", (event) => {
     const model = event.target.closest("[data-quick-model]")?.dataset.quickModel;
