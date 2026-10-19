@@ -35,6 +35,46 @@ test("Antigravity permissions follow only the conversation access mode", () => {
   assert.equal(unrestricted.buildArgs({ prompt: "offline" }).includes("--dangerously-skip-permissions"), true);
 });
 
+test("remote Antigravity turns get a longer bounded budget without changing local defaults", () => {
+  const service = Object.create(ChatService.prototype);
+  service.harnessOptions = { antigravity: {} };
+  service.effectiveWorkDir = () => "/workspace";
+  const binding = { workspace_id: "test" };
+  service.remoteWorkspaceBinding = conversation => conversation.remote ? binding : null;
+  service.remoteWorkspaceService = { runtimeFor: () => ({ geminiBin: "/tools/agy" }) };
+  assert.equal(service.antigravityAdapter("test-model", {}).printTimeoutMs, 300000);
+  const remote = service.antigravityAdapter("test-model", { remote: true });
+  assert.equal(remote.printTimeoutMs, 900000);
+  const args = remote.buildArgs({ prompt: "test" });
+  assert.equal(args[args.indexOf("--print-timeout") + 1], "900s");
+  service.harnessOptions.antigravity.timeoutMs = 420000;
+  assert.equal(service.antigravityAdapter("test-model", { remote: true }).printTimeoutMs, 420000);
+  service.harnessOptions.antigravity.remoteTimeoutMs = 600000;
+  assert.equal(service.antigravityAdapter("test-model", { remote: true }).printTimeoutMs, 600000);
+});
+
+test("remote device waiting is visible in the existing conversation stream and resolves in place", () => {
+  const service = Object.create(ChatService.prototype);
+  const assistant = { id: "assistant", stream: [], activity: [] };
+  const conversation = { id: "conversation", messages: [assistant] };
+  service.active = { conversationId: conversation.id, messageId: assistant.id, finished: false };
+  service.readConversation = () => conversation;
+  let saves = 0;
+  service.writeConversation = () => { saves++; };
+  const binding = { conversation_id: conversation.id };
+  service.notifyRemoteWorkspaceWait(binding, { id: "wait-1", state: "waiting" });
+  assert.equal(assistant.stream.length, 1);
+  assert.equal(assistant.stream[0].status, "running");
+  assert.match(assistant.stream[0].summary, /正在等待/);
+  assert.match(assistant.stream[0].label, /正在等待/);
+  service.notifyRemoteWorkspaceWait(binding, { id: "wait-1", state: "resumed" });
+  assert.equal(assistant.stream.length, 1);
+  assert.equal(assistant.stream[0].status, "completed");
+  assert.equal(assistant.activity[0].status, "completed");
+  service.notifyRemoteWorkspaceWait({ conversation_id: "other-customer" }, { id: "wait-2", state: "waiting" });
+  assert.equal(saves, 2);
+});
+
 function makeTurn({ result, events = [], interrupt = false, harnessSessionId = null }) {
   const user = { id: "user-1", role: "user", text: "do the task", status: "running" };
   const assistant = {

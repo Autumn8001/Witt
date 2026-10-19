@@ -8,15 +8,16 @@ const { once } = require("node:events");
 const WebSocket = require("ws");
 const { DeviceGateway } = require("./remote-device/device-gateway");
 const { DeviceRegistry } = require("./remote-device/device-registry");
+const { WorkspaceDispatcher } = require("./remote-workspace");
 
 const TOKEN = "workspace-transport-token-0123456789";
 const WORKSPACE_CAPABILITIES = [
   "workspace.list", "workspace.read", "workspace.write", "workspace.patch", "workspace.exec",
 ];
 
-async function setup(t) {
+async function setup(t, deviceId = "PC-001") {
   const registry = new DeviceRegistry({ devices: [{
-    device_id: "PC-001",
+    device_id: deviceId,
     token_sha256: crypto.createHash("sha256").update(TOKEN).digest("hex"),
     capabilities: WORKSPACE_CAPABILITIES,
     allowed_roots: ["project"],
@@ -42,13 +43,13 @@ function nextMessage(ws) {
   });
 }
 
-async function connect(url, capabilities = WORKSPACE_CAPABILITIES) {
+async function connect(url, capabilities = WORKSPACE_CAPABILITIES, deviceId = "PC-001") {
   const ws = new WebSocket(url, { headers: {
-    Authorization: `Bearer ${TOKEN}`, "X-Witt-Device-Id": "PC-001",
+    Authorization: `Bearer ${TOKEN}`, "X-Witt-Device-Id": deviceId,
   } });
   await once(ws, "open");
   const registered = nextMessage(ws);
-  ws.send(JSON.stringify({ v: 1, type: "register", id: "register-1", device_id: "PC-001",
+  ws.send(JSON.stringify({ v: 1, type: "register", id: "register-1", device_id: deviceId,
     hostname: "CUSTOMER-PC", agent_version: "0.2.0", capabilities, roots: ["project"] }));
   await registered;
   return ws;
@@ -143,4 +144,32 @@ test("a workspace read disconnect keeps the existing deterministic error", async
   await command;
   ws.close();
   await assert.rejects(pending, { code: "DEVICE_DISCONNECTED" });
+});
+
+test("Assist serializes concurrent tools over the actual WebSocket transport", async t => {
+  const deviceId = "assist-11111111-1111-4111-8111-111111111111";
+  const { gateway, url } = await setup(t, deviceId);
+  const ws = await connect(url, WORKSPACE_CAPABILITIES, deviceId);
+  const binding = { workspace_id: "770e8400-e29b-41d4-a716-446655440000", device_id: deviceId,
+    state: "active", root_alias: "project" };
+  const audit = [];
+  const dispatcher = new WorkspaceDispatcher({ workspaceStore: { get: () => binding },
+    transport: gateway.dispatcher, approvals: {}, audit: { record: event => audit.push(event) },
+    assistCommandsFor: () => true });
+  const packetPromise = nextMessage(ws);
+  const first = dispatcher.execute({ workspace_id: binding.workspace_id, operation: "workspace.exec",
+    args: { program: "npm", argv: ["test"] } });
+  const firstPacket = await packetPromise;
+  const second = dispatcher.execute({ workspace_id: binding.workspace_id, operation: "workspace.read", args: { path: "README.md" } });
+  assert.equal(gateway.dispatcher.pending.size, 1);
+  const nextPacketPromise = nextMessage(ws);
+  ws.send(JSON.stringify({ v: 1, type: "result", id: firstPacket.id, device_id: deviceId, exit_code: 7, stderr: "test failed" }));
+  const secondPacket = await nextPacketPromise;
+  assert.equal(secondPacket.args.operation, "workspace.read");
+  ws.send(JSON.stringify({ v: 1, type: "result", id: secondPacket.id, device_id: deviceId, exit_code: 0, stdout: "README" }));
+  const results = await Promise.all([first, second]);
+  assert.deepEqual(results.map(result => result.status), ["failed", "completed"]);
+  assert.equal(results[1].result.stdout, "README");
+  assert.deepEqual(audit.map(event => event.status), ["failed", "completed"]);
+  ws.close();
 });

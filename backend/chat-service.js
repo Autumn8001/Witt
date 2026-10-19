@@ -2732,6 +2732,27 @@ class ChatService {
     this.writeConversation(conversation);
   }
 
+  notifyRemoteWorkspaceWait(binding, event) {
+    const current = this.active;
+    if (!current || current.conversationId !== binding.conversation_id || current.finished) return;
+    const conversation = this.readConversation(binding.conversation_id);
+    const assistant = conversation?.messages.find(message => message.id === current.messageId);
+    if (!assistant) return;
+    const waiting = event.state === "waiting";
+    const label = waiting ? "客户电脑正在执行前一项操作，正在等待"
+      : event.state === "resumed" ? "等待结束，继续远程操作" : "已取消等待远程操作";
+    this.upsertStream(assistant, `remote-wait-${event.id}`, {
+      kind: "activity", status: waiting ? "running" : "completed", label, title: label, summary: label,
+    });
+    if (!waiting) {
+      const activity = assistant.activity?.findLast(item => item.label === "客户电脑正在执行前一项操作，正在等待");
+      if (activity) activity.status = "completed";
+    }
+    this.addActivity(assistant, "tool", label, waiting ? "running" : "completed");
+    conversation.updatedAt = new Date().toISOString();
+    this.writeConversation(conversation);
+  }
+
   requestRemoteWorkspaceApproval(binding, approval) {
     const current = this.active;
     if (!current || current.conversationId !== binding.conversation_id || current.finished) {
@@ -3492,6 +3513,7 @@ class ChatService {
 
   antigravityAdapter(model, conversation) {
     const options = this.harnessOptions?.antigravity || {};
+    const binding = this.remoteWorkspaceBinding(conversation);
     // A global runtime option must not override a session's access policy.
     const skipPermissions = conversation?.accessMode === "danger-full-access";
     return new AntigravityAdapter({
@@ -3503,7 +3525,7 @@ class ChatService {
       apiKeyEnv: options.apiKeyEnv || "GEMINI_API_KEY",
       apiKeyValue: options.apiKeyValue || "",
       baseUrl: options.baseUrl || "",
-      printTimeoutMs: options.timeoutMs || 300000,
+      printTimeoutMs: binding ? (options.remoteTimeoutMs || options.timeoutMs || 900000) : (options.timeoutMs || 300000),
       skipPermissions,
       runAsAdmin: options.runAsAdmin === true && skipPermissions,
       remoteWorkspace: this.remoteWorkspaceBinding(conversation)

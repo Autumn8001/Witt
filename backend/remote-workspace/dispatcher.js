@@ -1,10 +1,11 @@
 "use strict";
 
 const { SAFE, CONFIRM, DENY, classifyWorkspaceOperation } = require("./policy");
+const { randomUUID } = require("node:crypto");
 
 class WorkspaceDispatchError extends Error { constructor(code) { super(code); this.code = code; } }
 
-const UNCERTAIN_CODES = new Set(["DEVICE_DISCONNECTED", "COMMAND_TIMEOUT", "DEVICE_OFFLINE", "ECONNRESET", "ETIMEDOUT"]);
+const UNCERTAIN_CODES = new Set(["DEVICE_DISCONNECTED", "COMMAND_TIMEOUT", "DEVICE_OFFLINE", "ECONNRESET", "ETIMEDOUT", "EXECUTION_STATE_UNKNOWN"]);
 const MUTATING_OPERATIONS = new Set(["workspace.write", "workspace.patch", "workspace.exec"]);
 
 function operationPath(args) { return args.path || args.cwd || null; }
@@ -21,9 +22,78 @@ class WorkspaceDispatcher {
     this.timeoutMs = options.timeoutMs ?? 20_000;
     this.assistCommandsFor = options.assistCommandsFor || (() => false);
     this.fullAccessFor = options.fullAccessFor || (() => false);
+    this.deviceOperations = new Map();
+    this.maxQueuedOperations = options.maxQueuedOperations ?? 8;
+    this.waitTimeoutMs = options.waitTimeoutMs ?? 360_000;
+    this.onWait = options.onWait || (() => {});
   }
 
-  async execute({ workspace_id, operation, args, approval_id }) {
+  async execute(request) {
+    if (request.signal?.aborted) throw new WorkspaceDispatchError("OPERATION_CANCELLED");
+    const binding = this.workspaceStore.get(request.workspace_id);
+    if (!binding || !binding.device_id.startsWith("assist-")) return this.executeNow(request);
+    if (binding.state !== "active") throw new WorkspaceDispatchError("WORKSPACE_NOT_ACTIVE");
+    // Validate before retaining a bounded copy. Revalidate policy and the live
+    // binding again after waiting; a queued operation never reserves consent.
+    classifyWorkspaceOperation(request.operation, request.args, {
+      fullAccess: this.fullAccessFor(binding.device_id) === true,
+      assistCommands: this.assistCommandsFor(binding.device_id) === true,
+    });
+    const { signal, ...input } = request;
+    const snapshot = { ...structuredClone(input), signal };
+    let lane = this.deviceOperations.get(binding.device_id);
+    if (!lane) {
+      lane = { count: 0, tail: Promise.resolve({ uncertain: false }) };
+      this.deviceOperations.set(binding.device_id, lane);
+    }
+    if (lane.count >= this.maxQueuedOperations + 1) throw new WorkspaceDispatchError("DEVICE_QUEUE_FULL");
+    const waiting = lane.count > 0, previous = lane.tail, id = randomUUID();
+    let release, timer, check, cancel, uncertain = false, resumed = false;
+    lane.tail = new Promise(resolve => { release = resolve; });
+    lane.count++;
+    const notify = state => { try { this.onWait(binding, { id, state }); } catch {} };
+    try {
+      let prior;
+      if (waiting) {
+        notify("waiting");
+        prior = await Promise.race([previous, new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new WorkspaceDispatchError("DEVICE_WAIT_TIMEOUT")), this.waitTimeoutMs);
+          cancel = () => reject(new WorkspaceDispatchError("OPERATION_CANCELLED"));
+          signal?.addEventListener("abort", cancel, { once: true });
+          if (signal?.aborted) cancel();
+          check = setInterval(() => {
+            if (this.workspaceStore.get(binding.workspace_id)?.state !== "active")
+              reject(new WorkspaceDispatchError("WORKSPACE_NOT_ACTIVE"));
+          }, 250);
+          check.unref?.();
+        })]);
+      } else prior = await previous;
+      clearTimeout(timer);
+      clearInterval(check);
+      if (prior.uncertain) throw new WorkspaceDispatchError("EXECUTION_STATE_UNKNOWN");
+      resumed = true;
+      if (waiting) notify("resumed");
+      return await this.executeNow(snapshot);
+    } catch (error) {
+      uncertain = error?.code === "EXECUTION_STATE_UNKNOWN";
+      if (waiting && !resumed) notify("cancelled");
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      clearInterval(check);
+      if (cancel) signal?.removeEventListener("abort", cancel);
+      // If a waiting caller times out/cancels, keep its place until the prior
+      // operation settles. Never release the device while it is still busy.
+      previous.then(prior => {
+        release({ uncertain: uncertain || prior.uncertain });
+        if (--lane.count === 0 && this.deviceOperations.get(binding.device_id) === lane)
+          this.deviceOperations.delete(binding.device_id);
+      });
+    }
+  }
+
+  async executeNow({ workspace_id, operation, args, approval_id, signal }) {
+    if (signal?.aborted) throw new WorkspaceDispatchError("OPERATION_CANCELLED");
     const binding = this.workspaceStore.get(workspace_id);
     if (!binding) throw new WorkspaceDispatchError("WORKSPACE_NOT_FOUND");
     if (binding.state !== "active") throw new WorkspaceDispatchError("WORKSPACE_NOT_ACTIVE");
@@ -60,8 +130,12 @@ class WorkspaceDispatcher {
         workspaceSessionId: binding.workspace_id,
         ...(approval_id ? { approval: { id: approval_id, confirmed: true } } : {}),
       });
-      audit("completed");
-      return { status: "completed", result };
+      if (MUTATING_OPERATIONS.has(classified.operation) && result?.error === "EXECUTION_STATE_UNKNOWN")
+        throw new WorkspaceDispatchError("EXECUTION_STATE_UNKNOWN");
+      const failed = Boolean(result?.error) || (Number.isInteger(result?.exit_code) && result.exit_code !== 0);
+      const status = failed ? "failed" : "completed";
+      audit(status);
+      return { status, result };
     } catch (error) {
       if (MUTATING_OPERATIONS.has(classified.operation) && UNCERTAIN_CODES.has(error?.code || error?.message)) {
         audit("execution_state_unknown");

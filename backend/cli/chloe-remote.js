@@ -42,7 +42,7 @@ function call(socketPath, request) {
       done = true; socket.destroy();
       if (error) reject(error); else resolve(result);
     };
-    socket.setTimeout(370_000, () => finish(Error("EXECUTION_STATE_UNKNOWN")));
+    socket.setTimeout(13 * 60_000, () => finish(Error("EXECUTION_STATE_UNKNOWN")));
     socket.on("connect", () => socket.write(frame));
     socket.on("error", () => finish(Error("CONNECTION_LOST_CHECK_BEFORE_RETRY")));
     socket.on("end", () => finish(Error("EXECUTION_STATE_UNKNOWN")));

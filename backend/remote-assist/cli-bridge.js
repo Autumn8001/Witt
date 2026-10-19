@@ -22,11 +22,12 @@ async function createRemoteCliBridge({ socketPath, execute, uid, gid, fullAccess
   }
   const clients = new Set();
   const server = net.createServer(socket => {
+    const controller = new AbortController();
     clients.add(socket);
     let data = Buffer.alloc(0), used = false;
-    socket.setTimeout(370_000, () => socket.destroy());
+    socket.setTimeout(13 * 60_000, () => socket.destroy());
     socket.on("error", () => {});
-    socket.on("close", () => clients.delete(socket));
+    socket.on("close", () => { clients.delete(socket); controller.abort(); });
     socket.on("data", async chunk => {
       if (used) return;
       data = Buffer.concat([data, chunk]);
@@ -45,7 +46,7 @@ async function createRemoteCliBridge({ socketPath, execute, uid, gid, fullAccess
         const valid = validateWorkspaceOperation(request.operation, request.args, {
           assistCommands: true, fullAccess: fullAccessFor() === true,
         });
-        let result = await execute(valid.operation, valid.args);
+        let result = await execute(valid.operation, valid.args, { signal: controller.signal });
         if (result && typeof result.exit_code === "number") {
           if (result.error || (result.exit_code !== 0 && valid.operation !== "workspace.exec")) {
             throw Error(result.error || "REMOTE_OPERATION_FAILED");

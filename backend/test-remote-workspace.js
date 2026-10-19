@@ -147,6 +147,137 @@ test("dispatcher never retries uncertain write or exec operations", async (t) =>
   assert.equal(calls, 2);
 });
 
+function assistDispatcher(t, dispatch, options = {}) {
+  const directory = temp(t), store = new WorkspaceStore(directory), audit = new WorkspaceAuditStore(directory);
+  t.after(() => { store.close(); audit.close(); });
+  const workspace = store.create(binding({ device_id: "assist-11111111-1111-4111-8111-111111111111" }));
+  const events = [];
+  const dispatcher = new WorkspaceDispatcher({ workspaceStore: store, audit, approvals: new ApprovalGate(),
+    transport: { dispatch }, assistCommandsFor: () => true, fullAccessFor: () => true,
+    onWait: (_binding, event) => events.push(event), ...options });
+  const execute = (operation = "workspace.system_info", args = {}, extra = {}) =>
+    dispatcher.execute({ workspace_id: workspace.workspace_id, operation, args, ...extra });
+  return { store, audit, dispatcher, events, execute, workspace };
+}
+
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+test("Assist waits for a long command, preserves order and snapshots queued arguments", async t => {
+  const started = deferred(), finish = deferred(), calls = [];
+  const fixture = assistDispatcher(t, async (...args) => {
+    calls.push(args[2]);
+    if (calls.length === 1) { started.resolve(); await finish.promise; }
+    return { exit_code: 0, stdout: "ok" };
+  });
+  const first = fixture.execute("workspace.exec", { program: "powershell.exe", argv: ["-Command", "test"] });
+  await started.promise;
+  const args = { path: "README.md" };
+  const second = fixture.execute("workspace.read", args);
+  args.path = "changed-after-enqueue.txt";
+  const third = fixture.execute();
+  assert.equal(calls.length, 1);
+  assert.equal(fixture.events.filter(e => e.state === "waiting").length, 2);
+  finish.resolve();
+  assert.deepEqual((await Promise.all([first, second, third])).map(r => r.status), ["completed", "completed", "completed"]);
+  assert.deepEqual(calls.map(a => a.operation), ["workspace.exec", "workspace.read", "workspace.system_info"]);
+  assert.equal(calls[1].path, "README.md");
+  assert.equal(fixture.dispatcher.deviceOperations.size, 0);
+});
+
+test("Assist audit distinguishes command failure from successful delivery and retains result", async t => {
+  const fixture = assistDispatcher(t, async () => ({ exit_code: 7, stdout: "partial", stderr: "failed" }));
+  const result = await fixture.execute();
+  assert.equal(result.status, "failed");
+  assert.equal(result.result.exit_code, 7);
+  assert.equal(result.result.stderr, "failed");
+  assert.equal(fixture.audit.list(IDS.workspace)[0].status, "failed");
+});
+
+test("Assist cancels waiting work on pause and never sends it to the device", async t => {
+  const started = deferred(), finish = deferred(); let calls = 0;
+  const fixture = assistDispatcher(t, async () => { calls++; started.resolve(); await finish.promise; return { exit_code: 0 }; });
+  const first = fixture.execute(); await started.promise;
+  const waiting = fixture.execute("workspace.write", { path: "test.txt", content: "new", expected_sha256: "" });
+  fixture.store.setState(IDS.workspace, "paused");
+  await assert.rejects(waiting, { code: "WORKSPACE_NOT_ACTIVE" });
+  assert.equal(calls, 1);
+  finish.resolve(); await first;
+});
+
+test("Assist rechecks live full-access consent after waiting", async t => {
+  const started = deferred(), finish = deferred(); let full = true, calls = 0;
+  const fixture = assistDispatcher(t, async () => { calls++; started.resolve(); await finish.promise; return { exit_code: 0 }; },
+    { fullAccessFor: () => full });
+  const first = fixture.execute(); await started.promise;
+  const waiting = fixture.execute("workspace.read", { path: "C:/outside.txt" });
+  full = false; finish.resolve();
+  await first;
+  await assert.rejects(waiting, /INVALID_PATH/);
+  assert.equal(calls, 1);
+});
+
+test("Assist never continues queued writes after uncertain execution", async t => {
+  const started = deferred(), finish = deferred(); let calls = 0;
+  const fixture = assistDispatcher(t, async () => { calls++; started.resolve(); await finish.promise;
+    throw Object.assign(new Error("DEVICE_DISCONNECTED"), { code: "DEVICE_DISCONNECTED" }); });
+  const first = fixture.execute("workspace.exec", { program: "node", argv: ["--version"] });
+  await started.promise;
+  const second = fixture.execute("workspace.write", { path: "test.txt", content: "new", expected_sha256: "" });
+  const third = fixture.execute();
+  const rejected = [first, second, third].map(p => assert.rejects(p, { code: "EXECUTION_STATE_UNKNOWN" }));
+  finish.resolve(); await Promise.all(rejected);
+  assert.equal(calls, 1);
+});
+
+test("Assist waiting has a limit, and timed-out work cannot release an occupied device", async t => {
+  const started = deferred(), finish = deferred(); let calls = 0;
+  const fixture = assistDispatcher(t, async () => { calls++; started.resolve(); if (calls === 1) await finish.promise;
+    return { exit_code: 0 }; }, { waitTimeoutMs: 15, maxQueuedOperations: 1 });
+  const first = fixture.execute(); await started.promise;
+  const waiting = fixture.execute();
+  await assert.rejects(fixture.execute(), { code: "DEVICE_QUEUE_FULL" });
+  await assert.rejects(waiting, { code: "DEVICE_WAIT_TIMEOUT" });
+  assert.equal(calls, 1);
+  // A timed-out waiter remains a cancelled placeholder until the active job ends.
+  await assert.rejects(fixture.execute(), { code: "DEVICE_QUEUE_FULL" });
+  finish.resolve(); await first;
+  await new Promise(resolve => setImmediate(resolve));
+  await fixture.execute();
+  assert.equal(calls, 2);
+});
+
+test("Assist client disconnect cancels an unsent write without affecting the running command", async t => {
+  const started = deferred(), finish = deferred(); let calls = 0;
+  const fixture = assistDispatcher(t, async () => { calls++; started.resolve(); await finish.promise; return { exit_code: 0 }; });
+  const first = fixture.execute(); await started.promise;
+  const controller = new AbortController();
+  const waiting = fixture.execute("workspace.write", { path: "test.txt", content: "new", expected_sha256: "" }, { signal: controller.signal });
+  controller.abort();
+  await assert.rejects(waiting, { code: "OPERATION_CANCELLED" });
+  finish.resolve(); await first;
+  assert.equal(calls, 1);
+});
+
+test("waiting on one Assist device does not block a different customer's device", async t => {
+  const started = deferred(), finish = deferred(), calls = [];
+  const fixture = assistDispatcher(t, async (device) => {
+    calls.push(device);
+    if (device === fixture.workspace.device_id) { started.resolve(); await finish.promise; }
+    return { exit_code: 0 };
+  });
+  const other = fixture.store.create(binding({ workspace_id: IDS.other,
+    conversation_id: "4f132251-f642-4f12-8d49-3185be5854a5",
+    device_id: "assist-22222222-2222-4222-8222-222222222222" }));
+  const first = fixture.execute(); await started.promise;
+  await fixture.dispatcher.execute({ workspace_id: other.workspace_id, operation: "workspace.system_info", args: {} });
+  assert.deepEqual(calls, [fixture.workspace.device_id, other.device_id]);
+  finish.resolve(); await first;
+});
+
 test("dispatcher does not dispatch denied work", async (t) => {
   const directory = temp(t);
   const workspaces = new WorkspaceStore(directory);

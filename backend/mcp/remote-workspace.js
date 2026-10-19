@@ -49,7 +49,7 @@ async function invoke(name, args) {
   const credential = fs.readFileSync(credentialFile, "utf8").trim();
   if (!credential || credential.length > 200) throw new Error("MCP_NOT_AUTHORIZED");
   const response = await fetch(endpoint() + "/internal/remote-workspaces/mcp", {
-    method: "POST", redirect: "error", signal: AbortSignal.timeout(7 * 60_000),
+    method: "POST", redirect: "error", signal: AbortSignal.timeout(13 * 60_000),
     headers: { Authorization: `Bearer ${credential}`, "Content-Type": "application/json" },
     body: JSON.stringify({ operation, args }),
   });
@@ -75,7 +75,8 @@ input.on("line", async (line) => {
         const value = await invoke(request.params?.name, request.params?.arguments || {});
         result = { content: value?.mime?.startsWith("image/") && value?.data
           ? [{ type: "image", mimeType: value.mime, data: value.data }]
-          : [{ type: "text", text: JSON.stringify(value) }], ...(value?.error ? { isError: true } : {}) };
+          : [{ type: "text", text: JSON.stringify(value) }],
+          ...(value?.error || (Number.isInteger(value?.exit_code) && value.exit_code !== 0) ? { isError: true } : {}) };
       }
       catch (error) { result = { isError: true, content: [{ type: "text", text: String(error.message || "WORKSPACE_ERROR").slice(0, 100) }] }; }
     } else throw new Error("METHOD_NOT_FOUND");

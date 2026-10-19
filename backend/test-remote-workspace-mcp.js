@@ -33,11 +33,13 @@ test("stdio MCP tools reach the authenticated workspace route and bound dispatch
   const audit = new WorkspaceAuditStore(directory);
   const approvals = new ApprovalGate();
   const sent = [];
+  let responseOverride = null;
   // Only the device transport is simulated: exercise the actual MCP process,
   // HTTP route, session authentication, policy and workspace dispatcher.
   const dispatcher = new WorkspaceDispatcher({ workspaceStore: store, audit, approvals,
     transport: { dispatch: async (...args) => {
       sent.push(args);
+      if (responseOverride) return responseOverride;
       if (args[2].operation === "workspace.read_image") return {mime:"image/jpeg",data:"aW1hZ2U="};
       return { exit_code: 0, stdout: JSON.stringify({ operation: args[2].operation }) };
     } },
@@ -134,6 +136,15 @@ test("stdio MCP tools reach the authenticated workspace route and bound dispatch
       assert.equal(packet[4].workspaceSessionId, binding.workspace_id);
     });
   }
+  await t.test("a nonzero Windows exit code is an MCP tool error even without an error string", async () => {
+    responseOverride = { exit_code: 7, stdout: "partial", stderr: "command failed" };
+    const response = await rpc("tools/call", { name: "workspace_exec", arguments: { program: "node", argv: ["--version"] } });
+    assert.equal(response.result.isError, true);
+    assert.equal(JSON.parse(response.result.content[0].text).exit_code, 7);
+    assert.equal(JSON.parse(response.result.content[0].text).stderr, "command failed");
+    assert.equal(audit.list(binding.workspace_id)[0].status, "failed");
+    responseOverride = null;
+  });
   await t.test("unknown tool cannot dispatch", async () => {
     const before = sent.length;
     const response = await rpc("tools/call", { name: "workspace_delete", arguments: {} });

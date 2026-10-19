@@ -179,7 +179,7 @@ class RemoteWorkspaceService {
     if (this.cliPreparing.has(binding.workspace_id)) return this.cliPreparing.get(binding.workspace_id);
     if (binding.state !== "active") throw new RemoteWorkspaceServiceError("WORKSPACE_NOT_ACTIVE");
     const preparing = Promise.resolve().then(async () => {
-      const runtime = await this.cliRuntimeFactory(binding, (operation, args) => this.executeBinding(binding.workspace_id, operation, args), {
+      const runtime = await this.cliRuntimeFactory(binding, (operation, args, options) => this.executeBinding(binding.workspace_id, operation, args, options), {
         fullAccessFor: () => this.fullAccessFor(this.workspaceStore.get(binding.workspace_id)),
       });
       try {
@@ -196,20 +196,21 @@ class RemoteWorkspaceService {
     return preparing;
   }
 
-  async executeMcp(secret, operation, args) {
+  async executeMcp(secret, operation, args, options) {
     const binding = this.authenticate(secret);
     if (!binding) throw new RemoteWorkspaceServiceError("WORKSPACE_SESSION_INVALID");
-    return this.executeBinding(binding.workspace_id, operation, args);
+    return this.executeBinding(binding.workspace_id, operation, args, options);
   }
 
-  async executeBinding(workspaceId, operation, args) {
+  async executeBinding(workspaceId, operation, args, { signal } = {}) {
     const binding = this.workspaceStore.get(workspaceId);
     if (!binding || binding.state !== "active") throw new RemoteWorkspaceServiceError("WORKSPACE_NOT_ACTIVE");
-    const first = await this.dispatcher.execute({ workspace_id: binding.workspace_id, operation, args });
+    const first = await this.dispatcher.execute({ workspace_id: binding.workspace_id, operation, args, signal });
     if (first.status !== "approval_required") return first.result;
     await this.waitForApproval(binding, first.approval);
     const completed = await this.dispatcher.execute({
       workspace_id: binding.workspace_id, operation, args, approval_id: first.approval.id,
+      signal,
     });
     return completed.result;
   }

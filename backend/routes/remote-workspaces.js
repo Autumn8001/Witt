@@ -7,9 +7,9 @@ function plainObject(value) { return Boolean(value) && typeof value === "object"
 function errorStatus(error) {
   const code = error?.code || "";
   if (/^(?:INVALID|UNKNOWN)_/.test(code) || code === "OPERATION_DENIED") return 400;
-  if (code === "WORKSPACE_NOT_ACTIVE" || code === "DEVICE_OFFLINE") return 409;
+  if (["WORKSPACE_NOT_ACTIVE", "DEVICE_OFFLINE", "DEVICE_QUEUE_FULL", "OPERATION_CANCELLED"].includes(code)) return 409;
   if (code === "DEVICE_DISCONNECTED") return 503;
-  if (code === "COMMAND_TIMEOUT") return 504;
+  if (code === "COMMAND_TIMEOUT" || code === "DEVICE_WAIT_TIMEOUT") return 504;
   return 500;
 }
 
@@ -43,7 +43,9 @@ function createRemoteWorkspaceRoutes({ gateway, service, chatFor, runtimeProfile
     const secret = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
     readJsonBody(req, 600 * 1024, (error, body) => {
       if (error || !plainObject(body)) { sendJson(res, 400, { error: "INVALID_ARGUMENTS" }); return; }
-      Promise.resolve().then(() => service.executeMcp(secret, body.operation, body.args))
+      const controller = new AbortController();
+      res.once("close", () => { if (!res.writableEnded) controller.abort(); });
+      Promise.resolve().then(() => service.executeMcp(secret, body.operation, body.args, { signal: controller.signal }))
         .then((result) => sendJson(res, 200, { result }))
         .catch((reason) => sendJson(res, errorStatus(reason), { error: reason?.code || "WORKSPACE_ERROR" }));
     });

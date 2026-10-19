@@ -297,6 +297,11 @@ const remoteWorkspaceDispatcher = new WorkspaceDispatcher({
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
   assistCommandsFor: (deviceId) => remoteAssist.sessions.commandsAllowed(deviceId),
   fullAccessFor: (deviceId) => deviceId.startsWith("assist-") ? remoteAssist.sessions.fullAccessAllowed(deviceId) : deviceGateway.registry.describe(deviceId)?.capabilities?.includes("workspace.full_access") === true,
+  onWait: (binding, event) => {
+    const services = [chatService, ...userChatServices.values()];
+    const chat = services.find(service => service?.active?.conversationId === binding.conversation_id);
+    chat?.notifyRemoteWorkspaceWait(binding, event);
+  },
 });
 const remoteWorkspaceService = new RemoteWorkspaceService({
   workspaceStore: remoteWorkspaceStore, dispatcher: remoteWorkspaceDispatcher,
