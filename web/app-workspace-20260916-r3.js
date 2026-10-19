@@ -3078,7 +3078,7 @@
     const files = (message.attachments || []).map(attachmentHtml).join("");
     const identity = message.role === "user"
       ? '<span class="focus-message-avatar">我</span><strong>你</strong>'
-      : `<span class="focus-message-avatar assistant-avatar"><img src="/vault/assets/focus/brand.svg" alt=""></span><strong>Chloe</strong><span class="focus-message-model">${escapeHtml(modelDisplayName(message.model || state.model))}</span>`;
+      : `<span class="focus-message-avatar assistant-avatar"><img src="/vault/assets/focus/brand.svg?v=2" alt=""></span><strong>Chloe</strong><span class="focus-message-model">${escapeHtml(modelDisplayName(message.model || state.model))}</span>`;
     const head = `<header class="focus-message-head">${identity}</header>`;
     if (message.role === "user") {
       return `${head}<div class="bubble">${message.text
