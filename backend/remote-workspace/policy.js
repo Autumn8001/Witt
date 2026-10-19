@@ -19,11 +19,12 @@ function hasSensitivePath(path) {
     [".git", ".ssh", ".gnupg"].includes(part.toLowerCase()));
 }
 
-function classifyWorkspaceOperation(operation, args) {
-  const valid = validateWorkspaceOperation(operation, args);
+function classifyWorkspaceOperation(operation, args, options = {}) {
+  const valid = validateWorkspaceOperation(operation, args, options);
+  if (options.fullAccess === true) return { category: SAFE, reason: "DEVICE_FULL_ACCESS", ...valid };
   const path = valid.args.path || valid.args.cwd || null;
   if (hasSensitivePath(path)) return { category: DENY, reason: "SENSITIVE_PATH", ...valid };
-  if (["workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.git_status", "workspace.git_diff", "workspace.system_info"].includes(operation)) {
+  if (["workspace.list", "workspace.stat", "workspace.read", "workspace.read_image", "workspace.search", "workspace.git_status", "workspace.git_diff", "workspace.system_info"].includes(operation)) {
     return { category: SAFE, reason: "READ_ONLY", ...valid };
   }
   if (["workspace.write", "workspace.patch"].includes(operation)) {

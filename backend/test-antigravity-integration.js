@@ -146,3 +146,42 @@ test("git changes are collected before completion and existing session is resume
   assert.deepEqual(turn.calls.map((call) => call.type), ["sendPrompt", "git", "finish"]);
   assert.equal(turn.calls[0].params.conversationId, "existing-session");
 });
+
+test("Gemini result errors are redacted and fail the turn without throwing", async () => {
+  const turn = makeTurn({
+    events: [{ type: "result", error: "authentication failed api_key=private-test-value" }],
+    result: { ok: false, errorType: "process_exited" },
+  });
+  await turn.run();
+  assert.equal(completion(turn.calls).success, false);
+  assert.match(turn.service.active.harnessEventError, /authentication failed/);
+  assert.doesNotMatch(turn.service.active.harnessEventError, /private-test-value/);
+});
+
+test("new remote Gemini contexts start fresh and resume only after CLI session discovery", async () => {
+  for (const started of [false, true]) {
+    const turn = makeTurn({ harnessSessionId: "bound-session", result: { ok: true, text: "hello" } });
+    turn.service.remoteWorkspaceBinding = () => ({ workspace_id: "workspace" });
+    turn.conversation.remoteWorkspaceStarted = started;
+    await turn.run();
+    assert.equal(turn.calls[0].params.conversationId, started ? "bound-session" : undefined);
+    assert.equal(completion(turn.calls).success, true);
+  }
+});
+
+test("Antigravity tool DONE updates match the original step and complete reads", () => {
+  const { parseAntigravityEvent } = require("./runtime/event-parsers");
+  const { AntigravityAdapter } = require("./runtime/antigravity-adapter");
+  const start = parseAntigravityEvent({ event: "step_update", step_update: {
+    step_index: 5, state: "ACTIVE", tool_info: { name: "view_file", input: { AbsolutePath: "/workspace/schema.json" } },
+  } });
+  const end = parseAntigravityEvent({ event: "step_update", step_update: {
+    step_index: 5, state: "DONE", tool_info: { name: "view_file", output: "schema" },
+  } });
+  assert.equal(start.id, end.id);
+  assert.equal(end.type, "tool_call_update");
+  assert.equal(end.status, "completed");
+  const adapter = new AntigravityAdapter({ bin: "agy" });
+  assert.equal(adapter.formatToolUpdate(end).status, "completed");
+  assert.deepEqual(adapter.buildArgs({ prompt: "image", addDirs: ["/attachments"] }).slice(0, 2), ["--add-dir", "/attachments"]);
+});

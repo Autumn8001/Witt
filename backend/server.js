@@ -291,6 +291,7 @@ const remoteWorkspaceApprovals = new ApprovalGate();
 const remoteWorkspaceDispatcher = new WorkspaceDispatcher({
   workspaceStore: remoteWorkspaceStore, transport: deviceGateway.dispatcher,
   approvals: remoteWorkspaceApprovals, audit: remoteWorkspaceAudit,
+  fullAccessFor: (deviceId) => deviceGateway.registry.describe(deviceId)?.capabilities?.includes("workspace.full_access") === true,
 });
 const remoteWorkspaceService = new RemoteWorkspaceService({
   workspaceStore: remoteWorkspaceStore, dispatcher: remoteWorkspaceDispatcher,

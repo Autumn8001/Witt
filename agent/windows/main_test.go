@@ -185,7 +185,7 @@ func TestCapabilitiesAndRegistration(t *testing.T) {
 	}
 	config := agentConfig{roots: map[string]string{"work": t.TempDir()}, allowScreenCapture: true}
 	registration := registrationPacket("PC-001", "DESKTOP-TEST", config)
-	if registration.AgentVersion != "0.3.0" || registration.V != 1 {
+	if registration.AgentVersion != version || registration.V != 1 {
 		t.Fatalf("unexpected registration identity: %#v", registration)
 	}
 	for _, capability := range []string{"system.hostname", "system.info", "filesystem.list", "filesystem.read", "workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.write", "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info", "screen.capture"} {
@@ -506,5 +506,49 @@ func TestSessionCancellation(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("session did not exit on cancellation")
+	}
+}
+
+func TestFullAccessOutsideProject(t *testing.T) {
+	root, outside := t.TempDir(), t.TempDir()
+	file := filepath.Join(outside, "sample.txt")
+	config := agentConfig{roots: map[string]string{"work": root}}
+	args := map[string]any{"root": "work", "path": file, "content": "outside", "expected_sha256": ""}
+	denied := executeWithConfig(context.Background(), workspacePacket("write", args), "PC-001", config)
+	if denied.Error == "" {
+		t.Fatal("bounded device accepted outside file")
+	}
+	config.fullAccess = true
+	written := executeWithConfig(context.Background(), workspacePacket("write", args), "PC-001", config)
+	if written.Error != "" {
+		t.Fatalf("full access write: %s", written.Error)
+	}
+	read := executeWithConfig(context.Background(), workspacePacket("read", map[string]any{"root": "work", "path": file}), "PC-001", config)
+	if read.Error != "" || !strings.Contains(read.Stdout, "outside") {
+		t.Fatalf("full access read: %#v", read)
+	}
+	args["content"] = "overwrite"
+	conflict := executeWithConfig(context.Background(), workspacePacket("write", args), "PC-001", config)
+	if conflict.Error == "" {
+		t.Fatal("full access bypassed write hash")
+	}
+	imagePath := filepath.Join(outside, "image.jpg")
+	f, err := os.Create(imagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = jpeg.Encode(f, image.NewRGBA(image.Rect(0, 0, 20, 10)), nil); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	pic := executeWithConfig(context.Background(), workspacePacket("read_image", map[string]any{"root": "work", "path": imagePath}), "PC-001", config)
+	if pic.Error != "" || pic.Mime != "image/jpeg" || len(pic.Data) == 0 {
+		t.Fatalf("image response missing: %s", pic.Error)
+	}
+	if runtime.GOOS == "windows" {
+		result := executeWithConfig(context.Background(), workspacePacket("exec", map[string]any{"root": "work", "cwd": outside, "program": "powershell.exe", "argv": []string{"-NoProfile", "-Command", "Write-Output full-access-ok"}}), "PC-001", config)
+		if result.Error != "" || !strings.Contains(result.Stdout, "full-access-ok") {
+			t.Fatalf("full exec: %#v", result)
+		}
 	}
 }

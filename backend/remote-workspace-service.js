@@ -38,6 +38,10 @@ class RemoteWorkspaceService {
     fs.mkdirSync(this.runtimeDir, { recursive: true, mode: 0o700 });
   }
 
+  fullAccessFor(binding) {
+    return this.dispatcher.fullAccessFor?.(binding?.device_id) === true;
+  }
+
   bindingForConversation(conversationId) {
     return this.workspaceStore.getByConversation(conversationId);
   }
@@ -49,8 +53,19 @@ class RemoteWorkspaceService {
     const directory = path.join(this.runtimeDir, binding.workspace_id);
     const configDir = path.join(directory, ".grok");
     const geminiConfigDir = path.join(directory, ".gemini", "config");
+    const geminiStateDir = path.join(directory, ".gemini", "antigravity-cli");
     fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
     fs.mkdirSync(geminiConfigDir, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(geminiStateDir, { recursive: true, mode: 0o700 });
+    // New isolated homes default to OAuth login. Explicitly select the Gemini
+    // API provider so the adapter's key/base URL are used in headless mode.
+    const geminiSettingsFile = path.join(geminiStateDir, "settings.json");
+    let geminiSettings = {};
+    try { geminiSettings = JSON.parse(fs.readFileSync(geminiSettingsFile, "utf8")); } catch {}
+    fs.writeFileSync(geminiSettingsFile,
+      JSON.stringify({ ...geminiSettings, modelProvider: "gemini",
+        permissions: { ...geminiSettings.permissions,
+          allow: ["mcp(witt_remote_workspace/*)"] } }) + "\n", { mode: 0o600 });
     const secret = crypto.randomBytes(32).toString("base64url");
     const credentialFile = path.join(directory, "mcp-session-token");
     fs.writeFileSync(credentialFile, `${secret}\n`, { mode: 0o600 });
@@ -75,13 +90,18 @@ class RemoteWorkspaceService {
     }, null, 2) + "\n", { mode: 0o600 });
     let geminiBin = this.antigravityBin;
     if (process.platform === "linux" && geminiBin && fs.existsSync(`${geminiBin}.orig-elf`)) {
+      // Permit the unprivileged runtime to traverse its home without allowing
+      // directory listings of the workspace database or other runtime homes.
+      fs.chmodSync(path.dirname(this.runtimeDir), 0o711);
+      fs.chmodSync(this.runtimeDir, 0o711);
       const launcher = path.join(directory, "gemini-runtime");
       const quote = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
       fs.writeFileSync(launcher,
-        `#!/bin/sh\nexec /usr/bin/setpriv --reuid=agytest --regid=agytest --clear-groups env HOME=${quote(directory)} /usr/bin/qemu-x86_64 ${quote(`${geminiBin}.orig-elf`)} "$@"\n`,
+        `#!/bin/sh\nexec /usr/bin/setpriv --reuid=agytest --regid=agytest --clear-groups env HOME=${quote(directory)} USER=agytest /usr/bin/qemu-x86_64 -cpu max ${quote(`${geminiBin}.orig-elf`)} "$@"\n`,
         { mode: 0o700 });
       geminiBin = launcher;
-      for (const target of [directory, configDir, geminiConfigDir, credentialFile,
+      for (const target of [directory, configDir, path.dirname(geminiConfigDir), geminiConfigDir,
+        geminiStateDir, geminiSettingsFile, credentialFile,
         path.join(configDir, "config.toml"), path.join(geminiConfigDir, "mcp_config.json"), launcher]) {
         try { fs.chownSync(target, 1000, 1000); } catch {}
       }
@@ -110,6 +130,29 @@ class RemoteWorkspaceService {
       }
     }
     return null;
+  }
+
+  stageAttachments(binding, files) {
+    if (!files.length) return files;
+    const runtime = this.runtimeFor(binding);
+    // Keep the copy destination outside the model-writable working directory.
+    // A new root-owned directory and exclusive copies prevent symlink overwrite.
+    const directory = fs.mkdtempSync(path.join(this.runtimeDir, "attachments-"));
+    fs.chmodSync(directory, 0o711);
+    const staged = files.map((file) => {
+      if (fs.statSync(file.path).size > 16 * 1024 * 1024) {
+        throw new RemoteWorkspaceServiceError("ATTACHMENT_TOO_LARGE");
+      }
+      const destination = path.join(directory,
+        crypto.randomUUID() + path.extname(file.path).slice(0, 18));
+      fs.copyFileSync(file.path, destination, fs.constants.COPYFILE_EXCL);
+      fs.chmodSync(destination, 0o600);
+      if (process.platform === "linux" && runtime.geminiBin !== this.antigravityBin) {
+        fs.chownSync(destination, 1000, 1000);
+      }
+      return { ...file, path: destination };
+    });
+    return staged;
   }
 
   async executeMcp(secret, operation, args) {

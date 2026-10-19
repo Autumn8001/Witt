@@ -80,6 +80,8 @@ test("AntigravityAdapter formats commands, file operations and custom tools", ()
   assert.equal(presentedFile.kind, "file");
   assert.ok(presentedFile.label.includes("package.json"));
   assert.equal(presentedFile.status, "running");
+  assert.equal(presentedFile.readOnly, true);
+  assert.match(presentedFile.label, /读取文件/);
 
   // 3. 状态更新
   const update = adapter.formatToolUpdate({ status: "completed", output: "file contents..." }, presentedFile);

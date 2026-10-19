@@ -17,6 +17,7 @@ const cases = [
   ["workspace_list", "workspace.list", {}],
   ["workspace_stat", "workspace.stat", { path: "src/app.js" }],
   ["workspace_read", "workspace.read", { path: "src/app.js" }],
+  ["workspace_read_image", "workspace.read_image", { path: "photo.png" }],
   ["workspace_search", "workspace.search", { query: "hostname" }],
   ["workspace_write", "workspace.write", { path: "new.txt", content: "fixture", expected_sha256: "" }],
   ["workspace_patch", "workspace.patch", { path: "src/app.js", expected_sha256: "a".repeat(64), before: "before", after: "after" }],
@@ -37,6 +38,7 @@ test("stdio MCP tools reach the authenticated workspace route and bound dispatch
   const dispatcher = new WorkspaceDispatcher({ workspaceStore: store, audit, approvals,
     transport: { dispatch: async (...args) => {
       sent.push(args);
+      if (args[2].operation === "workspace.read_image") return {mime:"image/jpeg",data:"aW1hZ2U="};
       return { exit_code: 0, stdout: JSON.stringify({ operation: args[2].operation }) };
     } },
   });
@@ -121,7 +123,8 @@ test("stdio MCP tools reach the authenticated workspace route and bound dispatch
       const before = sent.length;
       const response = await rpc("tools/call", { name, arguments: args });
       assert.equal(response.result.isError, undefined);
-      assert.equal(JSON.parse(response.result.content[0].text).stdout, JSON.stringify({ operation }));
+      if (operation === "workspace.read_image") assert.deepEqual(response.result.content, [{type:"image",mimeType:"image/jpeg",data:"aW1hZ2U="}]);
+      else assert.equal(JSON.parse(response.result.content[0].text).stdout, JSON.stringify({ operation }));
       assert.equal(sent.length, before + 1);
       const packet = sent.at(-1);
       assert.equal(packet[0], "PC-001");

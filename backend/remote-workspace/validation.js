@@ -61,21 +61,27 @@ function sha256(value) {
   return value.toLowerCase();
 }
 
-function validateWorkspaceOperation(operation, args) {
+function validateWorkspaceOperation(operation, args, { fullAccess = false } = {}) {
+  const validatePath = (value, options) => {
+    if (fullAccess && typeof value === "string" && /^[A-Za-z]:[\\/]/.test(value) &&
+        value.length <= MAX_PATH_LENGTH && !/[\u0000-\u001f\u007f]/.test(value) &&
+        !value.slice(2).includes(":")) return value.replace(/\\/g, "/");
+    return validateRelativePath(value, options);
+  };
   if (typeof operation !== "string") invalid("INVALID_OPERATION");
   if (operation === "workspace.list") {
     if (!optionalKeys(args, [], ["path"])) invalid();
-    return { operation, args: { path: args.path === undefined ? "." : validateRelativePath(args.path, { allowRoot: true }) } };
+    return { operation, args: { path: args.path === undefined || args.path === "" ? "." : validatePath(args.path, { allowRoot: true }) } };
   }
-  if (operation === "workspace.stat" || operation === "workspace.read") {
+  if (operation === "workspace.stat" || operation === "workspace.read" || operation === "workspace.read_image") {
     if (!exactKeys(args, ["path"])) invalid();
-    return { operation, args: { path: validateRelativePath(args.path) } };
+    return { operation, args: { path: validatePath(args.path) } };
   }
   if (operation === "workspace.search") {
     if (!optionalKeys(args, ["query"], ["path", "max_results"])) invalid();
     const query = text(args.query, "query", 1024);
     if (!query.trim()) invalid("INVALID_QUERY");
-    const result = { query, path: args.path === undefined ? "." : validateRelativePath(args.path, { allowRoot: true }) };
+    const result = { query, path: args.path === undefined ? "." : validatePath(args.path, { allowRoot: true }) };
     if (args.max_results !== undefined) {
       if (!Number.isInteger(args.max_results) || args.max_results < 1 || args.max_results > MAX_SEARCH_RESULTS) invalid("INVALID_MAX_RESULTS");
       result.max_results = args.max_results;
@@ -87,7 +93,7 @@ function validateWorkspaceOperation(operation, args) {
     // create only when the target does not exist; the agent verifies it.
     if (!exactKeys(args, ["path", "content", "expected_sha256"])) invalid();
     const expected = args.expected_sha256 === "" ? "" : sha256(args.expected_sha256);
-    return { operation, args: { path: validateRelativePath(args.path), content: text(args.content, "content"), expected_sha256: expected } };
+    return { operation, args: { path: validatePath(args.path), content: text(args.content, "content"), expected_sha256: expected } };
   }
   if (operation === "workspace.patch") {
     // Exact before/after replacement is deliberately narrower than applying an
@@ -96,7 +102,7 @@ function validateWorkspaceOperation(operation, args) {
     const before = text(args.before, "before");
     const after = text(args.after, "after");
     if (!before) invalid("INVALID_PATCH");
-    return { operation, args: { path: validateRelativePath(args.path), expected_sha256: sha256(args.expected_sha256), before, after } };
+    return { operation, args: { path: validatePath(args.path), expected_sha256: sha256(args.expected_sha256), before, after } };
   }
   if (operation === "workspace.exec") {
     if (!optionalKeys(args, ["program", "argv"], ["cwd", "timeout_ms"])) invalid();
@@ -105,7 +111,7 @@ function validateWorkspaceOperation(operation, args) {
     if (!Array.isArray(args.argv) || args.argv.length > 64 || args.argv.some((entry) => typeof entry !== "string" ||
         Buffer.byteLength(entry, "utf8") > 4096 || entry.includes("\0"))) invalid("INVALID_ARGV");
     const result = { program, argv: [...args.argv] };
-    if (args.cwd !== undefined) result.cwd = validateRelativePath(args.cwd, { allowRoot: true });
+    if (args.cwd !== undefined) result.cwd = validatePath(args.cwd, { allowRoot: true });
     if (args.timeout_ms !== undefined) {
       if (!Number.isInteger(args.timeout_ms) || args.timeout_ms < 1000 || args.timeout_ms > MAX_TIMEOUT_MS) invalid("INVALID_TIMEOUT");
       result.timeout_ms = args.timeout_ms;

@@ -1,13 +1,15 @@
 # Customer Device Agent
 
 This is a transport agent, not an AI runtime. It holds one device token and
-accepts only fixed, structured operations. It never accepts an arbitrary shell
-command, PowerShell command, or script.
+accepts structured operations. By default, paths stay within configured roots
+and shell programs are denied. Explicit `-full-access` allows workspace tools
+to access any local path and run programs under the current Windows account.
+The gateway must also grant `workspace.full_access` to this device.
 
 ## Operations
 
 The agent keeps protocol version `v=1` and returns operation results in
-`stdout`. The registration packet declares `agent_version: 0.3.0`, its fixed
+`stdout`. The registration packet declares `agent_version: 0.4.0`, its fixed
 capabilities, and configured named roots.
 
 * `system {command: "hostname"}` — the existing hostname check.
@@ -28,7 +30,7 @@ New development sessions send `tool: "workspace"` and a JSON object in
 binds that alias to the Workspace Session, while the agent enforces it again
 locally. The supported operations are:
 
-* `{operation:"list"|"stat"|"read", root, path}`
+* `{operation:"list"|"stat"|"read"|"read_image", root, path}`
 * `{operation:"search", root, path, query}`
 * `{operation:"write", root, path, content, expected_sha256}`
 * `{operation:"patch", root, path, expected_sha256, before, after}`
@@ -106,3 +108,9 @@ unknown write or process is replayed.
 
 The local test suite covers the protocol, allowlists, root boundaries, text
 and size limits, registration capabilities, and disabled screen capture.
+
+In full access mode, Windows drive absolute paths are accepted for `path` and
+`cwd`; the configured project remains the default directory. Hash preconditions
+and authenticated device binding still apply. `read_image` returns a compressed
+JPEG attachment (PNG/JPEG input, up to 20 MiB and 40 million pixels), suitable
+for a vision-capable model. This flag does not grant Windows administrator rights.

@@ -42,6 +42,17 @@ test("Remote Workspace MCP credential is isolated to one immutable binding and c
   });
   const runtime = service.runtimeFor(store.get(ids.workspace));
   assert.ok(fs.existsSync(path.join(runtime.cwd, ".grok", "config.toml")));
+  const geminiSettings = JSON.parse(fs.readFileSync(path.join(runtime.cwd, ".gemini", "antigravity-cli", "settings.json")));
+  assert.equal(geminiSettings.modelProvider, "gemini");
+  assert.deepEqual(geminiSettings.permissions.allow, ["mcp(witt_remote_workspace/*)"]);
+  const geminiMcp = JSON.parse(fs.readFileSync(path.join(runtime.cwd, ".gemini", "config", "mcp_config.json")));
+  assert.equal(geminiMcp.mcpServers.witt_remote_workspace.env.WITT_REMOTE_WORKSPACE_CREDENTIAL_FILE, runtime.credentialFile);
+  const source = path.join(directory, "sample.png");
+  fs.writeFileSync(source, Buffer.from([137, 80, 78, 71]));
+  const [staged] = service.stageAttachments(store.get(ids.workspace), [{ path: source, name: "sample.png" }]);
+  assert.notEqual(staged.path, source);
+  assert.deepEqual(fs.readFileSync(staged.path), fs.readFileSync(source));
+  assert.equal(staged.name, "sample.png");
   assert.equal(service.authenticate("wrong"), null);
   const read = await service.executeMcp(runtime.secret, "workspace.read", { path: "src/app.js" });
   assert.equal(read.stdout, "ok");

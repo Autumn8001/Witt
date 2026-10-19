@@ -136,6 +136,7 @@ class AntigravityAdapter {
 
   buildArgs(params = {}) {
     const args = [];
+    for (const directory of params.addDirs || []) args.push("--add-dir", directory);
     if (params.prompt !== undefined) args.push("-p", String(params.prompt));
     args.push("--output-format", "stream-json");
     if (this.stdinSessions) args.push("--input-format", "stream-json");
@@ -277,15 +278,16 @@ class AntigravityAdapter {
     const safeCommand = command ? redactHarnessText(command, 4000) : null;
     const isCommand = Boolean(command) || /terminal|shell|command|exec/i.test(tool);
     const isFile = /file|read|write|edit/i.test(tool);
+    const readOnly = isFile && /^(?:view_file|read_file|list_dir|find_by_name|grep_search)$/i.test(tool);
     const kind = isCommand ? "command" : isFile ? "file" : "tool";
     const label = isCommand
       ? `命令：${String(safeCommand || tool).replace(/\s+/g, " ").slice(0, 120)}`
       : isFile
-      ? `操作文件：${String(rawInput.path || rawInput.file || tool).slice(0, 120)}`
+      ? `${readOnly ? "读取文件" : "操作文件"}：${String(rawInput.path || rawInput.file || rawInput.AbsolutePath || tool).slice(0, 120)}`
       : `调用工具：${tool}`;
     const input = sanitizeHarnessContent(event.input || null);
     return {
-      kind, label, status: "running",
+      kind, label, status: "running", ...(readOnly ? { readOnly: true } : {}),
       hasDetails: true,
       details: isCommand
         ? { command: safeCommand || tool, cwd, input, output: "", exitCode: null }

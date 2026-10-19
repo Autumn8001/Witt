@@ -15,6 +15,7 @@ const WORKSPACE_CAPABILITIES = Object.freeze([
   "workspace.list",
   "workspace.stat",
   "workspace.read",
+  "workspace.read_image",
   "workspace.search",
   "workspace.write",
   "workspace.patch",
@@ -23,7 +24,7 @@ const WORKSPACE_CAPABILITIES = Object.freeze([
   "workspace.git_diff",
   "workspace.system_info",
 ]);
-const CAPABILITY_RE = /^(?:system\.(?:hostname|info)|filesystem\.(?:list|read)|screen\.capture|workspace\.(?:list|stat|read|search|write|patch|exec|git_status|git_diff|system_info))$/;
+const CAPABILITY_RE = /^(?:system\.(?:hostname|info)|filesystem\.(?:list|read)|screen\.capture|workspace\.(?:list|stat|read|read_image|full_access|search|write|patch|exec|git_status|git_diff|system_info))$/;
 
 const LEGACY_CAPABILITIES = Object.freeze(["system.hostname", "system.info"]);
 

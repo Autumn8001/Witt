@@ -34,7 +34,7 @@ const maxOutput = 256 * 1024
 const maxFileRead = 256 * 1024
 const maxListEntries = 200
 const maxScreenshotBytes = 1280 * 1024
-const version = "0.3.0"
+const version = "0.4.0"
 
 var deviceIDPattern = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 var drivePathPattern = regexp.MustCompile(`^[A-Za-z]:`)
@@ -44,6 +44,7 @@ type agentConfig struct {
 	// means every operation uses the same boundary that was checked at startup.
 	roots              map[string]string
 	allowScreenCapture bool
+	fullAccess         bool
 }
 
 type rootFlags struct {
@@ -105,6 +106,10 @@ func advertisedCapabilities(config agentConfig) []string {
 			"workspace.list", "workspace.stat", "workspace.read", "workspace.search",
 			"workspace.write", "workspace.patch", "workspace.exec",
 			"workspace.git_status", "workspace.git_diff")
+		capabilities = append(capabilities, "workspace.read_image")
+		if config.fullAccess {
+			capabilities = append(capabilities, "workspace.full_access")
+		}
 	}
 	if runtime.GOOS == "windows" && config.allowScreenCapture {
 		capabilities = append(capabilities, "screen.capture")
@@ -238,7 +243,7 @@ func executeWithConfig(ctx context.Context, p packet, deviceID string, config ag
 			return result
 		}
 		result = executeScreenCapture(commandCtx, p, deviceID)
-	case "workspace", "workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.write", "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info":
+	case "workspace.read_image", "workspace", "workspace.list", "workspace.stat", "workspace.read", "workspace.search", "workspace.write", "workspace.patch", "workspace.exec", "workspace.git_status", "workspace.git_diff", "workspace.system_info":
 		result = executeWorkspace(commandCtx, p, deviceID, config)
 	default:
 		result.Error = "COMMAND_NOT_ALLOWED"
@@ -608,6 +613,7 @@ func main() {
 	var roots rootFlags
 	flag.Var(&roots, "root", "named filesystem root (repeatable): alias=absolutePath")
 	allowScreenCapture := flag.Bool("allow-screen-capture", false, "allow the built-in Windows screenshot operation")
+	fullAccess := flag.Bool("full-access", false, "grant this device filesystem and program access as the current Windows user")
 	flag.Parse()
 	parsed, parseErr := url.Parse(*endpoint)
 	if parseErr != nil || parsed.Scheme != "wss" || parsed.Host == "" || parsed.User != nil ||
@@ -628,6 +634,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	config := configFromRoots(roots, *allowScreenCapture)
+	config.fullAccess = *fullAccess
 	delay := time.Second
 	for ctx.Err() == nil {
 		err := runSessionWithConfig(ctx, *endpoint, *deviceID, token, config)

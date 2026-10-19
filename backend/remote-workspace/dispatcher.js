@@ -19,13 +19,14 @@ class WorkspaceDispatcher {
     this.audit = options.audit;
     this.now = options.now || (() => Date.now());
     this.timeoutMs = options.timeoutMs ?? 20_000;
+    this.fullAccessFor = options.fullAccessFor || (() => false);
   }
 
   async execute({ workspace_id, operation, args, approval_id }) {
     const binding = this.workspaceStore.get(workspace_id);
     if (!binding) throw new WorkspaceDispatchError("WORKSPACE_NOT_FOUND");
     if (binding.state !== "active") throw new WorkspaceDispatchError("WORKSPACE_NOT_ACTIVE");
-    const classified = classifyWorkspaceOperation(operation, args);
+    const classified = classifyWorkspaceOperation(operation, args, { fullAccess: this.fullAccessFor(binding.device_id) === true });
     const started = this.now();
     const audit = (status) => this.audit.record({ workspace_id: binding.workspace_id, device_id: binding.device_id,
       operation: classified.operation, path: operationPath(classified.args), category: classified.category,

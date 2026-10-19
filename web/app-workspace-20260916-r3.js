@@ -840,12 +840,15 @@
   function renderQuickModelPicker() {
     const menu = $("#quickModelMenu");
     if (!menu) return;
-    const models = Array.isArray(state.capabilities?.models) && state.capabilities.models.length
+    const capabilityModels = Array.isArray(state.capabilities?.models) && state.capabilities.models.length
       ? state.capabilities.models
       : [{ id: MVP_DEFAULT_MODEL, displayName: modelNames[MVP_DEFAULT_MODEL] }];
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
     const remote = activeRemoteWorkspace(state.active);
+    const models = remote && state.runtimeProfiles.length
+      ? state.runtimeProfiles.map((profile) => ({ id: profile.model, displayName: runtimeProfileDisplayName(profile) }))
+      : capabilityModels;
     const remoteLocked = false;
 
     // 远程工作区环境锁定横幅
@@ -864,7 +867,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <strong>远程工作区 · 环境已锁定</strong>
         </div>
-        <p class="quick-locked-desc">当前会话已绑定受控环境，设备、项目范围、Harness 与模型不可在对话中更换。</p>
+        <p class="quick-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可访问项目外文件。" : "当前会话已绑定设备与项目范围。"}模型可以切换。</p>
         <div class="quick-locked-tags">
           <span>设备：<b>${escapeHtml(devLabel)}</b></span>
           <span>范围：<b>${escapeHtml(pathLabel)}</b></span>
@@ -1276,7 +1279,7 @@
     const envPill = $("#composerEnvPill");
     if (envPill) {
       if (remote) {
-        envPill.textContent = `远程 · ${remote.deviceLabel || remote.rootAlias || "工作区"}`;
+        envPill.textContent = `${remote.fullAccess ? "完整访问" : "远程"} · ${remote.deviceLabel || remote.rootAlias || "工作区"}`;
         envPill.classList.add("is-remote");
         envPill.title = `已绑定远程设备：${remote.deviceLabel || ""}，项目：${remote.displayPath || remote.rootAlias || ""}`;
       } else {
@@ -1305,7 +1308,7 @@
     // 同步抽屉设置面板锁定状态
     let sheetBanner = $("#settingsLockedBanner");
     const settingsScroll = $(".settings-panel .settings-scroll");
-    if (remote) {
+    if (remoteLocked && remote) {
       if (!sheetBanner && settingsScroll) {
         sheetBanner = document.createElement("div");
         sheetBanner.id = "settingsLockedBanner";
@@ -1317,13 +1320,13 @@
         sheetBanner.innerHTML = `
           <div class="settings-locked-head">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <strong>远程开发工作区 · 配置已锁定</strong>
+          <strong>远程开发工作区 · 设备范围已锁定</strong>
           </div>
-          <p class="settings-locked-desc">当前对话已固定绑定受控环境，设备、项目范围、Harness 与模型不可在对话中更换。</p>
+          <p class="settings-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可读写项目外文件和执行程序。" : "当前对话已固定绑定设备与项目范围。"}切换模型会开启新的模型上下文。</p>
           <div class="settings-locked-tags">
             <span>设备：<b>${escapeHtml(remote.deviceLabel || remote.deviceId || "受控电脑")}</b></span>
-            <span>范围：<b>${escapeHtml(remote.displayPath || remote.rootAlias || "项目根目录")}</b></span>
-            <span>Harness：<b>Grok Build</b></span>
+            <span>范围：<b>${escapeHtml(remote.fullAccess ? "当前设备 · 完整访问" : (remote.displayPath || remote.rootAlias || "项目根目录"))}</b></span>
+            <span>Harness：<b>${escapeHtml(state.harness || "自动匹配")}</b></span>
             <span>模型：<b>${escapeHtml(modelDisplayName(state.model))}</b></span>
           </div>
         `;
@@ -2125,7 +2128,6 @@
   }
 
   function applySettings({ closeSheet = true, announce = true } = {}) {
-    const remote = activeRemoteWorkspace(state.active);
     state.model = state.draftModel || state.model;
     state.reasoning = state.draftReasoning || state.reasoning;
     state.accessMode = state.draftAccessMode || state.accessMode;
@@ -2972,13 +2974,15 @@
   function streamGroupLabel(entries) {
     const commands = entries.filter((entry) => entry.kind === "command").length;
     const files = entries
-      .filter((entry) => entry.kind === "file")
+      .filter((entry) => entry.kind === "file" && !entry.readOnly)
       .reduce((total, entry) => total + Math.max(1, Number(entry.count) || 1), 0);
+    const reads = entries.filter((entry) => entry.kind === "file" && entry.readOnly).length;
     const tools = entries.filter((entry) => !["command", "file", "web"].includes(entry.kind)).length;
     const web = entries.filter((entry) => entry.kind === "web").length;
     const parts = [];
     if (commands) parts.push(`执行 ${commands} 条命令`);
     if (files) parts.push(`修改 ${files} 个文件`);
+    if (reads) parts.push(`读取 ${reads} 个文件`);
     if (web) parts.push(`查询 ${web} 次`);
     if (tools) parts.push(`调用 ${tools} 个工具`);
     return parts.join(" · ") || `处理 ${entries.length} 项操作`;
@@ -5361,6 +5365,7 @@
   $("#reasoningStops").addEventListener("click", selectReasoning);
   $("#reasoningSegments").addEventListener("click", selectReasoning);
   $(".access-options").addEventListener("click", (event) => {
+    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const accessMode = event.target.closest("[data-access]")?.dataset.access;
     if (!accessMode) return;
     state.draftAccessMode = accessMode;
