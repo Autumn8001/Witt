@@ -23,7 +23,7 @@ function start(backendPort){
   if(req.method==="GET"&&(parsed.pathname==="/"||parsed.pathname.startsWith("/vault/"))){
    const relative=parsed.pathname==="/"?"index.html":parsed.pathname.slice(7),file=path.resolve(repo,"web",relative),root=path.join(repo,"web")+path.sep;
    if(!file.startsWith(root)){res.writeHead(403);res.end();return;}
-   const mime={".html":"text/html; charset=utf-8",".js":"application/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".svg":"image/svg+xml",".webp":"image/webp",".woff2":"font/woff2"}[path.extname(file)]||"application/octet-stream";
+   const mime={".html":"text/html; charset=utf-8",".js":"application/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".svg":"image/svg+xml",".png":"image/png",".webp":"image/webp",".woff2":"font/woff2"}[path.extname(file)]||"application/octet-stream";
    fs.stat(file,(err,st)=>{if(err||!st.isFile()){res.writeHead(404);res.end();return;}res.writeHead(200,{"Content-Type":mime});fs.createReadStream(file).pipe(res);});return;
   }
   const target=req.url.replace(/^\/vault-api(?=\/)/,"");

@@ -3481,7 +3481,7 @@
   $("#localSshButton").addEventListener("click", openLocalSsh);
   $("#adminSettingsButton").addEventListener("click", openAdminSettings);
   $("#codexAccountsButton").addEventListener("click", openCodexAccounts);
-  $(".theme-options").addEventListener("click", (event) => {
+  $(".theme-options")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-theme-choice]");
     if (!button) return;
     applyTheme(button.dataset.themeChoice, true);

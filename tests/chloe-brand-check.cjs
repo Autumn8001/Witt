@@ -26,9 +26,17 @@ test("web shell and chat defaults display Chloe", () => {
 });
 
 test("homepage branding fits mobile and desktop browsers", async () => {
-  const requireFromBackend = createRequire(path.join(root, "backend", "package.json"));
-  const { chromium } = requireFromBackend("playwright");
-  const browser = await chromium.launch({ headless: true });
+  let chromium;
+  try {
+    const requireFromBackend = createRequire(path.join(root, "backend", "package.json"));
+    chromium = requireFromBackend("playwright").chromium;
+  } catch {
+    chromium = require(path.join(root, "..", "local-tools", "_witt-ui-harness", "node_modules", "playwright-core")).chromium;
+  }
+  const launchOptions = { headless: true };
+  const chromePath = "C:/Users/星烛/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe";
+  if (require("node:fs").existsSync(chromePath)) launchOptions.executablePath = chromePath;
+  const browser = await chromium.launch(launchOptions);
   const webRoot = path.join(root, "web");
 
   try {

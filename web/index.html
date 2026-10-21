@@ -409,13 +409,13 @@
     </header>
 
     <main class="chat-stage" id="chatStage">
-      <section class="welcome" id="welcome">
-        <span class="hero-eyebrow-pill" title="Chloe 开发工作台" aria-label="Chloe 开发工作台">
-          <svg class="autumn-icon autumn-icon-hero"><use href="#autumn-icon-leaf"></use></svg>
-          你的个人 AI 开发工作区
-        </span>
-        <h1 class="hero-greeting-title animate-blur-fade-up">你好，我是<span class="chloe-brand-name">Chloe</span></h1>
-        <p class="hero-greeting-desc animate-blur-fade-up">我可以帮助你编写代码、调试问题、连接远程环境，并管理你的服务器与项目。</p>
+      <section class="welcome animate-blur-fade-up" id="welcome">
+        <div class="welcome-status-pill" id="heroStatusPill" title="Chloe 开发工作台" aria-label="Chloe 开发工作台">
+          <span class="status-pulse-dot" aria-hidden="true"></span>
+          <span id="heroStatusText">Server Online • Ready</span>
+        </div>
+        <h1 class="hero-greeting-title">Hello, I'm <span class="chloe-brand-name">Chloe</span></h1>
+        <p class="hero-greeting-desc">Your private AI workspace for architecture, debugging, and systems</p>
       </section>
       <section class="task-status-strip" id="taskStatusStrip" aria-live="polite" hidden></section>
       <button class="history-load" id="loadOlderMessages" type="button" hidden>加载更早消息</button>
@@ -430,37 +430,32 @@
     <section class="composer-wrap animate-blur-fade-up" style="animation-delay:500ms">
       <div class="attachment-strip" id="attachmentStrip"></div>
       <div class="composer liquid-glass" id="composer">
-        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="向 Chloe 发送消息，或输入 / 使用快捷操作..."></textarea>
+        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="回复 Chloe"></textarea>
         <div class="composer-toolbar">
           <div class="composer-toolbar-left">
             <button class="attach-button" id="attachButton" aria-label="添加内容" aria-expanded="false">
-              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
             </button>
-            <button class="composer-model composer-pill-btn" id="modelButton" aria-label="模型与执行环境">
-              <span class="model-pill-segment segment-env" title="运行环境">
-                <svg class="autumn-icon composer-env-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-sprout"></use></svg>
-                <span class="composer-env-pill" id="composerEnvPill">服务端</span>
-                <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-              </span>
-              <span class="model-pill-segment segment-model" title="选择模型">
-                <svg class="autumn-icon composer-model-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>
-                <b id="modelLabel">Grok 4.7 High</b>
-                <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-              </span>
-              <span class="model-pill-segment segment-reasoning" title="智能与思考程度">
-                <svg class="autumn-icon composer-reasoning-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-lightning"></use></svg>
-                <span id="reasoningLabel">均衡</span>
-                <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-              </span>
+            <button class="composer-pill-btn composer-env-btn" id="composerEnvButton" type="button" aria-label="运行环境" title="服务器运行环境">
+              <svg class="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+              <span class="pill-prefix">Server: </span>
+              <span class="composer-env-pill" id="composerEnvPill">服务器</span>
+            </button>
+            <button class="composer-model composer-pill-btn" id="modelButton" type="button" aria-label="选择模型与推理强度" aria-haspopup="true" aria-expanded="false" title="选择模型与推理强度">
+              <svg class="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
+              <b id="modelLabel">Grok 4.7 High</b>
+              <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              <span id="reasoningLabel" class="visually-hidden">Deep</span>
               <span id="accessLabel" class="visually-hidden">完全访问</span>
             </button>
           </div>
           <div class="composer-toolbar-right">
+            <span class="composer-toolbar-divider" aria-hidden="true"></span>
             <button class="voice-button" id="voiceButton" aria-label="语音模式暂未接入" title="语音模式暂未接入" disabled>
-              <svg viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Zm-6 7a6 6 0 0 0 12 0M12 17v3M8.5 20h7"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
             </button>
             <button class="send-button" id="sendButton" aria-label="发送">
-              <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0L6.5 10.5M12 5l5.5 5.5"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
             </button>
           </div>
         </div>
@@ -482,7 +477,7 @@
         <span class="quick-reasoning-heading">智能程度</span>
         <div class="quick-reasoning-options" id="quickReasoningOptions" role="radiogroup" aria-label="选择智能程度"></div>
       </section>
-      <p id="composerHint" class="composer-hint">由你服务器上的 AI Harness 处理 · 重要操作会先确认</p>
+      <p id="composerHint" class="composer-hint"><svg class="hint-lock-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> <span>Protected execution • Critical actions require explicit approval</span></p>
     </section>
   </div>
 
@@ -533,20 +528,64 @@
           <h2>Chloe</h2>
         </div>
         <button class="icon-button sidebar-toggle-btn" id="closeDrawer" aria-label="关闭侧边栏">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </button>
       </div>
       <button class="drawer-new" id="drawerNewChat" aria-label="新建对话">
         <div class="drawer-new-copy">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          <span>新建对话</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New Chat</span>
         </div>
         <kbd class="drawer-new-shortcut" id="newChatShortcutHint">⌘ K</kbd>
       </button>
+
+      <nav class="sidebar-nav-list pinned-system-grid" id="pinnedSystemGrid" aria-label="核心系统与服务状态">
+        <button class="sidebar-nav-item drawer-admin-entry" id="customerDevicesButton" type="button" aria-controls="customerDevicesSheet">
+          <div class="nav-item-left">
+            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+            <span class="nav-item-title">Remote Windows</span>
+          </div>
+          <div class="nav-item-right">
+            <span class="status-indicator-dot online" aria-hidden="true"></span>
+            <small class="nav-item-sub">Online</small>
+          </div>
+        </button>
+        <button class="sidebar-nav-item" id="workspaceOverviewButton" type="button">
+          <div class="nav-item-left">
+            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span class="nav-item-title">Server Health</span>
+          </div>
+          <div class="nav-item-right">
+            <span class="status-indicator-dot online" aria-hidden="true"></span>
+            <small class="nav-item-sub">Operational</small>
+          </div>
+        </button>
+        <button class="sidebar-nav-item" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet">
+          <div class="nav-item-left">
+            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
+            <span class="nav-item-title">Model Settings</span>
+          </div>
+          <div class="nav-item-right">
+            <span class="status-indicator-dot online" aria-hidden="true"></span>
+            <small class="nav-item-sub">2 jobs</small>
+          </div>
+        </button>
+        <button class="sidebar-nav-item" id="profileButton" type="button">
+          <div class="nav-item-left">
+            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+            <span class="nav-item-title">CPA Quota</span>
+          </div>
+          <div class="nav-item-right">
+            <span class="status-indicator-dot online" aria-hidden="true"></span>
+            <small class="nav-item-sub">11d left</small>
+          </div>
+        </button>
+      </nav>
+
       <section class="drawer-history" aria-labelledby="drawerHistoryTitle">
         <div class="drawer-history-head">
           <div class="drawer-history-title-group">
-            <span id="drawerHistoryTitle">最近对话</span>
+            <span id="drawerHistoryTitle">History</span>
             <b id="conversationCount" class="conversation-count-badge">0</b>
           </div>
           <button type="button" class="sidebar-search-trigger" id="historySearchToggle" aria-label="搜索历史对话">
@@ -560,48 +599,23 @@
         </div>
         <div class="conversation-list" id="conversationList"></div>
       </section>
+
       <div class="drawer-tools">
-        <div class="drawer-section-group">
-          <button class="drawer-entry-card drawer-admin-entry" id="customerDevicesButton" hidden aria-controls="customerDevicesSheet">
-            <span class="profile-monogram customer-device-monogram"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-monitor-leaf"></use></svg></span>
-            <span class="drawer-entry-text"><strong>远程开发工作区</strong><small>连接 Windows 电脑与受控项目</small></span>
-            <svg class="drawer-entry-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        <div class="drawer-admin-auxiliary" hidden>
+          <button class="drawer-profile drawer-admin-entry" id="adminSettingsButton" hidden>
+            <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree"></use></svg></span>
+            <span><strong>设备管理</strong><small>/4端可登录</small></span>
           </button>
-          <button class="workspace-entry" id="workspaceOverviewButton" type="button"><span class="workspace-entry-label"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-branch"></use></svg>项目与服务连接</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
-          <button class="workspace-entry" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet"><span class="workspace-entry-label"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-gear-leaf"></use></svg>模型、Harness 与服务端设置</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+          <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
+            <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-user-badge"></use></svg></span>
+            <span><strong>账号</strong><small>Codex</small></span>
+          </button>
+          <button class="drawer-profile" id="localSshButton" style="display:none;">
+            <span class="profile-monogram terminal-monogram"><svg viewBox="0 0 24 24"><path d="m6 8 4 4-4 4M12 17h6"/></svg></span>
+            <span><strong>服务器</strong><small id="localSshDrawerStatus">本地终端</small></span>
+          </button>
         </div>
-        <div class="drawer-section-group">
-          <div class="drawer-utilities">
-            <button class="drawer-profile" id="profileButton">
-              <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-home-usage"></use></svg></span>
-              <span><strong>我的</strong><small>用量与额度</small></span>
-            </button>
-            <button class="drawer-profile drawer-admin-entry" id="adminSettingsButton" hidden>
-              <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree"></use></svg></span>
-              <span><strong>设备管理</strong><small>/4端可登录</small></span>
-            </button>
-            <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
-              <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-user-badge"></use></svg></span>
-              <span><strong>账号</strong><small>Codex</small></span>
-            </button>
-            <button class="drawer-profile" id="localSshButton" style="display:none;">
-              <span class="profile-monogram terminal-monogram"><svg viewBox="0 0 24 24"><path d="m6 8 4 4-4 4M12 17h6"/></svg></span>
-              <span><strong>服务器</strong><small id="localSshDrawerStatus">本地终端</small></span>
-            </button>
-          </div>
-        </div>
-        <section class="drawer-theme" aria-labelledby="themeTitle">
-          <span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>
-            <b id="themeTitle">外观</b>
-          </span>
-          <div class="theme-options" role="group" aria-label="选择界面主题">
-            <button type="button" data-theme-choice="system">自动</button>
-            <button type="button" data-theme-choice="light">亮色</button>
-            <button type="button" data-theme-choice="colorful">暖色</button>
-            <button type="button" data-theme-choice="dark">夜间</button>
-          </div>
-        </section>
+
         <div class="drawer-footer">
           <span>Chloe <b id="appVersion">v—</b></span>
           <button id="updateButton" class="update-link">检查更新<i class="update-badge-dot" aria-hidden="true"></i></button>

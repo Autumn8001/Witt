@@ -748,7 +748,14 @@
     const offered = (selectedModel?.reasoningEfforts || [])
       .map((effort) => effort.id)
       .filter((effort) => reasoningMeta[effort]);
-    const efforts = offered.length ? offered : ["low", "medium", "high", "xhigh"];
+    const efforts = offered;
+    const control = $("#reasoningControl");
+    if (!efforts.length) {
+      if (control) control.hidden = true;
+      renderQuickModelPicker();
+      return;
+    }
+    if (control) control.hidden = false;
     let current = state.draftReasoning || state.reasoning;
     if (!efforts.includes(current)) {
       const preferred = selectedModel?.defaultReasoningEffort;
@@ -757,7 +764,6 @@
     }
     const index = Math.max(0, efforts.indexOf(current));
     const meta = reasoningMeta[current] || reasoningMeta.medium;
-    const control = $("#reasoningControl");
     if (!control) return;
     control.dataset.level = current;
     control.dataset.intensity = String(meta.intensity);
@@ -796,7 +802,7 @@
     const offered = (selectedModel?.reasoningEfforts || [])
       .map((effort) => effort.id)
       .filter((effort) => reasoningMeta[effort]);
-    return offered.length ? offered : ["low", "medium", "high", "xhigh"];
+    return offered;
   }
 
   function activeRemoteWorkspace(conv = state.active) {
@@ -876,28 +882,38 @@
     }).join("");
 
     const efforts = availableReasoningEfforts().slice().reverse();
-    $("#quickReasoningOptions").innerHTML = efforts.map((effort) => {
-      const selected = effort === selectedReasoning;
-      const meta = reasoningMeta[effort] || { label: effort, code: effort.toUpperCase(), description: "" };
-      const shortLabel = quickReasoningNames[effort] || meta.label || effort;
-      return `
-        <button type="button"
-          class="quick-reasoning-card ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}"
-          data-quick-reasoning="${escapeHtml(effort)}"
-          role="radio"
-          aria-checked="${selected}"
-          ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
-          <span class="reasoning-radio-dot" aria-hidden="true"></span>
-          <div class="reasoning-card-content">
-            <div class="reasoning-card-title-row">
-              <strong class="reasoning-card-name">${escapeHtml(shortLabel)} · ${escapeHtml(meta.label)}推理</strong>
-              <code class="reasoning-card-code">${escapeHtml(meta.code)}</code>
-            </div>
-            <small class="reasoning-card-desc">${escapeHtml(meta.description)}</small>
-          </div>
-        </button>
-      `;
-    }).join("");
+    const reasoningOptions = $("#quickReasoningOptions");
+    if (reasoningOptions) {
+      if (efforts.length === 0) {
+        reasoningOptions.innerHTML = `
+          <div class="quick-reasoning-empty" role="note">
+            <span>当前模型不支持自定义推理强度</span>
+          </div>`;
+      } else {
+        reasoningOptions.innerHTML = efforts.map((effort) => {
+          const selected = effort === selectedReasoning;
+          const meta = reasoningMeta[effort] || { label: effort, code: effort.toUpperCase(), description: "" };
+          const shortLabel = quickReasoningNames[effort] || meta.label || effort;
+          return `
+            <button type="button"
+              class="quick-reasoning-card ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}"
+              data-quick-reasoning="${escapeHtml(effort)}"
+              role="radio"
+              aria-checked="${selected}"
+              ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
+              <span class="reasoning-radio-dot" aria-hidden="true"></span>
+              <div class="reasoning-card-content">
+                <div class="reasoning-card-title-row">
+                  <strong class="reasoning-card-name">${escapeHtml(shortLabel)} · ${escapeHtml(meta.label)}推理</strong>
+                  <code class="reasoning-card-code">${escapeHtml(meta.code)}</code>
+                </div>
+                <small class="reasoning-card-desc">${escapeHtml(meta.description)}</small>
+              </div>
+            </button>
+          `;
+        }).join("");
+      }
+    }
   }
 
   function renderRuntimeControls() {
@@ -1264,8 +1280,29 @@
         envPill.title = "服务器运行环境";
       }
     }
-    $("#modelLabel").textContent = modelDisplayName(state.model) || "Grok";
-    $("#reasoningLabel").textContent = reasoningNames[state.reasoning] || "均衡";
+    const modelId = state.draftModel || state.model;
+    const baseName = modelDisplayName(modelId) || "Grok";
+    const offered = availableReasoningEfforts();
+    const modelLabel = $("#modelLabel");
+    if (modelLabel) {
+      if (offered.length > 0) {
+        const currentEffort = state.draftReasoning || state.reasoning;
+        const effortLabel = quickReasoningNames[currentEffort] || reasoningMeta[currentEffort]?.label || currentEffort;
+        if (baseName.toLowerCase().includes(effortLabel.toLowerCase()) ||
+            (currentEffort === "high" && baseName.includes("High"))) {
+          modelLabel.textContent = baseName;
+        } else {
+          const cleaned = baseName.replace(/\s+(High|Medium|Low|XHigh|Max|Ultra|低|中|高|极高)$/i, "");
+          modelLabel.textContent = `${cleaned} ${effortLabel}`;
+        }
+      } else {
+        modelLabel.textContent = baseName;
+      }
+    }
+    const reasoningLabel = $("#reasoningLabel");
+    if (reasoningLabel) {
+      reasoningLabel.textContent = reasoningNames[state.reasoning] || "均衡";
+    }
     $("#accessLabel").textContent = accessNames[state.accessMode] || "完全访问";
     $("#projectLabel").textContent = projectName(state.workDir);
     $("#moreProjectLabel").textContent = projectName(state.workDir);
@@ -2406,6 +2443,42 @@
       : `<div class="detail-error">本轮没有可显示的文件变更。</div>`;
   }
 
+  function conversationTimeGroup(updatedAt) {
+    if (!updatedAt) return "Earlier";
+    const date = new Date(updatedAt);
+    if (isNaN(date.getTime())) return "Earlier";
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.round((today - itemDate) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays <= 7) return "Previous 7 Days";
+    if (diffDays <= 30) return "Previous 30 Days";
+    return "Earlier";
+  }
+
+  function renderConversationRow(conversation, isPinned) {
+    const proj = historyProjectName(conversation);
+    const showProj = state.workspaceFeatures && proj && proj !== "未分组";
+    return `
+      <article class="conversation-row ${conversation.id === state.activeId ? "active" : ""}" data-id="${conversation.id}">
+        <button class="conversation-open" data-open="${conversation.id}" title="${escapeHtml(conversation.title)}">
+          <span class="conversation-mark">
+            ${conversation.busy
+              ? '<i class="conversation-busy-spinner"></i>'
+              : '<svg class="conversation-bubble-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+            }
+          </span>
+          <span class="conversation-copy">
+            ${showProj ? `<span class="history-project-label">${escapeHtml(proj)}</span>` : ""}
+            <strong class="conversation-title">${isPinned ? '<span class="conversation-pin-icon" aria-label="已置顶"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg></span>' : ""}${escapeHtml(conversation.title)}</strong>
+          </span>
+        </button>
+        <button class="conversation-more" data-archive="${conversation.id}" aria-label="更多操作" title="更多操作">•••</button>
+      </article>`;
+  }
+
   function renderConversations() {
     $("#conversationCount").textContent = String(state.conversations.length);
     const pinned = pinnedIds();
@@ -2422,16 +2495,46 @@
         (!attachments || item.hasAttachments || (item.id === state.activeId && state.active?.messages?.some((message) => message.attachments?.length || message.artifacts?.length)));
     }).slice().sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) ||
       historyProjectName(a).localeCompare(historyProjectName(b)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
-    $("#conversationList").innerHTML = conversations.length
-      ? conversations.map((conversation) => `
-        <article class="conversation-row ${conversation.id === state.activeId ? "active" : ""}" data-id="${conversation.id}">
-          <button class="conversation-open" data-open="${conversation.id}">
-            <span class="conversation-mark">${conversation.busy ? '<i></i>' : autumnHistoryIcon(conversation)}</span>
-            <span>${state.workspaceFeatures ? `<span class="history-project-label">${escapeHtml(historyProjectName(conversation))}</span>` : ""}<strong>${pinned.has(conversation.id) ? `<span class="conversation-pin" aria-label="已置顶">${autumnPinnedIcon()}</span>` : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.searchSnippet || conversation.lastMessage || "暂无消息")}</small></span>
-          </button>
-          <button class="conversation-more" data-archive="${conversation.id}" aria-label="移除对话">•••</button>
-        </article>`).join("")
-      : `<div class="drawer-empty">${q || selectedProject || attachments ? "没有匹配的对话" : "还没有历史对话"}</div>`;
+
+    if (!conversations.length) {
+      $("#conversationList").innerHTML = `<div class="drawer-empty">${q || selectedProject || attachments ? "没有匹配的对话" : "还没有历史对话"}</div>`;
+      return;
+    }
+
+    if (q || selectedProject) {
+      $("#conversationList").innerHTML = conversations.map((conversation) => renderConversationRow(conversation, pinned.has(conversation.id))).join("");
+      return;
+    }
+
+    const groupOrder = ["Pinned", "Today", "Yesterday", "Previous 7 Days", "Previous 30 Days", "Earlier"];
+    const groups = new Map();
+    groupOrder.forEach((name) => groups.set(name, []));
+
+    conversations.forEach((conversation) => {
+      if (pinned.has(conversation.id)) {
+        groups.get("Pinned").push(conversation);
+      } else {
+        const group = conversationTimeGroup(conversation.updatedAt);
+        if (!groups.has(group)) groups.set(group, []);
+        groups.get(group).push(conversation);
+      }
+    });
+
+    let html = "";
+    for (const name of groupOrder) {
+      const items = groups.get(name);
+      if (items && items.length > 0) {
+        html += `
+          <div class="history-time-group">
+            <div class="history-group-title">${escapeHtml(name)}</div>
+            <div class="history-group-items">
+              ${items.map((item) => renderConversationRow(item, pinned.has(item.id))).join("")}
+            </div>
+          </div>`;
+      }
+    }
+
+    $("#conversationList").innerHTML = html || conversations.map((conversation) => renderConversationRow(conversation, pinned.has(conversation.id))).join("");
   }
 
   function attachmentHtml(file) {
@@ -3414,9 +3517,13 @@
     $("#attachButton").disabled = state.transmitting;
     $(".composer").classList.toggle("has-active-turn", busy);
     refreshActionButton();
-    $("#composerHint").textContent = busy
-      ? "处理中 · 你可以继续补充要求"
-      : "由你服务器上的 AI Harness 处理 · 重要操作会先确认";
+    const hint = $("#composerHint");
+    if (hint) {
+      const lockSvg = '<svg class="hint-lock-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+      hint.innerHTML = busy
+        ? `${lockSvg} <span>处理中 · 你可以继续补充要求</span>`
+        : `${lockSvg} <span>Protected execution • Critical actions require explicit approval</span>`;
+    }
   }
 
   function hasComposerContent() {
@@ -4395,7 +4502,7 @@
   $("#localSshButton").addEventListener("click", openLocalSsh);
   $("#adminSettingsButton").addEventListener("click", openAdminSettings);
   $("#codexAccountsButton").addEventListener("click", openCodexAccounts);
-  $(".theme-options").addEventListener("click", (event) => {
+  $(".theme-options")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-theme-choice]");
     if (!button) return;
     applyTheme(button.dataset.themeChoice, true);
@@ -5207,18 +5314,32 @@
     const model = event.target.closest("[data-quick-model]")?.dataset.quickModel;
     if (!model) return;
     state.draftModel = model;
+    state.model = model;
     state.harness = "auto";
     const offered = availableReasoningEfforts();
-    if (!offered.includes(state.draftReasoning)) state.draftReasoning = offered.includes("medium") ? "medium" : offered[0];
+    if (offered.length && !offered.includes(state.draftReasoning)) {
+      state.draftReasoning = offered.includes("medium") ? "medium" : offered[0];
+      state.reasoning = state.draftReasoning;
+    }
     applySettings({ closeSheet: false });
-    setQuickModelMenu(false);
+    renderQuickModelPicker();
+    updateModelControls();
   });
   $("#quickReasoningOptions").addEventListener("click", (event) => {
     const reasoning = event.target.closest("[data-quick-reasoning]")?.dataset.quickReasoning;
     if (!reasoning) return;
     state.draftReasoning = reasoning;
+    state.reasoning = reasoning;
     applySettings({ closeSheet: false });
+    updateModelControls();
     setQuickModelMenu(false);
+  });
+  $("#composerEnvButton")?.addEventListener("click", () => {
+    if (activeRemoteWorkspace(state.active)) {
+      openCustomerDevices();
+    } else {
+      openProject();
+    }
   });
   document.addEventListener("pointerdown", (event) => {
     if (!event.target.closest(".composer-wrap")) {
