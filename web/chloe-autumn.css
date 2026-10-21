@@ -43,9 +43,16 @@
 :root[data-theme="dark"] .chloe-bg-layer { filter: brightness(.48) saturate(.90); }
 :root[data-theme="dark"] .chloe-bg-mask { background: linear-gradient(180deg, rgba(20,24,18,.45), rgba(12,14,10,.60)); }
 
-/* The welcome landscape recedes when real messages take over */
-body:has(#welcome[hidden]) .chloe-bg-layer { opacity: .12; }
-body:has(#welcome[hidden]) .chloe-bg-mask { opacity: 0.15; }
+/* In active chat, preserve the autumn canopy ambiance without harsh photographic contrast */
+body:has(#welcome[hidden]) .chloe-bg-layer {
+  opacity: 0.88;
+  filter: brightness(0.92) saturate(1.05);
+}
+body:has(#welcome[hidden]) .chloe-bg-mask {
+  opacity: 0.40;
+  background: radial-gradient(ellipse at 50% 36%, rgba(255, 255, 255, 0.12) 0%, rgba(22, 18, 14, 0.38) 100%),
+              linear-gradient(180deg, rgba(16, 14, 10, 0.22) 0%, transparent 45%, rgba(16, 14, 10, 0.38) 100%);
+}
 body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 
 :root body.web-browser.chloe-autumn-workspace .app-shell {
@@ -1097,3 +1104,314 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   outline-offset: 2px !important;
   box-shadow: 0 0 0 3px rgba(223, 155, 66, 0.25) !important;
 }
+
+/* ==========================================================================
+   Chloe Autumn · Unified Reading Canvas for Active Chat State
+   Creates a stable, warm-white translucent reading environment that eliminates
+   high-contrast photographic interference while preserving the autumn glow.
+   ========================================================================== */
+
+:root body.web-browser.chloe-autumn-workspace:has(#welcome[hidden]) .messages {
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.94) 0%, rgba(252, 248, 242, 0.91) 100%) !important;
+  backdrop-filter: blur(28px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(125%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  border-radius: 20px !important;
+  padding: 28px 32px 36px !important;
+  max-width: var(--chloe-composer-width, 860px) !important;
+  margin: 16px auto 0 !important;
+  min-height: calc(100vh - 120px) !important;
+  height: auto !important;
+  flex: none !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 24px !important;
+}
+
+/* Ensure bottom spacer clears the floating composer completely */
+:root body.web-browser.chloe-autumn-workspace .bottom-spacer {
+  height: 180px !important;
+  flex: none !important;
+  pointer-events: none !important;
+}
+:root body.web-browser.chloe-autumn-workspace .chat-stage {
+  scroll-padding-bottom: 180px !important;
+}
+
+/* User Message Bubble */
+:root body.web-browser.chloe-autumn-workspace .message.user {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+}
+:root body.web-browser.chloe-autumn-workspace .message.user .bubble {
+  background: #FFFFFF !important;
+  color: #1A1C19 !important;
+  border: 1px solid rgba(220, 212, 198, 0.65) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
+  border-radius: 18px 18px 4px 18px !important;
+  padding: 12px 18px !important;
+  max-width: min(85%, 620px) !important;
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .message.user .user-message-rich {
+  color: #1A1C19 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .user-message-toggle {
+  color: #B45309 !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 4px 0 !important;
+  cursor: pointer !important;
+}
+
+/* Assistant Typography & Core Text */
+:root body.web-browser.chloe-autumn-workspace .message.assistant {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+:root body.web-browser.chloe-autumn-workspace .assistant-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message,
+:root body.web-browser.chloe-autumn-workspace .assistant-text,
+:root body.web-browser.chloe-autumn-workspace .completed-result {
+  color: #1F221E !important;
+  font-size: 15px !important;
+  line-height: 1.75 !important;
+  overflow-wrap: anywhere !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message p,
+:root body.web-browser.chloe-autumn-workspace .assistant-text p {
+  color: #1F221E !important;
+  margin: 0.65em 0 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message :is(h1, h2, h3, h4),
+:root body.web-browser.chloe-autumn-workspace .assistant-text :is(h1, h2, h3, h4) {
+  color: #141714 !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em !important;
+  margin-top: 1.25em !important;
+  margin-bottom: 0.5em !important;
+  line-height: 1.35 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message h1 { font-size: 22px !important; }
+:root body.web-browser.chloe-autumn-workspace .stream-message h2 { font-size: 18px !important; }
+:root body.web-browser.chloe-autumn-workspace .stream-message h3 { font-size: 16px !important; }
+
+/* Markdown Lists */
+:root body.web-browser.chloe-autumn-workspace .stream-message :is(ul, ol),
+:root body.web-browser.chloe-autumn-workspace .assistant-text :is(ul, ol) {
+  padding-left: 24px !important;
+  margin: 0.6em 0 !important;
+  color: #1F221E !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message li,
+:root body.web-browser.chloe-autumn-workspace .assistant-text li {
+  margin: 0.3em 0 !important;
+  line-height: 1.7 !important;
+  color: #1F221E !important;
+}
+
+/* Markdown Code Blocks */
+:root body.web-browser.chloe-autumn-workspace .stream-message pre,
+:root body.web-browser.chloe-autumn-workspace .assistant-text pre {
+  background: #20221E !important;
+  color: #F4EFE6 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  padding: 14px 18px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 13.5px !important;
+  line-height: 1.6 !important;
+  overflow-x: auto !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+  margin: 1em 0 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message pre code,
+:root body.web-browser.chloe-autumn-workspace .assistant-text pre code {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  font-size: inherit !important;
+}
+
+/* Markdown Inline Code */
+:root body.web-browser.chloe-autumn-workspace .stream-message code:not(pre code),
+:root body.web-browser.chloe-autumn-workspace .assistant-text code:not(pre code),
+:root body.web-browser.chloe-autumn-workspace .user-message-rich code {
+  background: rgba(180, 130, 60, 0.12) !important;
+  color: #8A5216 !important;
+  border: 1px solid rgba(180, 130, 60, 0.22) !important;
+  border-radius: 5px !important;
+  padding: 2px 6px !important;
+  font-size: 0.9em !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
+
+/* Markdown Blockquotes */
+:root body.web-browser.chloe-autumn-workspace .stream-message blockquote,
+:root body.web-browser.chloe-autumn-workspace .assistant-text blockquote {
+  border-left: 3.5px solid #D97706 !important;
+  background: rgba(217, 119, 6, 0.06) !important;
+  color: #3F443E !important;
+  padding: 10px 16px !important;
+  margin: 1em 0 !important;
+  border-radius: 0 8px 8px 0 !important;
+}
+
+/* Markdown Tables */
+:root body.web-browser.chloe-autumn-workspace .stream-message table,
+:root body.web-browser.chloe-autumn-workspace .assistant-text table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 1em 0 !important;
+  font-size: 14px !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message th,
+:root body.web-browser.chloe-autumn-workspace .assistant-text th {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #141714 !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  padding: 8px 12px !important;
+  border: 1px solid rgba(0, 0, 0, 0.10) !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message td,
+:root body.web-browser.chloe-autumn-workspace .assistant-text td {
+  padding: 8px 12px !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #2D312C !important;
+}
+
+/* Markdown Links */
+:root body.web-browser.chloe-autumn-workspace .stream-message a,
+:root body.web-browser.chloe-autumn-workspace .assistant-text a {
+  color: #B45309 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-message a:hover,
+:root body.web-browser.chloe-autumn-workspace .assistant-text a:hover {
+  color: #92400E !important;
+}
+
+/* Execution Status & Completed Process Cards */
+:root body.web-browser.chloe-autumn-workspace .completed-process {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid rgba(220, 212, 198, 0.70) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}
+:root body.web-browser.chloe-autumn-workspace .completed-process summary {
+  padding: 10px 14px !important;
+  color: #1F221E !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+}
+:root body.web-browser.chloe-autumn-workspace .completed-process-copy strong {
+  color: #1F221E !important;
+}
+:root body.web-browser.chloe-autumn-workspace .completed-process-copy small {
+  color: #6C726A !important;
+}
+:root body.web-browser.chloe-autumn-workspace .completed-process-mark {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  background: rgba(43, 167, 127, 0.12) !important;
+  color: #2BA77F !important;
+}
+:root body.web-browser.chloe-autumn-workspace .completed-process.failed .completed-process-mark {
+  background: rgba(211, 101, 116, 0.12) !important;
+  color: #D36574 !important;
+}
+
+/* Stream Action Details (Commands, File Edits) */
+:root body.web-browser.chloe-autumn-workspace .stream-action {
+  background: rgba(246, 244, 238, 0.85) !important;
+  border: 1px solid rgba(220, 212, 198, 0.6) !important;
+  border-radius: 10px !important;
+  color: #2D312C !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-action span {
+  background: #FFFFFF !important;
+  color: #B45309 !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-action p {
+  color: #2D312C !important;
+}
+:root body.web-browser.chloe-autumn-workspace .stream-action-group {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid rgba(220, 212, 198, 0.7) !important;
+  border-radius: 14px !important;
+}
+
+/* Typing Indicator */
+:root body.web-browser.chloe-autumn-workspace .typing {
+  display: flex !important;
+  gap: 5px !important;
+  padding: 8px 0 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .typing i {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #D97706 !important;
+}
+
+/* Top Task Status Banner */
+:root body.web-browser.chloe-autumn-workspace .task-status-banner {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.80) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+  color: #1F221E !important;
+  border-radius: 14px !important;
+  max-width: var(--chloe-composer-width, 860px) !important;
+  margin: 8px auto !important;
+  padding: 10px 16px !important;
+}
+:root body.web-browser.chloe-autumn-workspace .task-status-banner .task-status-label {
+  color: #1F221E !important;
+}
+
+/* Timestamps */
+:root body.web-browser.chloe-autumn-workspace .message time {
+  color: #7E847C !important;
+  font-size: 11px !important;
+  margin-top: 4px !important;
+}
+
+/* Mobile Adaptation */
+@media (max-width: 768px) {
+  :root body.web-browser.chloe-autumn-workspace:has(#welcome[hidden]) .messages {
+    border-radius: 16px !important;
+    padding: 18px 16px 140px !important;
+    margin: 8px auto 0 !important;
+    min-height: calc(100vh - 100px) !important;
+  }
+  :root body.web-browser.chloe-autumn-workspace .message.user .bubble {
+    max-width: 92% !important;
+    padding: 10px 14px !important;
+  }
+}
+
