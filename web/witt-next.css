@@ -1,3 +1,36 @@
+/* ChatGPT typography, served locally so Android WebView does not fall back. */
+@font-face {
+  font-family: "OpenAI Sans";
+  src: url("/vault/fonts/openai-sans/OpenAISans-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenAI Sans";
+  src: url("/vault/fonts/openai-sans/OpenAISans-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenAI Sans";
+  src: url("/vault/fonts/openai-sans/OpenAISans-Semibold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenAI Sans";
+  src: url("/vault/fonts/openai-sans/OpenAISans-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 /* Witt 3.0 — a lightweight, server-native interface system for Android WebView. */
 :root {
   color-scheme: light;
@@ -27,7 +60,7 @@
   --radius-lg: 26px;
   --radius-xl: 34px;
   --ease-out: cubic-bezier(.16, 1, .3, 1);
-  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont,
+  font-family: "OpenAI Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Noto Sans SC",
     "Microsoft YaHei", sans-serif;
   font-synthesis: none;
@@ -173,7 +206,10 @@ summary:focus-visible {
 }
 
 :root[data-theme="colorful"] .app-atmosphere {
-  background: radial-gradient(circle at 50% 12%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 58%);
+  background:
+    linear-gradient(rgba(255, 255, 255, .018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .018) 1px, transparent 1px);
+  background-size: 34px 34px;
   mask-image: linear-gradient(to bottom, black, transparent 78%);
 }
 
@@ -227,6 +263,7 @@ summary:focus-visible {
 
 .compact-nav::before,
 .compact-nav::after { display: none !important; content: none !important; }
+
 
 .compact-nav-button {
   display: grid;
@@ -639,7 +676,10 @@ summary:focus-visible {
 }
 
 .welcome h1 em {
-  color: var(--accent);
+  color: transparent;
+  background: linear-gradient(100deg, var(--accent-2), var(--accent) 48%, var(--mint));
+  background-clip: text;
+  -webkit-background-clip: text;
   font-family: inherit;
   font-style: normal;
 }
@@ -649,6 +689,68 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.75;
+}
+
+.suggestions {
+  width: 100%;
+  margin-top: 34px;
+  gap: 8px;
+}
+
+.suggestions button {
+  min-height: 70px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 22px;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 11px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  box-shadow: none;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform .22s var(--ease-out), border-color .22s ease, background .22s ease;
+}
+
+.suggestions button > span {
+  grid-row: 1 / 3;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 10%, transparent);
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.suggestions button > i {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  color: var(--faint);
+  font-size: 14px;
+  font-style: normal;
+}
+
+.suggestions button b {
+  align-self: end;
+  font-size: 11px;
+}
+
+.suggestions button small {
+  align-self: start;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.suggestions button:active {
+  transform: scale(.98);
+  border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+  background: var(--surface-raised);
 }
 
 .messages {
@@ -2206,6 +2308,34 @@ summary:focus-visible {
   }
 }
 
+@media (min-width: 620px) and (min-height: 680px) {
+  .suggestions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .suggestions button {
+    min-height: 130px;
+    grid-template-columns: 34px 1fr;
+    grid-template-rows: 36px auto auto;
+    align-content: start;
+  }
+
+  .suggestions button > span {
+    grid-row: 1;
+  }
+
+  .suggestions button > i {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .suggestions button b,
+  .suggestions button small {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 620px) {
   .app-shell {
     width: min(100%, 960px);
@@ -2244,6 +2374,15 @@ summary:focus-visible {
 
   .welcome h1 {
     font-size: 34px;
+  }
+
+  .suggestions {
+    margin-top: 20px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .suggestions button {
+    min-height: 62px;
   }
 
   .composer-wrap {
@@ -2501,30 +2640,32 @@ summary:focus-visible {
 .settings-panel .app-server-capabilities {
   margin-top: 18px;
   padding: 14px;
-  border-color: var(--chloe-line);
+  border-color: rgba(255, 255, 255, .1);
   border-radius: 21px;
-  color: var(--chloe-ink);
-  background: var(--chloe-surface);
-  box-shadow: var(--shadow-sm);
+  color: #f5f7fc;
+  background:
+    radial-gradient(circle at 88% 0, rgba(77, 129, 255, .22), transparent 36%),
+    linear-gradient(145deg, #171c29, #0b1018 70%);
+  box-shadow: 0 16px 36px rgba(12, 19, 34, .18), inset 0 1px 0 rgba(255, 255, 255, .07);
 }
 
 .settings-panel .app-server-heading h3,
 .settings-panel .app-server-metrics strong,
 .settings-panel .app-server-actions strong {
-  color: var(--chloe-ink);
+  color: #f8faff;
 }
 
 .settings-panel .app-server-actions button {
-  color: var(--chloe-ink);
-  background: var(--chloe-soft);
-  border-color: var(--chloe-line);
+  color: #f5f7fc;
+  background: rgba(255, 255, 255, .04);
+  border-color: rgba(255, 255, 255, .08);
 }
 
 .settings-panel .app-server-actions small,
 .settings-panel .app-server-metrics small,
 .settings-panel .app-server-sync,
 .settings-panel .app-server-sync small {
-  color: var(--chloe-muted);
+  color: #8e9bb0;
 }
 
 .settings-apply-bar {
@@ -2579,207 +2720,3 @@ summary:focus-visible {
 
   .settings-panel .model-options small { font-size: 6px; }
 }
-/* Run output and file diffs stay readable inside the mobile detail sheet. */
-.stream-action-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-.stream-action-copy p {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-.stream-action-copy small {
-  min-width: 0;
-  color: var(--muted);
-  font-size: 8px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.stream-action.failed .stream-action-copy small {
-  color: var(--danger);
-}
-.action-detail-content,
-.file-change-detail {
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-.action-detail-content {
-  overflow-x: hidden;
-}
-.file-change-detail {
-  overflow: hidden;
-}
-.file-change-detail header {
-  min-width: 0;
-  grid-template-columns: auto minmax(0, 1fr);
-}
-.file-change-detail header strong,
-.file-change-path {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-.file-change-detail header span.rename {
-  color: var(--accent-2);
-  background: color-mix(in srgb, var(--accent-2) 10%, var(--surface-solid));
-}
-.file-change-detail header span.untracked {
-  color: var(--mint);
-  background: color-mix(in srgb, var(--mint) 10%, var(--surface-solid));
-}
-.file-change-detail .file-change-notice {
-  color: var(--danger);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.file-change-detail .file-change-size,
-.file-change-detail .file-change-empty {
-  overflow-wrap: anywhere;
-}
-.file-change-detail pre,
-.detail-block pre {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: auto;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  white-space: pre-wrap;
-}
-@media (max-width: 600px) {
-  .action-detail-panel {
-    width: calc(100% - 8px);
-    max-width: calc(100vw - 8px);
-    min-width: 0;
-    max-height: min(92dvh, 780px);
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  .action-detail-content {
-    width: 100%;
-  }
-  .file-change-detail {
-    padding: 10px;
-  }
-  .file-change-detail pre,
-  .detail-block pre {
-    max-height: min(36dvh, 280px);
-    font-size: 10px;
-  }
-}
-.development-workflow {
-  min-width: 0;
-  margin-top: 14px !important;
-  padding: 13px;
-  border: 1px solid var(--line-strong);
-  border-radius: 14px;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface-solid));
-}
-.development-workflow > strong {
-  display: block;
-  font-size: 12px;
-}
-.development-workflow > p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.development-workflow-status.failed {
-  color: var(--danger);
-}
-.development-workflow-status.completed {
-  color: var(--mint);
-}
-.development-workflow-launch,
-.development-workflow-confirm button {
-  min-height: 42px;
-  margin-top: 11px;
-  padding: 9px 13px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
-  border-radius: 11px;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-solid));
-  font: inherit;
-  font-size: 11px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.development-workflow-confirm[hidden],
-.development-workflow-launch[hidden] {
-  display: none !important;
-}
-.development-workflow-confirm > p {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.development-workflow-confirm > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.development-workflow-confirm button {
-  flex: 1 1 120px;
-}
-.development-workflow-confirm button.secondary {
-  color: var(--muted);
-  background: transparent;
-}
-.development-workflow-confirm button:disabled {
-  opacity: .6;
-  cursor: progress;
-}
-@media (max-width: 600px) {
-  .development-workflow {
-    padding: 11px;
-  }
-  .development-workflow-launch,
-  .development-workflow-confirm button {
-    width: 100%;
-    min-height: 44px;
-  }
-  .development-workflow-confirm > div {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.development-workflow-commit-label{display:grid;gap:6px;margin:10px 0;color:var(--muted);font-size:12px}.development-workflow-commit-label input{width:100%;min-width:0;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;color:var(--ink);background:var(--surface);font:inherit;font-size:13px}
-
-.open-webui-entry {
-  min-height: 58px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  color: var(--ink);
-  background: var(--surface);
-  text-decoration: none;
-}
-.open-webui-entry[hidden] { display: none; }
-.open-webui-entry span { min-width: 0; display: grid; gap: 4px; }
-.open-webui-entry strong { font-size: 13px; }
-.open-webui-entry small { color: var(--muted); font-size: 11px; line-height: 1.45; }
-.open-webui-entry i { color: var(--muted); font-size: 18px; font-style: normal; }
-@media (hover: hover) {
-  .open-webui-entry:hover { border-color: var(--ui-focus); background: var(--ui-hover-surface); }
-}
-.open-webui-entry:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }

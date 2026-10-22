@@ -70,6 +70,19 @@
 :root[data-theme="dark"] .lumora-badge {
   color: var(--night-muted) !important;
 }
+:root[data-theme="dark"] .suggestions button {
+  color: var(--night-text) !important;
+  border-color: var(--night-line) !important;
+  background: #292824 !important;
+}
+:root[data-theme="dark"] .suggestions button > span {
+  color: #e49a7f !important;
+  background: #3c302b !important;
+}
+:root[data-theme="dark"] .suggestions button small,
+:root[data-theme="dark"] .suggestions button > i {
+  color: var(--night-muted) !important;
+}
 
 :root[data-theme="dark"] .completed-process,
 :root[data-theme="dark"] .activity,

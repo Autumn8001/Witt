@@ -1,9 +1,30 @@
-/* Layout refinements for the white workspace remain; colors come from ui-system tokens. */
+/* Witt light surfaces: pure white canvas with neutral graphite actions. */
+:root:not([data-theme="dark"]) {
+  --bg: #ffffff !important;
+  --bg-deep: #ffffff !important;
+  --surface: #ffffff !important;
+  --surface-solid: #ffffff !important;
+  --surface-raised: #ffffff !important;
+  --surface-soft: #ffffff !important;
+  --ink: #171717 !important;
+  --ink-soft: #404040 !important;
+  --muted: #737373 !important;
+  --faint: #a3a3a3 !important;
+  --line: #e5e5e5 !important;
+  --line-strong: #d4d4d4 !important;
+  --accent: #171717 !important;
+  --accent-2: #404040 !important;
+  --mint: #5f6b66 !important;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .04) !important;
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .07) !important;
+  --shadow-lg: 0 20px 52px rgba(0, 0, 0, .12) !important;
+}
+
 :root:not([data-theme="dark"]) body,
 :root:not([data-theme="dark"]) .app-shell,
 :root:not([data-theme="dark"]) .chat-stage,
 :root:not([data-theme="dark"]) .boot-screen {
-  background: var(--surface-solid) !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .app-atmosphere {
@@ -17,7 +38,7 @@
 :root:not([data-theme="dark"]) .assistant-text a,
 :root:not([data-theme="dark"]) .stream-message a,
 :root:not([data-theme="dark"]) .eyebrow {
-  color: var(--ink) !important;
+  color: #171717 !important;
 }
 
 :root:not([data-theme="dark"]) .boot-track,
@@ -25,7 +46,7 @@
 :root:not([data-theme="dark"]) .chat-more-item:active,
 :root:not([data-theme="dark"]) .quick-model-options button:active,
 :root:not([data-theme="dark"]) .quick-reasoning-options button:active {
-  background: var(--surface-solid) !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .boot-track i,
@@ -40,13 +61,14 @@
 :root:not([data-theme="dark"]) .model-glyph.luna,
 :root:not([data-theme="dark"]) .save-settings,
 :root:not([data-theme="dark"]) .auth-gate-card button {
-  background: var(--chloe-olive) !important;
+  background: #171717 !important;
   box-shadow: none !important;
 }
 
 :root:not([data-theme="dark"]) .compact-nav-button,
 :root:not([data-theme="dark"]) .compact-nav-actions .compact-nav-button,
 :root:not([data-theme="dark"]) .chat-more-menu,
+:root:not([data-theme="dark"]) .suggestions button,
 :root:not([data-theme="dark"]) .composer,
 :root:not([data-theme="dark"]) .attachment-menu,
 :root:not([data-theme="dark"]) .quick-model-menu,
@@ -65,7 +87,7 @@
 :root:not([data-theme="dark"]) .artifact-workspace-head,
 :root:not([data-theme="dark"]) .artifact-toolbar,
 :root:not([data-theme="dark"]) .artifact-loading {
-  background: var(--surface-solid) !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .message.user .bubble,
@@ -82,12 +104,12 @@
 :root:not([data-theme="dark"]) .icon-button,
 :root:not([data-theme="dark"]) .delivery-panel .delivery-intro,
 :root:not([data-theme="dark"]) .artifact-view-tabs {
-  color: var(--chloe-body) !important;
-  background: var(--surface-solid) !important;
+  color: #404040 !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .composer-wrap {
-  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 98%, transparent) 32%) !important;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, .98) 32%) !important;
 }
 
 :root:not([data-theme="dark"]) .composer-wrap::before,
@@ -98,33 +120,33 @@
 :root:not([data-theme="dark"]) .project-panel,
 :root:not([data-theme="dark"]) .profile-panel,
 :root:not([data-theme="dark"]) .codex-account-panel {
-  background: var(--surface-solid) !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .sheet-head {
-  background: linear-gradient(var(--surface-solid) 78%, transparent) !important;
+  background: linear-gradient(#ffffff 78%, transparent) !important;
 }
 
 :root:not([data-theme="dark"]) .model-options > button.selected,
 :root:not([data-theme="dark"]) .reasoning-options button.selected,
 :root:not([data-theme="dark"]) .access-options button.selected,
 :root:not([data-theme="dark"]) .project-options button.selected {
-  border-color: var(--ui-disabled-ink) !important;
-  color: var(--ink) !important;
-  background: var(--surface-solid) !important;
+  border-color: #a3a3a3 !important;
+  color: #171717 !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .model-options button.selected > i,
 :root:not([data-theme="dark"]) .access-options button.selected i {
-  border-color: var(--ink) !important;
+  border-color: #171717 !important;
 }
 
 :root:not([data-theme="dark"]) .assistant-text code,
 :root:not([data-theme="dark"]) .stream-message code,
 :root:not([data-theme="dark"]) .inline-code {
-  color: var(--ink) !important;
-  background: var(--surface-solid) !important;
-  box-shadow: inset 0 0 0 1px var(--line) !important;
+  color: #262626 !important;
+  background: #ffffff !important;
+  box-shadow: inset 0 0 0 1px #e5e5e5 !important;
 }
 
 /* ChatGPT-like content hierarchy: sans serif, flat surfaces, quiet chrome. */
@@ -139,7 +161,9 @@
 :root:not([data-theme="dark"]) .drawer-head h2,
 :root:not([data-theme="dark"]) .sheet-head h2,
 :root:not([data-theme="dark"]) .quick-model-row > span {
-  font-family: var(--ui-font-sans) !important;
+  font-family: "OpenAI Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Noto Sans SC",
+    "Microsoft YaHei", sans-serif !important;
 }
 
 :root:not([data-theme="dark"]) .app-shell {
@@ -153,7 +177,7 @@
 
 :root:not([data-theme="dark"]) .compact-nav-button,
 :root:not([data-theme="dark"]) .compact-nav-actions .compact-nav-button {
-  color: var(--chloe-body) !important;
+  color: #525252 !important;
   background: transparent !important;
   backdrop-filter: none !important;
 }
@@ -171,7 +195,7 @@
 :root:not([data-theme="dark"]) .welcome h1 {
   max-width: 620px !important;
   margin: 0 0 12px !important;
-  color: var(--ink) !important;
+  color: #212121 !important;
   font-size: clamp(28px, 6vw, 34px) !important;
   font-weight: 600 !important;
   line-height: 1.2 !important;
@@ -185,11 +209,26 @@
 
 :root:not([data-theme="dark"]) .welcome > p {
   max-width: 520px !important;
-  color: var(--chloe-muted) !important;
+  color: #6b6b6b !important;
   font-size: 14px !important;
   line-height: 1.55 !important;
 }
 
+:root:not([data-theme="dark"]) .suggestions {
+  max-width: 560px !important;
+  margin-top: 26px !important;
+  gap: 8px !important;
+}
+
+:root:not([data-theme="dark"]) .suggestions button {
+  min-height: 56px !important;
+  padding: 11px 13px !important;
+  border: 1px solid #e5e5e5 !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+:root:not([data-theme="dark"]) .suggestions button > span,
 :root:not([data-theme="dark"]) .completed-process-mark,
 :root:not([data-theme="dark"]) .stream-action > span,
 :root:not([data-theme="dark"]) .stream-group-icon,
@@ -197,8 +236,13 @@
 :root:not([data-theme="dark"]) .delivery-type,
 :root:not([data-theme="dark"]) .delivery-download,
 :root:not([data-theme="dark"]) .artifact-handoff-icon {
-  color: var(--chloe-body) !important;
-  background: var(--surface-solid) !important;
+  color: #525252 !important;
+  background: #ffffff !important;
+}
+
+:root:not([data-theme="dark"]) .suggestions button:active {
+  border-color: #d4d4d4 !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .messages {
@@ -208,33 +252,33 @@
 
 :root:not([data-theme="dark"]) .message.user .bubble,
 :root:not([data-theme="dark"]) .message.user.guided .bubble {
-  color: var(--ink) !important;
-  background: var(--surface-solid) !important;
-  border: 1px solid var(--line) !important;
+  color: #212121 !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e5e5 !important;
   border-radius: 18px !important;
   box-shadow: none !important;
 }
 
 :root:not([data-theme="dark"]) .assistant-text,
 :root:not([data-theme="dark"]) .stream-message.final {
-  color: var(--ink) !important;
+  color: #212121 !important;
 }
 
 :root:not([data-theme="dark"]) .stream-message.commentary {
-  color: var(--chloe-body) !important;
+  color: #5f5f5f !important;
 }
 
 :root:not([data-theme="dark"]) .completed-process,
 :root:not([data-theme="dark"]) .activity,
 :root:not([data-theme="dark"]) .stream-action,
 :root:not([data-theme="dark"]) .stream-action-group {
-  border-color: var(--line) !important;
-  background: var(--surface-solid) !important;
+  border-color: #e5e5e5 !important;
+  background: #ffffff !important;
   box-shadow: none !important;
 }
 
 :root:not([data-theme="dark"]) .typing i {
-  background: var(--chloe-muted) !important;
+  background: #737373 !important;
 }
 
 :root:not([data-theme="dark"]) .composer-wrap {
@@ -243,42 +287,42 @@
 
 :root:not([data-theme="dark"]) .composer {
   min-height: 92px !important;
-  border: 1px solid var(--line) !important;
+  border: 1px solid #d9d9d9 !important;
   border-radius: 26px !important;
-  background: var(--surface-solid) !important;
+  background: #ffffff !important;
   box-shadow: none !important;
 }
 
 :root:not([data-theme="dark"]) .composer:focus-within {
-  border-color: var(--line-strong) !important;
+  border-color: #bdbdbd !important;
   box-shadow: none !important;
 }
 
 :root:not([data-theme="dark"]) .composer textarea {
-  color: var(--ink) !important;
+  color: #212121 !important;
 }
 
 :root:not([data-theme="dark"]) .composer textarea::placeholder,
 :root:not([data-theme="dark"]) .composer-model #reasoningLabel,
 :root:not([data-theme="dark"]) .composer-hint {
-  color: var(--chloe-muted) !important;
+  color: #8f8f8f !important;
 }
 
 :root:not([data-theme="dark"]) .attach-button,
 :root:not([data-theme="dark"]) .voice-button {
-  color: var(--chloe-body) !important;
+  color: #525252 !important;
   background: transparent !important;
 }
 
 :root:not([data-theme="dark"]) .send-button {
-  color: var(--chloe-canvas) !important;
-  background: var(--chloe-olive) !important;
+  color: #ffffff !important;
+  background: #212121 !important;
 }
 
 :root:not([data-theme="dark"]) .send-button:not(.working):not(.sending):not(.pausing):disabled {
-  color: var(--ui-disabled-ink) !important;
-  border: 1px solid var(--line) !important;
-  background: var(--surface-solid) !important;
+  color: #a3a3a3 !important;
+  border: 1px solid #d9d9d9 !important;
+  background: #ffffff !important;
 }
 
 :root:not([data-theme="dark"]) .drawer-panel,
@@ -288,26 +332,26 @@
 :root:not([data-theme="dark"]) .project-panel,
 :root:not([data-theme="dark"]) .profile-panel,
 :root:not([data-theme="dark"]) .codex-account-panel {
-  color: var(--ink) !important;
-  box-shadow: var(--shadow-lg) !important;
+  color: #212121 !important;
+  box-shadow: 0 0 32px rgba(0, 0, 0, .10) !important;
 }
 
 :root:not([data-theme="dark"]) .drawer-new,
 :root:not([data-theme="dark"]) .drawer-tools .drawer-profile,
 :root:not([data-theme="dark"]) .drawer-theme {
-  border-color: var(--line) !important;
-  color: var(--ink) !important;
+  border-color: #e5e5e5 !important;
+  color: #212121 !important;
 }
 
 :root:not([data-theme="dark"]) .conversation-row.active {
-  background: var(--surface-solid) !important;
-  box-shadow: inset 3px 0 0 var(--ink) !important;
+  background: #ffffff !important;
+  box-shadow: inset 3px 0 0 #212121 !important;
 }
 
 @media (max-width: 520px) {
   :root:not([data-theme="dark"]) .app-shell {
     max-width: none !important;
-    background: var(--surface-solid) !important;
+    background: #ffffff !important;
   }
 
   :root:not([data-theme="dark"]) .compact-nav {
@@ -320,9 +364,9 @@
     width: 50px !important;
     height: 50px !important;
     border: 0 !important;
-    color: var(--ink) !important;
-    background: var(--surface-solid) !important;
-    box-shadow: var(--shadow-md) !important;
+    color: #111111 !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .075) !important;
   }
 
   :root:not([data-theme="dark"]) .compact-menu-button svg {
@@ -336,8 +380,8 @@
     padding: 0 5px !important;
     gap: 0 !important;
     border-radius: 999px !important;
-    background: var(--surface-solid) !important;
-    box-shadow: var(--shadow-md) !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .075) !important;
     pointer-events: auto !important;
   }
 
@@ -350,7 +394,7 @@
     height: 42px !important;
     border: 0 !important;
     border-radius: 50% !important;
-    color: var(--ink) !important;
+    color: #111111 !important;
     background: transparent !important;
     box-shadow: none !important;
   }
@@ -375,32 +419,29 @@
   :root:not([data-theme="dark"]) .chat-stage {
     padding-inline: 18px !important;
     padding-bottom: calc(var(--composer-inset, 104px) + 12px) !important;
-    background: var(--surface-solid) !important;
+    background: #ffffff !important;
   }
 
   :root:not([data-theme="dark"]) .welcome {
     min-height: 100% !important;
-    padding: calc(64px + env(safe-area-inset-top)) 16px calc(var(--composer-inset, 96px) + 16px) !important;
-    justify-content: center !important;
+    padding: calc(42vh + env(safe-area-inset-top)) 8px 130px !important;
+    justify-content: flex-start !important;
     align-items: center !important;
     text-align: center !important;
   }
 
   :root:not([data-theme="dark"]) .welcome h1 {
-    margin: 0 0 8px !important;
-    color: var(--ink) !important;
-    font-size: 24px !important;
-    font-weight: 650 !important;
-    line-height: 1.3 !important;
+    margin: 0 !important;
+    color: #8f8f8f !important;
+    font-size: 21px !important;
+    font-weight: 450 !important;
+    line-height: 1.35 !important;
+    letter-spacing: -.01em !important;
   }
 
-  :root:not([data-theme="dark"]) .welcome > p {
-    display: block !important;
-    max-width: 340px !important;
-    margin: 0 auto 18px !important;
-    color: var(--chloe-muted) !important;
-    font-size: 13px !important;
-    line-height: 1.5 !important;
+  :root:not([data-theme="dark"]) .welcome > p,
+  :root:not([data-theme="dark"]) .suggestions {
+    display: none !important;
   }
 
   :root:not([data-theme="dark"]) .messages {
@@ -410,7 +451,7 @@
   :root:not([data-theme="dark"]) .message.user .bubble,
   :root:not([data-theme="dark"]) .message.user.guided .bubble {
     border: 0 !important;
-    background: var(--chloe-selection) !important;
+    background: #f0e7ff !important;
     box-shadow: none !important;
   }
 
@@ -433,15 +474,15 @@
     padding: 8px !important;
     border: 0 !important;
     border-radius: 999px !important;
-    background: var(--surface-solid) !important;
-    box-shadow: var(--shadow-md) !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, .09) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
 
   :root:not([data-theme="dark"]) .composer:focus-within {
     border: 0 !important;
-    box-shadow: var(--shadow-md) !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, .09) !important;
   }
 
   :root:not([data-theme="dark"]) .composer-toolbar {
@@ -472,7 +513,7 @@
     justify-content: center !important;
     border: 0 !important;
     border-radius: 999px !important;
-    color: var(--chloe-body) !important;
+    color: #525252 !important;
     background: transparent !important;
   }
 
@@ -492,7 +533,7 @@
     order: 4 !important;
     margin: 0 !important;
     opacity: 1 !important;
-    color: var(--ink) !important;
+    color: #111111 !important;
   }
 
   :root:not([data-theme="dark"]) .send-button {
@@ -504,7 +545,7 @@
     width: 42px !important;
     height: 42px !important;
     border: 0 !important;
-    color: var(--ink) !important;
+    color: #111111 !important;
     background: transparent !important;
   }
 
@@ -518,16 +559,16 @@
   :root:not([data-theme="dark"]) .send-button {
     width: 44px !important;
     height: 44px !important;
-    color: var(--chloe-canvas) !important;
-    background: var(--chloe-olive) !important;
+    color: #ffffff !important;
+    background: #212121 !important;
     box-shadow: none !important;
   }
 
   :root:not([data-theme="dark"]) .send-button.working,
   :root:not([data-theme="dark"]) .send-button.pausing,
   :root:not([data-theme="dark"]) .send-button.sending {
-    color: var(--chloe-canvas) !important;
-    background: var(--chloe-olive) !important;
+    color: #ffffff !important;
+    background: #9362e9 !important;
   }
 
   :root:not([data-theme="dark"]) .send-button.working::after,
@@ -535,13 +576,13 @@
     width: 15px !important;
     height: 15px !important;
     border-radius: 3px !important;
-    background: #fff !important;
+    background: #ffffff !important;
   }
 
   :root:not([data-theme="dark"]) .send-button:not(.working):not(.sending):not(.pausing):disabled {
     border: 0 !important;
-    color: var(--ui-disabled-ink) !important;
-    background: var(--surface-solid) !important;
+    color: #a3a3a3 !important;
+    background: #ffffff !important;
   }
 
   :root:not([data-theme="dark"]) .composer-hint {

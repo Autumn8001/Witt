@@ -7,27 +7,29 @@
   });
   const bridge = () => window.WittNative ? nativeBridge : (window.DropVaultAndroid || null);
   const CODEX_PROFILE_IDS = ["default", "xuanyu", "account3", "account4", "account5"];
-  const MVP_DEFAULT_MODEL = "grok-4.7-high";
-  const MVP_MODEL_MIGRATION_KEY = "wit_grok_mvp_model_migrated_v1";
-  const LEGACY_DEFAULT_MODELS = new Set([
-    "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
-    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
-  ]);
   const previousModel = localStorage.getItem("wit_model_preference") || localStorage.getItem("wit_model");
-  const shouldMigrateModelPreference = !localStorage.getItem(MVP_MODEL_MIGRATION_KEY) &&
-    (!previousModel || LEGACY_DEFAULT_MODELS.has(previousModel));
-  const savedModel = shouldMigrateModelPreference ? MVP_DEFAULT_MODEL : (previousModel || MVP_DEFAULT_MODEL);
-  if (!localStorage.getItem(MVP_MODEL_MIGRATION_KEY)) {
-    localStorage.setItem(MVP_MODEL_MIGRATION_KEY, "1");
-    // The migration only touches the preference. Existing conversations are
-    // always restored with their own model and harness below.
-    if (shouldMigrateModelPreference) {
+  const shouldUpgradeDefaultModel = !localStorage.getItem("wit_gpt6_model_migrated") &&
+    (!previousModel || previousModel === "gpt-5.6-sol");
+  const shouldUpgradeSolModel = !localStorage.getItem("wit_gpt61_model_migrated") &&
+    previousModel === "gpt-6-sol";
+  const savedModel = shouldUpgradeDefaultModel || shouldUpgradeSolModel
+    ? "gpt-6.1-sol" : (previousModel || "gpt-6.1-sol");
+  if (!localStorage.getItem("wit_gpt6_model_migrated")) {
+    localStorage.setItem("wit_gpt6_model_migrated", "1");
+    if (shouldUpgradeDefaultModel) {
+      localStorage.setItem("wit_model", savedModel);
+      localStorage.setItem("wit_model_preference", savedModel);
+    }
+  }
+  if (!localStorage.getItem("wit_gpt61_model_migrated")) {
+    localStorage.setItem("wit_gpt61_model_migrated", "1");
+    if (shouldUpgradeSolModel) {
       localStorage.setItem("wit_model", savedModel);
       localStorage.setItem("wit_model_preference", savedModel);
     }
   }
   const savedReasoning = localStorage.getItem("wit_reasoning_preference") || localStorage.getItem("wit_reasoning") || "medium";
-  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "workspace-write";
+  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "danger-full-access";
   const state = {
     conversations: [],
     activeId: localStorage.getItem("wit_active_conversation") || null,
@@ -43,6 +45,7 @@
     preferredModel: savedModel,
     preferredReasoning: savedReasoning,
     preferredAccessMode: savedAccessMode,
+    restorePreferredSettingsOnLaunch: true,
     codexProfile: localStorage.getItem("wit_codex_profile") || "default",
     allowedCodexProfiles: ["default"],
     workDir: "",
@@ -58,10 +61,6 @@
     nativeInitialized: false,
     nativeVersion: "",
     detailRequest: null,
-    detailEntry: null,
-    pendingDevelopmentWorkflowKey: "",
-    developmentWorkflowJobs: new Map(),
-    pendingDevelopmentAction: "",
     usage: null,
     usageLoading: false,
     authenticated: false,
@@ -76,11 +75,11 @@
     codexLoginTimer: null,
     appVisible: !document.hidden,
     supportsSse: false,
+    expandedProcess: new Set(),
+    inlineDetails: new Map(),
+    inlineDetailQueue: [],
     capabilities: null,
-    harness: "auto",
-    runtimeProfiles: [],
-    runtimeProfilesError: "",
-    serverOverviewError: "",
+    capabilitiesByProfile: null,
     artifactOpen: false,
     artifactKey: "",
     artifactVersionIndex: -1,
@@ -103,7 +102,29 @@
     attachmentDrafts: new Map(),
     sendRequest: null,
   };
+  let mathLoading = false;
+  let terminalLoad = null;
+  let terminalBuffer = "";
   let historySearchTimer;
+  let summaryTimer;
+  let summaryRefreshPending = false;
+  let summaryRefreshAt = 0;
+  let maxConcurrentTasks = 3;
+  function scheduleSummaryRefresh() {
+    clearTimeout(summaryTimer);
+    if (!state.authenticated || !state.appVisible) return;
+    const hasTasks = state.conversations.some((item) => item.busy);
+    const browsing = $("#drawer").classList.contains("open") || !$("#taskOverviewSheet")?.hidden;
+    if (!hasTasks && !browsing) return;
+    summaryTimer = setTimeout(() => {
+      if (summaryRefreshPending && Date.now() - summaryRefreshAt < 15000) { scheduleSummaryRefresh(); return; }
+      summaryRefreshPending = true;
+      summaryRefreshAt = Date.now();
+      bridge()?.requestConversations?.();
+      scheduleSummaryRefresh();
+    }, hasTasks ? 5000 : 15000);
+  }
+
   let draftSaveTimer;
   let completionReminder = false;
   try { completionReminder = localStorage.getItem("witt_completion_reminder") === "1"; } catch {}
@@ -138,19 +159,6 @@
     return item.project || "未分组";
   }
 
-  const autumnHistoryIcons = ["leaf", "acorn", "sprout", "document-leaf"];
-  function autumnHistoryIcon(item) {
-    const seed = String(item?.id || item?.title || "history");
-    let hash = 0;
-    for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-    const icon = autumnHistoryIcons[hash % autumnHistoryIcons.length];
-    return `<svg class="autumn-history-icon autumn-history-${icon}" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${icon}"></use></svg>`;
-  }
-
-  function autumnPinnedIcon() {
-    return '<svg class="autumn-history-icon autumn-history-leaf" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
-  }
-
   function refreshHistorySearch() {
     clearTimeout(historySearchTimer);
     const q = $("#historySearch").value.trim();
@@ -173,13 +181,9 @@
     const last = state.active?.messages?.findLast((message) => message.role === "assistant");
     const status = approval ? { state: "waiting_confirmation", label: "等你确认" }
       : state.active?.taskStatus || { state: state.busy ? "running" : last?.status || "idle", label: state.busy ? "处理中" : last?.status === "failed" ? "执行失败" : last?.status === "interrupted" ? "已暂停" : last ? "已完成" : "准备就绪" };
-    // A fresh conversation is the welcome surface, not an idle task.
-    // Running tasks and approvals can precede the first assistant message.
-    strip.hidden = !state.activeId || (!state.busy && !approval && !state.active?.messages?.length && (!state.active?.taskStatus || state.active.taskStatus.state === "idle"));
+    strip.hidden = !state.activeId;
     strip.dataset.state = status.state;
-    const isIdle = status.state === "idle" || status.label === "准备就绪";
-    const displayLabel = isIdle ? "尚未开始" : status.label;
-    strip.innerHTML = `<span class="task-state-tree"><svg class="task-state-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree-mini"></use></svg></span><strong>${escapeHtml(displayLabel)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : '<svg class="task-strip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>'}`;
+    strip.innerHTML = `<span class="task-state-dot"></span><strong>${escapeHtml(status.label)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "新建对话可同时执行其他任务")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : ""}`;
     strip.querySelector("#jumpToApproval")?.addEventListener("click", () => $("#approvalDock")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
     const older = $("#loadOlderMessages");
     older.hidden = !state.workspaceFeatures || !state.active?.hasMore;
@@ -189,10 +193,19 @@
 
   function requestWorkspaceOverview() {
     $("#workspaceOverviewContent").textContent = state.workspaceFeatures ? "正在检查连接…" : "此功能需要支持工作区的新客户端，当前安装版本暂不支持。";
-    if (state.workspaceFeatures) bridge()?.requestWorkspaceOverview?.();
+    if (!state.workspaceFeatures) return;
+    // Current Osaka APKs use workspaceRequest rather than a dedicated native method.
+    if (state.workspaceOperations && typeof window.WittFeatures?.request === "function") {
+      window.WittFeatures.request("chat/workspace-overview")
+        .then((payload) => window.DropVault.onWorkspaceOverview(JSON.stringify(payload)))
+        .catch((error) => window.DropVault.onWorkspaceOverviewError(error.message || "检查失败，请重试"));
+      return;
+    }
+    bridge()?.requestWorkspaceOverview?.();
   }
 
   function openWorkspaceOverview() {
+    if (!$("#drawerAccountMenu")?.hidden) $("#closeDrawerAccount")?.click();
     closeDrawer();
     $("#workspaceOverview").classList.add("open");
     $("#workspaceOverview").setAttribute("aria-hidden", "false");
@@ -236,15 +249,15 @@
     composerResizeObserver.observe($(".composer-wrap"));
   }
   function applyTheme(mode, persist = false) {
-    const preference = ["system", "light", "colorful", "dark"].includes(mode) ? mode : "system";
-    const selected = preference === "system"
-      ? (systemThemeQuery.matches ? "dark" : "light")
-      : preference;
+    const preference = mode === "dark" ? "dark"
+      : mode === "light" || mode === "colorful" ? "light"
+      : systemThemeQuery.matches ? "dark" : "light";
+    const selected = preference;
     const commit = () => {
       document.documentElement.dataset.themeMode = selected;
       document.documentElement.dataset.theme = selected;
       document.documentElement.dataset.themePreference = preference;
-      if (persist) localStorage.setItem("wit_theme", preference);
+      if (persist || localStorage.getItem("wit_theme") !== preference) localStorage.setItem("wit_theme", preference);
       $("#themeColor")?.setAttribute("content",
         selected === "dark" ? "#1f1f1c" : "#ffffff");
       document.querySelectorAll("[data-theme-choice]").forEach((button) => {
@@ -270,14 +283,6 @@
 
   applyTheme(localStorage.getItem("wit_theme") ||
     document.documentElement.dataset.themePreference || "system");
-  const syncSystemTheme = () => {
-    if (document.documentElement.dataset.themePreference === "system") applyTheme("system");
-  };
-  if (typeof systemThemeQuery.addEventListener === "function") {
-    systemThemeQuery.addEventListener("change", syncSystemTheme);
-  } else {
-    systemThemeQuery.addListener(syncSystemTheme);
-  }
   requestAnimationFrame(watchComposerInset);
   function escapeHtml(value) {
     const node = document.createElement("span");
@@ -452,6 +457,10 @@
     const formula = String(source || "").trim();
     if (!formula) return "";
     if (!window.katex?.renderToString) {
+      if (!mathLoading && window.WittModules) {
+        mathLoading = true;
+        window.WittModules.math().then(() => window.WittUI?.refreshMath()).catch(() => {}).finally(() => { mathLoading = false; });
+      }
       return `<code class="math-fallback">${escapeHtml(formula)}</code>`;
     }
     try {
@@ -643,31 +652,23 @@
   }
 
   const modelNames = {
-    [MVP_DEFAULT_MODEL]: "Grok 4.7 High",
+    "gpt-6.1-sol": "GPT-6.1 Sol",
     "gpt-6-astra": "Astra",
     "gpt-6-sol": "Sol",
     "gpt-6-luna": "Luna",
-    "gpt-6.1-sol": "GPT-6.1 Sol",
     "gpt-5.6-sol": "Sol",
     "gpt-5.6-terra": "Terra",
     "gpt-5.6-luna": "Luna",
   };
 
   const modelDescriptions = {
-    [MVP_DEFAULT_MODEL]: "Grok Build · 复杂任务",
+    "gpt-6.1-sol": "近 Astra 智能 · 更低成本",
     "gpt-6-astra": "旗舰智能 · 复杂任务",
     "gpt-6-sol": "专业编码 · 均衡推理",
-    "gpt-6.1-sol": "Plus 账号组额度 · 专业编码",
+    "gpt-6-luna": "快速高效 · 日常任务",
     "gpt-5.6-sol": "复杂任务 · 深度推理",
-    "gpt-5.6-terra": "Free 账号组额度 · 日常工作",
-    "gpt-5.6-luna": "Free 账号组额度 · 快速响应",
-    "gpt-6-luna": "Free 账号组额度 · 快速高效",
-  };
-
-  const sub2apiProfileNames = {
-    "codex-plus": "Sol · Plus 账号额度",
-    "codex-free": "Luna · Free 账号额度",
-    "codex-terra": "Terra · Free 账号额度",
+    "gpt-5.6-terra": "日常工作 · 均衡全能",
+    "gpt-5.6-luna": "快速响应 · 轻量任务",
   };
 
   const reasoningMeta = {
@@ -687,60 +688,9 @@
     return models.find((model) => model.id === (state.draftModel || state.model)) || null;
   }
 
-  function serviceableModelIds() {
-    return (Array.isArray(state.capabilities?.models) ? state.capabilities.models : [])
-      .map((model) => String(model?.id || "").trim())
-      .filter(Boolean);
-  }
-
-  function reconcileModelPreference() {
-    const available = serviceableModelIds();
-    if (!available.length) return;
-    const preferred = String(state.preferredModel || state.model || "");
-    const next = available.includes(preferred)
-      ? preferred
-      : available.includes(MVP_DEFAULT_MODEL) ? MVP_DEFAULT_MODEL : available[0];
-    if (next !== state.preferredModel) {
-      state.preferredModel = next;
-      try {
-        localStorage.setItem("wit_model", next);
-        localStorage.setItem("wit_model_preference", next);
-      } catch { /* Keep the in-memory preference when storage is unavailable. */ }
-    }
-    // Never replace a loaded conversation's model here. This function runs as
-    // capabilities arrive, often before the conversation snapshot does.
-    if (!state.activeId || !state.active) {
-      state.model = next;
-      state.draftModel = next;
-    }
-  }
-
-  function prepareNewConversationSettings() {
-    const available = serviceableModelIds();
-    const preferred = String(state.preferredModel || MVP_DEFAULT_MODEL);
-    const model = available.length
-      ? (available.includes(preferred) ? preferred : available.includes(MVP_DEFAULT_MODEL) ? MVP_DEFAULT_MODEL : available[0])
-      : preferred;
-    state.model = model;
-    state.preferredModel = model;
-    state.reasoning = state.preferredReasoning || (model.startsWith("gemini-") ? "medium" : "high");
-    const accessModes = Array.isArray(state.capabilities?.accessModes)
-      ? state.capabilities.accessModes : ["read-only", "workspace-write", "danger-full-access"];
-    const preferredAccess = state.preferredAccessMode || state.capabilities?.defaultAccessMode;
-    state.accessMode = accessModes.includes(preferredAccess) ? preferredAccess : accessModes[0] || "read-only";
-    state.draftModel = model;
-    state.draftReasoning = state.reasoning;
-    state.draftAccessMode = state.accessMode;
-    state.harness = "auto";
-  }
-
   function modelDisplayName(modelId) {
     const capability = (state.capabilities?.models || []).find((model) => model.id === modelId);
     return capability?.displayName || modelNames[modelId] || modelId;
-  }
-
-  function runtimeProfileDisplayName(profile) {
-    return sub2apiProfileNames[profile?.id] || profile?.name || profile?.id || "模型配置";
   }
 
   function renderReasoningControl() {
@@ -748,14 +698,7 @@
     const offered = (selectedModel?.reasoningEfforts || [])
       .map((effort) => effort.id)
       .filter((effort) => reasoningMeta[effort]);
-    const efforts = offered;
-    const control = $("#reasoningControl");
-    if (!efforts.length) {
-      if (control) control.hidden = true;
-      renderQuickModelPicker();
-      return;
-    }
-    if (control) control.hidden = false;
+    const efforts = offered.length ? offered : ["low", "medium", "high", "xhigh"];
     let current = state.draftReasoning || state.reasoning;
     if (!efforts.includes(current)) {
       const preferred = selectedModel?.defaultReasoningEffort;
@@ -764,6 +707,7 @@
     }
     const index = Math.max(0, efforts.indexOf(current));
     const meta = reasoningMeta[current] || reasoningMeta.medium;
+    const control = $("#reasoningControl");
     if (!control) return;
     control.dataset.level = current;
     control.dataset.intensity = String(meta.intensity);
@@ -802,290 +746,27 @@
     const offered = (selectedModel?.reasoningEfforts || [])
       .map((effort) => effort.id)
       .filter((effort) => reasoningMeta[effort]);
-    return offered;
-  }
-
-  function activeRemoteWorkspace(conv = state.active) {
-    if (!conv) return null;
-    if (conv.remoteWorkspace) return conv.remoteWorkspace;
-    if (conv.workspace_device_id) {
-      return {
-        deviceId: conv.workspace_device_id,
-        deviceLabel: conv.workspace_device_label || conv.workspace_device_id,
-        rootAlias: conv.workspace_root_alias || "workspace",
-        displayPath: conv.workspace_root_display_path || "受控项目根目录",
-        status: conv.workspace_binding_status || "ready",
-      };
-    }
-    return null;
+    return offered.length ? offered : ["low", "medium", "high", "xhigh"];
   }
 
   function renderQuickModelPicker() {
     const menu = $("#quickModelMenu");
     if (!menu) return;
-    const capabilityModels = Array.isArray(state.capabilities?.models) && state.capabilities.models.length
+    const models = Array.isArray(state.capabilities?.models)
       ? state.capabilities.models
-      : [{ id: MVP_DEFAULT_MODEL, displayName: modelNames[MVP_DEFAULT_MODEL] }];
+      : Object.keys(modelNames).map((id) => ({ id, displayName: modelNames[id] }));
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
-    const remote = activeRemoteWorkspace(state.active);
-    const models = remote && state.runtimeProfiles.length
-      ? state.runtimeProfiles.map((profile) => ({ id: profile.model, displayName: runtimeProfileDisplayName(profile) }))
-      : capabilityModels;
-    const remoteLocked = false;
-
-    // 远程工作区环境锁定横幅
-    let lockedBanner = menu.querySelector(".quick-locked-banner");
-    if (remote) {
-      if (!lockedBanner) {
-        lockedBanner = document.createElement("div");
-        lockedBanner.className = "quick-locked-banner";
-        menu.prepend(lockedBanner);
-      }
-      lockedBanner.hidden = false;
-      const devLabel = remote.deviceLabel || remote.deviceId || "远程电脑";
-      const pathLabel = remote.displayPath || remote.rootAlias || "工作区目录";
-      lockedBanner.innerHTML = `
-        <div class="quick-locked-head">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <strong>远程工作区 · 环境已锁定</strong>
-        </div>
-        <p class="quick-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可访问项目外文件。" : "当前会话已绑定设备与项目范围。"}模型可以切换。</p>
-        <div class="quick-locked-tags">
-          <span>设备：<b>${escapeHtml(devLabel)}</b></span>
-          <span>范围：<b>${escapeHtml(pathLabel)}</b></span>
-          <span>Harness：<b>Grok Build</b></span>
-        </div>
-      `;
-    } else if (lockedBanner) {
-      lockedBanner.hidden = true;
-    }
-
-    const expandBtn = $("#quickModelExpand");
-    if (expandBtn) {
-      expandBtn.disabled = remoteLocked;
-      expandBtn.classList.toggle("locked", remoteLocked);
-      expandBtn.title = remoteLocked ? "远程工作区已固定模型" : "展开选择模型";
-    }
-
-    $("#quickModelCurrent").textContent = remoteLocked
-      ? `${modelDisplayName(selectedModel)}（已锁定）`
-      : modelDisplayName(selectedModel);
-
+    $("#quickModelCurrent").textContent = modelDisplayName(selectedModel);
     $("#quickModelOptions").innerHTML = models.map((model) => {
       const selected = model.id === selectedModel;
-      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="quick-model-option-btn ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}" ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
-        <span class="quick-option-dot" aria-hidden="true"></span>
-        <span class="quick-option-label">${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span>
-        <i class="quick-option-check">${selected ? "✓" : ""}</i>
-      </button>`;
+      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span><i>✓</i></button>`;
     }).join("");
-
     const efforts = availableReasoningEfforts().slice().reverse();
-    const reasoningOptions = $("#quickReasoningOptions");
-    if (reasoningOptions) {
-      if (efforts.length === 0) {
-        reasoningOptions.innerHTML = `
-          <div class="quick-reasoning-empty" role="note">
-            <span>当前模型不支持自定义推理强度</span>
-          </div>`;
-      } else {
-        reasoningOptions.innerHTML = efforts.map((effort) => {
-          const selected = effort === selectedReasoning;
-          const meta = reasoningMeta[effort] || { label: effort, code: effort.toUpperCase(), description: "" };
-          const shortLabel = quickReasoningNames[effort] || meta.label || effort;
-          return `
-            <button type="button"
-              class="quick-reasoning-card ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}"
-              data-quick-reasoning="${escapeHtml(effort)}"
-              role="radio"
-              aria-checked="${selected}"
-              ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
-              <span class="reasoning-radio-dot" aria-hidden="true"></span>
-              <div class="reasoning-card-content">
-                <div class="reasoning-card-title-row">
-                  <strong class="reasoning-card-name">${escapeHtml(shortLabel)} · ${escapeHtml(meta.label)}推理</strong>
-                  <code class="reasoning-card-code">${escapeHtml(meta.code)}</code>
-                </div>
-                <small class="reasoning-card-desc">${escapeHtml(meta.description)}</small>
-              </div>
-            </button>
-          `;
-        }).join("");
-      }
-    }
-  }
-
-  function renderRuntimeControls() {
-    const runtime = state.capabilities?.runtime || {};
-    const codexAccounts = $("#codexAccountsButton");
-    if (codexAccounts && state.capabilities?.runtime) {
-      codexAccounts.hidden = runtime.codex?.available !== true ||
-        (!state.admin && state.allowedCodexProfiles.length < 2);
-    }
-    if (state.harness && state.harness !== "auto" && runtime[state.harness]?.available === false) {
-      state.harness = "auto";
-    }
-    const profileHost = $("#runtimeProfileOptions");
-    const remote = activeRemoteWorkspace(state.active);
-    const remoteLocked = false;
-    if (profileHost) {
-      if (state.runtimeProfilesError) {
-        profileHost.innerHTML = `
-          <div class="runtime-status-card error" role="status">
-            <span class="runtime-status-text">${escapeHtml(state.runtimeProfilesError)}</span>
-            <button type="button" class="runtime-retry-btn" id="retryRuntimeProfiles">重试读取</button>
-          </div>
-        `;
-        const retryBtn = $("#retryRuntimeProfiles");
-        if (retryBtn) {
-          retryBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            retryBtn.disabled = true;
-            retryBtn.textContent = "正在读取…";
-            void loadRuntimeExtras();
-          });
-        }
-      } else if (!state.runtimeProfiles.length) {
-        profileHost.innerHTML = '<span class="runtime-empty" role="status">暂无可用 Runtime Profile</span>';
-      } else {
-        const selectedModel = state.draftModel || state.model;
-        const availableModels = serviceableModelIds();
-        const capabilitiesKnown = Boolean(state.capabilities);
-        const hasSub2ApiRouting = state.runtimeProfiles.some((profile) => sub2apiProfileNames[profile?.id]);
-        const routingHelp = hasSub2ApiRouting
-          ? '<p class="runtime-routing-help">自动分配额度：GPT-6.1 Sol 使用 Plus；Luna、Terra 使用 Free。</p>'
-          : "";
-        profileHost.innerHTML = routingHelp + state.runtimeProfiles.map((profile) => {
-          const selected = profile.model === selectedModel && (state.harness || "auto") === "auto";
-          const runtimeUnavailable = remote
-            ? false
-            : (capabilitiesKnown
-            ? Boolean(profile.harness && runtime[profile.harness]?.available !== true)
-            : profile.harness !== "grok-build");
-          const modelUnavailable = remote
-            ? false
-            : (capabilitiesKnown
-            ? !availableModels.includes(profile.model)
-            : profile.model !== MVP_DEFAULT_MODEL);
-          const unavailable = remoteLocked || runtimeUnavailable || modelUnavailable;
-          const profileName = runtimeProfileDisplayName(profile);
-          const label = remoteLocked
-            ? `${profileName}（已锁定）`
-            : (unavailable ? `${profileName}（暂不可用）` : profileName);
-          return `<button type="button" data-runtime-profile="${escapeHtml(profile.id)}" role="radio" aria-checked="${selected}" aria-disabled="${unavailable}" class="${selected ? "selected" : ""}${unavailable ? " unavailable" : ""}${remoteLocked ? " locked" : ""}"${unavailable ? " disabled" : ""}><span>${escapeHtml(label)}</span><small>${escapeHtml(modelDisplayName(profile.model))}</small></button>`;
-        }).join("");
-      }
-    }
-    document.querySelectorAll("[data-harness]").forEach((button) => {
-      const id = button.dataset.harness || "auto";
-      const status = id === "auto" ? null : runtime[id];
-      const runtimeUnavailable = remote ? false : Boolean(status && status.available === false);
-      const unavailable = remoteLocked || runtimeUnavailable;
-      button.disabled = unavailable;
-      button.setAttribute("aria-disabled", String(unavailable));
-      button.classList.toggle("unavailable", unavailable);
-      button.classList.toggle("locked", remoteLocked);
-      const note = button.querySelector("small");
-      if (note) {
-        note.dataset.defaultText ||= note.textContent;
-        note.textContent = remoteLocked
-          ? "远程会话已固定"
-          : (unavailable
-            ? (id === "google-antigravity" ? "Gemini 暂未启用" : "当前不可用")
-            : note.dataset.defaultText);
-      }
-      button.classList.toggle("selected", id === (state.harness || "auto"));
-    });
-  }
-
-  function renderServerOverview(payload) {
-    const host = $("#serverCenterStatus");
-    if (!host) return;
-    if (!payload) {
-      host.textContent = state.serverOverviewError || "服务器概览暂时不可用，聊天功能不受影响。";
-      return;
-    }
-    const memory = payload.memory || {};
-    const totalBytes = Number(memory.totalBytes || memory.total || 0);
-    const usedBytes = Number(memory.usedBytes || memory.used || 0);
-    const used = totalBytes ? Math.round((usedBytes / totalBytes) * 100) : 0;
-    const services = Array.isArray(payload.http) ? payload.http : (Array.isArray(payload.services) ? payload.services : []);
-    host.innerHTML = `<div class="app-server-metrics"><div><strong>${Number(payload.cpu?.count || 0)}</strong><small>CPU</small></div><div><strong>${used}%</strong><small>Memory</small></div><div><strong>${Math.round(Number(payload.uptimeSeconds || 0) / 3600)}h</strong><small>Uptime</small></div></div><small>${services.map((service) => `${escapeHtml(service.name || "服务")}: ${escapeHtml(service.status || "unknown")}`).join(" · ") || "暂无服务状态"}</small>`;
-    const checked = $("#serverCenterChecked");
-    if (checked) checked.textContent = payload.checkedAt ? new Date(payload.checkedAt).toLocaleString("zh-CN") : "已检查";
-    const link = $("#openWebuiLink");
-    if (link) {
-      if (payload.openWebuiUrl) {
-        link.hidden = false;
-        link.href = payload.openWebuiUrl;
-        link.target = "_blank";
-          link.rel = "noopener noreferrer";
-      } else {
-        link.hidden = true;
-      }
-    }
-  }
-
-  async function loadVersionInfo() {
-    const readSha = async (url, field) => {
-      const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
-      if (!response.ok) return "";
-      const body = await response.json();
-      const sha = String(body?.[field] || "").toLowerCase();
-      return /^[a-f0-9]{7,40}$/.test(sha) ? sha : "";
-    };
-    const [backend, frontend] = await Promise.allSettled([
-      readSha("/vault-api/version", "backendSha"),
-      readSha("/vault/version.json", "frontendSha"),
-    ]);
-    const backendSha = backend.status === "fulfilled" ? backend.value : "";
-    const frontendSha = frontend.status === "fulfilled" ? frontend.value : "";
-    $("#backendVersionSha").textContent = backendSha ? backendSha.slice(0, 8) : "unknown";
-    $("#frontendVersionSha").textContent = frontendSha ? frontendSha.slice(0, 8) : "unknown";
-    $("#deploymentVersionStatus").textContent = !backendSha || !frontendSha
-      ? "版本未知" : backendSha === frontendSha ? "前后端一致" : "前后端不一致";
-  }
-
-  function friendlyRuntimeError(error, defaultMsg = "Runtime Profile 暂时不可用（聊天功能不受影响）") {
-    const raw = String(error?.message || error || "").trim();
-    if (!raw || /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test(raw)) {
-      return defaultMsg;
-    }
-    if (/404/.test(raw)) {
-      return defaultMsg.includes("服务器概览")
-        ? "未检测到服务器概览接口（404）"
-        : "未检测到配置的 Runtime Profile（404）";
-    }
-    if (/500|502|503|504/.test(raw)) return "服务暂时无响应，请稍后重试";
-    if (/timeout|timed out/i.test(raw)) return "网络请求超时，请稍后重试";
-    if (/unauthorized|forbidden|401|403/i.test(raw)) return "访问未授权或权限不足";
-    return defaultMsg;
-  }
-
-  async function loadRuntimeExtras() {
-    void loadVersionInfo();
-    state.runtimeProfilesError = "";
-    state.serverOverviewError = "";
-    renderRuntimeControls();
-    try {
-      const profiles = await fetch("/vault-api/runtime/profiles", { credentials: "same-origin", cache: "no-store" });
-      if (!profiles.ok) throw new Error(`Runtime Profile 暂时不可用（${profiles.status}）`);
-      const body = await profiles.json();
-      state.runtimeProfiles = Array.isArray(body.profiles) ? body.profiles : [];
-    } catch (error) {
-      state.runtimeProfiles = [];
-      state.runtimeProfilesError = friendlyRuntimeError(error, "Runtime Profile 暂时不可用（聊天功能不受影响）");
-    }
-    renderRuntimeControls();
-    try {
-      const overview = await fetch("/vault-api/servers/overview", { credentials: "same-origin", cache: "no-store" });
-      if (!overview.ok) throw new Error(`服务器概览暂时不可用（${overview.status}）`);
-      renderServerOverview(await overview.json());
-    } catch (error) {
-      state.serverOverviewError = friendlyRuntimeError(error, "服务器概览暂时不可用，聊天功能不受影响。");
-      renderServerOverview(null);
-    }
+    $("#quickReasoningOptions").innerHTML = efforts.map((effort) => {
+      const selected = effort === selectedReasoning;
+      return `<button type="button" data-quick-reasoning="${escapeHtml(effort)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(quickReasoningNames[effort] || reasoningMeta[effort]?.label || effort)}</span><i>✓</i></button>`;
+    }).join("");
   }
 
   function renderCapabilities() {
@@ -1102,12 +783,10 @@
     });
     if (!capabilities) {
       renderReasoningControl();
-      renderRuntimeControls();
       return;
     }
     const models = Array.isArray(capabilities.models) ? capabilities.models : [];
-    reconcileModelPreference();
-    if (models.length) {
+    if (Array.isArray(capabilities.models)) {
       models.forEach((model) => {
         modelNames[model.id] = modelNames[model.id] || model.displayName || model.id;
       });
@@ -1124,7 +803,6 @@
     }
     renderReasoningControl();
     renderQuickModelPicker();
-    renderRuntimeControls();
     const enabledSkills = (capabilities.skills || []).filter((skill) => skill.enabled).length;
     const connectedMcp = (capabilities.mcpServers || []).filter((server) =>
       !["failed", "error", "disabled"].includes(server.status)).length;
@@ -1155,14 +833,12 @@
   };
   const projects = {
     "": "空白",
-    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "Chloe",
+    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "维特",
     "/home/ubuntu/Documents/Codex/2026-07-26-xlsb": "年报",
     "/data/xuanyu-build-console/repo": "玄遇",
   };
 
   function projectName(workDir) {
-    const remote = activeRemoteWorkspace(state.active);
-    if (remote) return `远程 · ${remote.displayPath || remote.rootAlias || "工作区"}`;
     return projects[String(workDir || "")] || "自定义项目";
   }
 
@@ -1224,15 +900,6 @@
   }
 
   function refreshUsage() {
-    const selected = selectedModelCapability();
-    const harness = selected?.harness || (/^(gpt|deepseek)-/.test(state.model) ? "codex" : "");
-    if (harness && harness !== "codex") {
-      state.usage = null;
-      state.usageLoading = false;
-      updateQuotaStatus();
-      renderUsage();
-      return;
-    }
     if (state.usageLoading || typeof bridge()?.requestUsage !== "function") return;
     state.usageLoading = true;
     bridge().requestUsage(state.activeId || "");
@@ -1240,7 +907,15 @@
 
   function dismissBoot() {
     const boot = $("#bootScreen");
-    if (!boot || boot.classList.contains("leaving")) return;
+    if (!boot || boot.classList.contains("leaving") || boot.dataset.dismissPending) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const remaining = reduced || window.wittNativeLaunch ? 0 : Math.max(0,
+      2800 - (performance.now() - (window.wittBootStartedAt ?? 0)));
+    if (remaining > 0) {
+      boot.dataset.dismissPending = "true";
+      setTimeout(() => { delete boot.dataset.dismissPending; dismissBoot(); }, remaining);
+      return;
+    }
     bridge()?.contentReady?.(document.documentElement.dataset.themeMode || "light");
     boot.classList.add("leaving");
     setTimeout(() => boot.remove(), 520);
@@ -1266,114 +941,23 @@
       xuanyuOnly ? "使用玄遇专用 Codex 账号" : "开启一个独立上下文";
   }
 
+  function selectAccountCapabilities() {
+    if (!state.capabilitiesByProfile) return;
+    state.capabilities = state.capabilitiesByProfile[state.codexProfile] || {
+      codexProfile: state.codexProfile, models: [], skills: [], mcpServers: [], features: [],
+      error: "这个账号的模型列表暂时不可用",
+    };
+  }
+
   function updateModelControls() {
-    const remote = activeRemoteWorkspace(state.active);
-    const envPill = $("#composerEnvPill");
-    if (envPill) {
-      if (remote) {
-        envPill.textContent = `${remote.fullAccess ? "完整访问" : "远程"} · ${remote.deviceLabel || remote.rootAlias || "工作区"}`;
-        envPill.classList.add("is-remote");
-        envPill.title = `已绑定远程设备：${remote.deviceLabel || ""}，项目：${remote.displayPath || remote.rootAlias || ""}`;
-      } else {
-        envPill.textContent = state.workDir ? `本地 · ${projectName(state.workDir)}` : "服务器";
-        envPill.classList.remove("is-remote");
-        envPill.title = "服务器运行环境";
-      }
-    }
-    const modelId = state.draftModel || state.model;
-    const baseName = modelDisplayName(modelId) || "Grok";
-    const offered = availableReasoningEfforts();
-    const modelLabel = $("#modelLabel");
-    if (modelLabel) {
-      if (offered.length > 0) {
-        const currentEffort = state.draftReasoning || state.reasoning;
-        const effortLabel = quickReasoningNames[currentEffort] || reasoningMeta[currentEffort]?.label || currentEffort;
-        if (baseName.toLowerCase().includes(effortLabel.toLowerCase()) ||
-            (currentEffort === "high" && baseName.includes("High"))) {
-          modelLabel.textContent = baseName;
-        } else {
-          const cleaned = baseName.replace(/\s+(High|Medium|Low|XHigh|Max|Ultra|低|中|高|极高)$/i, "");
-          modelLabel.textContent = `${cleaned} ${effortLabel}`;
-        }
-      } else {
-        modelLabel.textContent = baseName;
-      }
-    }
-    const reasoningLabel = $("#reasoningLabel");
-    if (reasoningLabel) {
-      reasoningLabel.textContent = reasoningNames[state.reasoning] || "均衡";
-    }
+    selectAccountCapabilities();
+    $("#modelLabel").textContent = modelNames[state.model] || "Astra";
+    $("#reasoningLabel").textContent = reasoningNames[state.reasoning] || "均衡";
     $("#accessLabel").textContent = accessNames[state.accessMode] || "完全访问";
     $("#projectLabel").textContent = projectName(state.workDir);
     $("#moreProjectLabel").textContent = projectName(state.workDir);
-    const remoteLocked = false;
-    ["#projectButton", "#moreProjectButton"].forEach((selector) => {
-      const button = $(selector);
-      if (button) button.disabled = Boolean(remote);
-    });
-    const modelBtn = $("#modelButton");
-    if (modelBtn) {
-      modelBtn.disabled = false;
-      modelBtn.classList.toggle("is-remote-locked", remoteLocked);
-      modelBtn.title = remoteLocked ? "远程开发工作区（环境与模型已锁定，点击查看）" : "选择模型与智能程度";
-    }
-
-    // 同步抽屉设置面板锁定状态
-    let sheetBanner = $("#settingsLockedBanner");
-    const settingsScroll = $(".settings-panel .settings-scroll");
-    if (remoteLocked && remote) {
-      if (!sheetBanner && settingsScroll) {
-        sheetBanner = document.createElement("div");
-        sheetBanner.id = "settingsLockedBanner";
-        sheetBanner.className = "settings-locked-banner";
-        settingsScroll.prepend(sheetBanner);
-      }
-      if (sheetBanner) {
-        sheetBanner.hidden = false;
-        sheetBanner.innerHTML = `
-          <div class="settings-locked-head">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <strong>远程开发工作区 · 设备范围已锁定</strong>
-          </div>
-          <p class="settings-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可读写项目外文件和执行程序。" : "当前对话已固定绑定设备与项目范围。"}切换模型会开启新的模型上下文。</p>
-          <div class="settings-locked-tags">
-            <span>设备：<b>${escapeHtml(remote.deviceLabel || remote.deviceId || "受控电脑")}</b></span>
-            <span>范围：<b>${escapeHtml(remote.fullAccess ? "当前设备 · 完整访问" : (remote.displayPath || remote.rootAlias || "项目根目录"))}</b></span>
-            <span>Harness：<b>${escapeHtml(state.harness || "自动匹配")}</b></span>
-            <span>模型：<b>${escapeHtml(modelDisplayName(state.model))}</b></span>
-          </div>
-        `;
-      }
-      document.querySelectorAll(".model-options > button, #harnessOptions > button, .access-options > button").forEach((btn) => {
-        btn.disabled = true;
-        btn.setAttribute("aria-disabled", "true");
-        btn.classList.add("locked");
-      });
-      const reasoningConsole = $("#reasoningControl");
-      if (reasoningConsole) reasoningConsole.classList.add("locked");
-      const saveBtn = $("#saveSettings");
-      if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = "<span>当前配置已锁定</span><i>远程工作区配置在会话创建时固定</i>";
-      }
-    } else {
-      if (sheetBanner) sheetBanner.hidden = true;
-      document.querySelectorAll(".model-options > button.locked, #harnessOptions > button.locked, .access-options > button.locked").forEach((btn) => {
-        btn.disabled = false;
-        btn.removeAttribute("aria-disabled");
-        btn.classList.remove("locked");
-      });
-      const reasoningConsole = $("#reasoningControl");
-      if (reasoningConsole) reasoningConsole.classList.remove("locked");
-      const saveBtn = $("#saveSettings");
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = "<span>应用到当前对话</span><i>当前设置将立即生效</i>";
-      }
-    }
-
     document.querySelectorAll("[data-model]").forEach((button) =>
-      button.classList.toggle("selected", button.dataset.model === (state.draftModel || state.model)));
+      button.classList.toggle("selected", button.dataset.model === state.draftModel));
     document.querySelectorAll("[data-access]").forEach((button) =>
       button.classList.toggle("selected", button.dataset.access === state.draftAccessMode));
     renderCapabilities();
@@ -1389,6 +973,29 @@
     localStorage.setItem("wit_model_preference", state.model);
     localStorage.setItem("wit_reasoning_preference", state.reasoning);
     localStorage.setItem("wit_access_preference", state.accessMode);
+  }
+
+  function restorePreferredSettings(conversation) {
+    if (!state.restorePreferredSettingsOnLaunch) return false;
+    state.restorePreferredSettingsOnLaunch = false;
+    if (!conversation || conversation.busy) return false;
+    const changed = conversation.model !== state.preferredModel ||
+      conversation.reasoning !== state.preferredReasoning ||
+      conversation.accessMode !== state.preferredAccessMode;
+    state.model = state.preferredModel;
+    state.reasoning = state.preferredReasoning;
+    state.accessMode = state.preferredAccessMode;
+    state.draftModel = state.model;
+    state.draftReasoning = state.reasoning;
+    state.draftAccessMode = state.accessMode;
+    if (changed && state.nativeInitialized && state.activeId) {
+      if (state.supports21) {
+        bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning, state.accessMode);
+      } else {
+        bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning);
+      }
+    }
+    return changed;
   }
 
   function openProject() {
@@ -1414,10 +1021,7 @@
   function renderUsage() {
     const payload = state.usage;
     if (!payload) {
-      const codex = selectedModelCapability()?.harness === "codex" || /^(gpt|deepseek)-/.test(state.model);
-      $("#usageContent").innerHTML = codex
-        ? `<div class="usage-loading"><i></i><span>正在读取 Codex 用量</span></div>`
-        : `<div class="usage-error"><strong>当前模型使用 CPA 服务</strong><small>Grok 与 Gemini 额度见上方。Codex 用量会在使用 GPT 时读取。</small></div>`;
+      $("#usageContent").innerHTML = `<div class="usage-loading"><i></i><span>正在读取 Token 用量</span></div>`;
       return;
     }
     const summary = payload.summary || {};
@@ -1505,10 +1109,10 @@
     $("#profileSheet").setAttribute("aria-hidden", "false");
     renderUsage();
     refreshUsage();
-    $("#profileSheet .profile-panel").scrollTop = 0;
   }
 
   function renderAdminDevices(devices = []) {
+    devices = devices.filter((device) => !device.hiddenFromList);
     $("#deviceList").innerHTML = devices.length ? devices.map((device) => `
       <article class="device-row"><span>⌁</span><div><strong>${escapeHtml(device.label || "未命名设备")}</strong><small>${device.disabled ? "已停止访问" : `最近活跃：${formatDate(device.lastSeenAt || device.createdAt)}`}</small></div>${device.disabled ? "" : `<button data-disable-device="${escapeHtml(device.id)}">停止</button>`}</article>`).join("")
       : `<small>还没有已激活的设备。</small>`;
@@ -1940,13 +1544,14 @@
     return localTerminal;
   }
 
-  function openLocalSsh() {
+  async function openLocalSsh() {
     closeDrawer();
     if (versionLessThan(state.nativeVersion, "2.2.16")) {
-      toast("请先更新 Chloe 后使用本地终端");
+      toast("请先更新 Witt 后使用本地终端");
       bridge()?.checkForUpdates?.();
       return;
     }
+    try { await window.WittModules?.terminal(); } catch { toast("终端组件加载失败，请重试"); return; }
     $("#localSshSheet").classList.add("open");
     $("#localSshSheet").setAttribute("aria-hidden", "false");
     localSshViewportBaseline = window.innerHeight;
@@ -1966,7 +1571,13 @@
   }
 
   function appendLocalTerminal(text) {
-    ensureLocalTerminal()?.write(String(text || ""));
+    if (window.Terminal) { ensureLocalTerminal()?.write(String(text || "")); return; }
+    terminalBuffer = (terminalBuffer + String(text || "")).slice(-1024 * 1024);
+    if (!terminalLoad && window.WittModules) {
+      terminalLoad = window.WittModules.terminal().then(() => {
+        ensureLocalTerminal()?.write(terminalBuffer); terminalBuffer = "";
+      }).catch(() => toast("终端组件加载失败，请重新打开服务器")).finally(() => { terminalLoad = null; });
+    }
   }
 
   function openAdminSettings() {
@@ -1996,6 +1607,10 @@
   function renderCodexAccounts(accounts = []) {
     state.codexAccounts = accounts;
     $("#codexAccountList").innerHTML = accounts.map((account) => {
+      if (account.provider === "claude") {
+        const detail = account.authenticated ? `${account.account?.email || "已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}` : "通过官方 Claude Code 登录";
+        return `<article class="codex-account-card additional"><span class="codex-account-avatar">C</span><div class="codex-account-identity"><strong>Claude</strong><small>${escapeHtml(detail)}</small></div><div class="codex-account-actions"><button class="login" data-login-claude>${account.authenticated ? "管理登录" : "登录账号"}</button></div></article>`;
+      }
       const signedIn = Boolean(account.authenticated);
       const canLogin = state.admin && account.id !== "default";
       const detail = signedIn
@@ -2058,7 +1673,7 @@
     const currentBridge = bridge();
     if (versionLessThan(state.nativeVersion, "2.2.19")) {
       if (profile !== "xuanyu") {
-        toast("请先更新 Chloe 后登录更多账号");
+        toast("请先更新 Witt 后登录更多账号");
         currentBridge?.checkForUpdates?.();
         return false;
       }
@@ -2091,7 +1706,7 @@
   function consumeQuotaReset() {
     closeQuotaResetConfirm();
     if (typeof bridge()?.consumeRateLimitReset !== "function") {
-      toast("请先更新 Chloe 后再使用重置额度");
+      toast("请先更新 Witt 后再使用重置额度");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -2107,7 +1722,6 @@
     state.draftReasoning = state.reasoning;
     state.draftAccessMode = state.accessMode;
     updateModelControls();
-    void loadVersionInfo();
     $("#settingsSheet").classList.add("open");
     $("#settingsSheet").setAttribute("aria-hidden", "false");
   }
@@ -2131,13 +1745,13 @@
     if (state.activeId) {
       if (state.supports21) {
         bridge()?.updateConversationSettings?.(
-          state.activeId, state.model, state.reasoning, state.accessMode, state.harness || "auto");
+          state.activeId, state.model, state.reasoning, state.accessMode);
       } else {
         bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning);
       }
     }
     if (closeSheet) closeSettings();
-    if (announce) toast(`已切换 · ${modelDisplayName(state.model)} · ${reasoningNames[state.reasoning]}`);
+    if (announce) toast(`已切换 · ${modelNames[state.model]} · ${reasoningNames[state.reasoning]}`);
   }
 
   function closeSettings() {
@@ -2159,20 +1773,14 @@
   }
 
   function openDrawer() {
-    if (document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches) {
-      document.body.classList.remove("sidebar-collapsed");
-      $("#drawer").setAttribute("aria-hidden", "false");
-      return;
-    }
     $("#drawer").classList.add("open");
     $("#drawer").setAttribute("aria-hidden", "false");
+    scheduleSummaryRefresh();
   }
 
   function closeDrawer() {
     $("#drawer").classList.remove("open");
-    const desktop = document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches;
-    const hidden = desktop ? document.body.classList.contains("sidebar-collapsed") : true;
-    $("#drawer").setAttribute("aria-hidden", String(hidden));
+    $("#drawer").setAttribute("aria-hidden", "true");
   }
 
   function allArtifacts() {
@@ -2182,6 +1790,8 @@
 
   function renderDeliveries() {
     const artifacts = allArtifacts();
+    const versions=new Map();artifacts.forEach(a=>versions.set(a.name,(versions.get(a.name)||0)+1));
+    const versionIndex=a=>artifacts.filter(b=>b.name===a.name).findIndex(b=>b.id===a.id&&b.messageId===a.messageId)+1;
     $("#deliveryBadge").textContent = artifacts.length;
     $("#deliverySummary").textContent = artifacts.length ? `${artifacts.length} 个可下载文件` : "当前对话暂无文件";
     $("#deliveryButton").classList.toggle("has-files", artifacts.length > 0);
@@ -2190,7 +1800,7 @@
       ? artifacts.slice().reverse().map((artifact) => `
         <button class="delivery-file" data-artifact="${artifact.id}" data-message="${artifact.messageId}">
           <span class="delivery-type">${extension(artifact.name)}</span>
-          <span class="delivery-file-copy"><strong>${escapeHtml(artifact.name)}</strong><small>${formatBytes(artifact.size)}<i></i>来自当前对话</small></span>
+          <span class="delivery-file-copy"><strong>${escapeHtml(artifact.name)}</strong><small>${formatBytes(artifact.size)}<i></i>${versions.get(artifact.name)>1?`版本 ${versionIndex(artifact)} / ${versions.get(artifact.name)} · `:""}点击预览</small></span>
           <span class="delivery-download"><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg></span>
         </button>`).join("")
       : `<div class="delivery-empty"><span>↓</span><strong>暂无交付文件</strong><p>需要文件时直接告诉我“把它放到交付区”。</p></div>`;
@@ -2207,35 +1817,13 @@
     $("#deliverySheet").setAttribute("aria-hidden", "true");
   }
 
-  function openActionDetail(messageId, entryId, label) {
-    state.detailRequest = { messageId, entryId };
-    state.detailEntry = null;
-    $("#actionDetailTitle").textContent = label || "执行详情";
-    $("#actionDetailContent").innerHTML = `<div class="detail-loading"><i></i><span>正在读取详情</span></div>`;
-    $("#actionDetailSheet").classList.add("open");
-    $("#actionDetailSheet").setAttribute("aria-hidden", "false");
-    if (typeof bridge()?.requestStreamDetail !== "function") {
-      $("#actionDetailContent").innerHTML = `<div class="detail-error">请先更新到新版 App，再查看执行详情。</div>`;
-      bridge()?.checkForUpdates?.();
-      return;
-    }
-    bridge().requestStreamDetail(state.activeId, messageId, entryId);
-  }
-
-  function closeActionDetail() {
-    state.detailRequest = null;
-    state.detailEntry = null;
-    $("#actionDetailSheet").classList.remove("open");
-    $("#actionDetailSheet").setAttribute("aria-hidden", "true");
-  }
-
   function openImageViewer(url, name, mimeType = "") {
     if (!url) return;
     $("#imageViewerImage").src = url;
-    $("#imageViewerImage").alt = name || "Chloe 图片";
-    $("#imageViewerName").textContent = name || "Chloe 图片";
+    $("#imageViewerImage").alt = name || "Witt 图片";
+    $("#imageViewerName").textContent = name || "Witt 图片";
     $("#downloadImageViewer").dataset.url = url;
-    $("#downloadImageViewer").dataset.name = name || "Chloe 图片";
+    $("#downloadImageViewer").dataset.name = name || "Witt 图片";
     $("#downloadImageViewer").dataset.mimeType = mimeType;
     $("#imageViewer").classList.add("open");
     $("#imageViewer").setAttribute("aria-hidden", "false");
@@ -2248,235 +1836,8 @@
     delete $("#downloadImageViewer").dataset.url;
   }
 
-  function detailBlock(title, value, className = "") {
-    if (value === null || value === undefined || value === "") return "";
-    return `<section class="detail-block ${className}"><h3>${escapeHtml(title)}</h3><pre>${escapeHtml(value)}</pre></section>`;
-  }
-
-  function developmentWorkflowKey(conversationId, messageId) {
-    return `${conversationId || ""}:${messageId || ""}`;
-  }
-
-  function developmentWorkflowLabel(job) {
-    if (!job) return "尚未开始";
-    const statusLabels = {
-      queued: "已排队", pending: "等待开始", running: "正在执行",
-      awaiting_commit_confirmation: "测试通过，等待提交确认",
-      awaiting_deploy_confirmation: "已推送，等待部署确认",
-      restart_queued: "等待延迟重启", restarting: "服务重启中",
-      completed: "已完成", succeeded: "已完成", failed: "执行失败",
-      cancelled: "已取消", canceled: "已取消",
-    };
-    const stageLabels = {
-      test: "测试", testing: "测试", staging: "准备提交", commit: "提交",
-      committing: "提交", push: "推送", pushing: "推送", deploy: "部署",
-      restart: "重启", restart_queued: "等待重启", restarting: "重启",
-      health: "健康检查", health_check: "健康检查",
-    };
-    const parts = [
-      statusLabels[String(job.status || "").toLowerCase()] || job.status || "",
-      stageLabels[String(job.stage || "").toLowerCase()] || job.stage || "",
-      job.message || job.failureReason || job.error || "",
-    ].filter(Boolean);
-    return parts.join(" · ") || "正在处理";
-  }
-
-  function developmentWorkflowMarkup(entry, details, changes) {
-    const conversation = state.active;
-    const conversationId = conversation?.id;
-    const messageId = state.detailRequest?.messageId;
-    const message = conversation?.messages?.find((item) => item.id === messageId);
-    const latestAssistant = conversation?.messages?.filter((item) => item.role === "assistant").at(-1);
-    const latestUser = conversation?.messages?.filter((item) => item.role === "user").at(-1);
-    const taskSummary = String(latestUser?.text || "更新项目文件").replace(/\s+/g, " ").trim().slice(0, 72) || "更新项目文件";
-    const commitSeed = `Chloe: ${taskSummary}`;
-    const branch = conversation?.gitBranch || conversation?.branch ||
-      details.branch || details.gitBranch || entry.branch || "";
-    const allowedHarness = ["grok-build", "codex"].includes(conversation?.harnessId);
-    const incompleteChanges = Number(details.omitted || 0) > 0 ||
-      Number(details.baselineUnavailable || 0) > 0 || Boolean(details.baselineDirty || details.branchChanged) || changes.some((change) => {
-      const kind = String(change.kind || "").toLowerCase();
-      const deleted = ["delete", "deleted"].includes(kind);
-      return Boolean(change.baselineDirty || change.baselineUnavailable || change.afterHashUnavailable) ||
-        (!deleted && !change.afterHash);
-    });
-    if (!conversationId || !messageId || state.activeId !== conversationId ||
-        !state.admin || state.busy || conversation.busy || conversation.workDir !== "/opt/witt" ||
-        !allowedHarness || branch !== "platform/personal-ai-ops" ||
-        message?.status !== "completed" || latestAssistant?.id !== messageId ||
-        entry.id !== "turn-git-changes" || entry.kind !== "file" ||
-        entry.status !== "completed" || !changes.length || incompleteChanges) return "";
-
-    const key = developmentWorkflowKey(conversationId, messageId);
-    const savedJob = state.developmentWorkflowJobs.get(key);
-    const streamJobEntry = message?.stream?.findLast((item) =>
-      ["development_workflow", "workflow"].includes(item.kind));
-    const streamJob = streamJobEntry
-      ? { ...(streamJobEntry.details || {}), ...(streamJobEntry.job || {}),
-        id: streamJobEntry.jobId || streamJobEntry.job?.id || streamJobEntry.details?.id,
-        sha: streamJobEntry.sha || streamJobEntry.job?.sha || streamJobEntry.details?.sha,
-        status: streamJobEntry.status || streamJobEntry.job?.status || streamJobEntry.details?.status,
-        stage: streamJobEntry.stage || streamJobEntry.job?.stage || streamJobEntry.details?.stage,
-        message: streamJobEntry.message || streamJobEntry.job?.message || streamJobEntry.details?.message,
-        failureReason: streamJobEntry.failureReason || streamJobEntry.job?.failureReason ||
-          streamJobEntry.details?.failureReason || streamJobEntry.details?.error,
-      }
-      : null;
-    // Persisted stream events are the recovery source of truth. The bridge map
-    // only fills the gap before the first stream update reaches the conversation.
-    const job = streamJob || savedJob;
-    const running = job && ["queued", "pending", "running", "restart_queued", "restarting"].includes(String(job.status || "").toLowerCase());
-    const finished = job && ["completed", "succeeded"].includes(String(job.status || "").toLowerCase());
-    const canRetry = job && ["failed", "cancelled", "canceled"].includes(String(job.status || "").toLowerCase());
-    const canResumePush = Boolean(canRetry && job?.sha && job?.id);
-    const canDeploy = Boolean(job?.id && job?.sha &&
-      String(job.status || "").toLowerCase() === "awaiting_deploy_confirmation");
-    const canCommit = Boolean(job?.id && !job?.sha &&
-      String(job.status || "").toLowerCase() === "awaiting_commit_confirmation");
-    const canCancelRunning = Boolean(running && job?.id && !job?.sha &&
-      !["committing", "pushing", "restart_queued", "restarting", "health_check"].includes(job.stage));
-    const launchLabel = canRetry ? "重新运行测试" : "运行测试";
-    return `
-      <section class="development-workflow" data-workflow-key="${escapeHtml(key)}">
-        <strong>项目交付</strong>
-        <p>先对 ${escapeHtml(branch)} 本轮变更运行测试；测试通过后分别确认提交推送与部署。</p>
-        ${job ? `<p class="development-workflow-status" data-development-workflow-status data-workflow-key="${escapeHtml(key)}" role="status" aria-live="polite">${escapeHtml(developmentWorkflowLabel(job))}</p>` : ""}
-        ${canCancelRunning ? `<button type="button" class="secondary development-workflow-stop" data-workflow-stop data-job-id="${escapeHtml(job.id)}">取消交付</button>` : ""}
-        ${canResumePush ? `<button type="button" class="development-workflow-launch" data-workflow-prepare-resume>准备重试推送</button>
-          <div class="development-workflow-confirm" data-workflow-resume-confirm-panel hidden>
-            <p>上次提交已创建但推送未完成。确认后仅重试推送产品分支。</p>
-            <div><button type="button" class="secondary" data-workflow-cancel-resume>返回</button><button type="button" data-workflow-resume-push data-job-id="${escapeHtml(job.id)}">确认重试推送</button></div>
-          </div>` : ""}
-        ${canCommit ? `<button type="button" class="development-workflow-launch" data-workflow-prepare-commit>准备提交并推送</button>
-          <div class="development-workflow-confirm" data-workflow-commit-confirm-panel hidden>
-            <p>测试已通过。请再次确认本轮 Diff 与提交说明；确认后将精确暂存、创建提交并推送产品分支。</p>
-            <label class="development-workflow-commit-label">提交说明<input type="text" maxlength="120" data-workflow-commit-message value="${escapeHtml(commitSeed)}"></label>
-            <div><button type="button" class="secondary" data-workflow-cancel-commit>暂不提交</button><button type="button" data-workflow-confirm-commit data-job-id="${escapeHtml(job.id)}">确认提交并推送</button></div>
-          </div>` : ""}
-        ${canDeploy ? `<button type="button" class="development-workflow-launch" data-workflow-prepare-deploy>准备部署</button>
-          <div class="development-workflow-confirm" data-workflow-deploy-confirm-panel hidden>
-            <p>已提交并推送到产品分支。确认后将重启 Chloe 服务并检查健康状态；也可以暂不部署。</p>
-            <div><button type="button" class="secondary" data-workflow-cancel-deploy>暂不部署</button><button type="button" data-workflow-confirm-deploy data-job-id="${escapeHtml(job.id)}">确认部署并重启</button></div>
-          </div>` : ""}
-        ${finished || canResumePush || canCommit || canDeploy ? "" : running
-          ? ""
-          : `<button type="button" class="development-workflow-launch" data-workflow-prepare>${launchLabel}</button>
-            <div class="development-workflow-confirm" data-workflow-confirm-panel hidden>
-              <p>确认后仅运行测试；不会提交、推送、部署或重启服务。</p>
-              <div><button type="button" class="secondary" data-workflow-cancel>返回</button><button type="button" data-workflow-confirm-send>确认运行测试</button></div>
-            </div>`}
-      </section>`;
-  }
-
-  function renderActionDetail(entry) {
-    const details = entry.details || {};
-    if (entry.kind === "command" || entry.kind === "tool" || entry.kind === "thought") {
-      const status = entry.status === "completed" ? "已完成"
-        : entry.status === "failed" ? "失败" : "执行中";
-      const exitCode = Number.isInteger(details.exitCode) ? details.exitCode : null;
-      const failure = details.error || details.failureReason || details.reason || "";
-      const meta = [
-        status,
-        exitCode !== null ? `退出码 ${exitCode}` : "",
-        Number.isInteger(details.durationMs) ? `${(details.durationMs / 1000).toFixed(2)} 秒` : "",
-      ].filter(Boolean).join(" · ");
-      $("#actionDetailTitle").textContent = entry.kind === "thought" ? "思考过程详情"
-        : entry.kind === "tool" ? "工具执行详情" : "命令执行详情";
-      $("#actionDetailContent").innerHTML = `
-        <div class="detail-summary"><span>${entry.kind === "command" ? "⌘" : "✦"}</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || details.workDir || (entry.kind === "thought" ? "深度思考与分析" : "未提供工作目录"))}</small></div></div>
-        ${entry.kind === "thought" ? "" : detailBlock(entry.kind === "tool" ? "工具" : "完整命令", details.command || details.tool || entry.label, "command")}
-        ${failure ? detailBlock("失败原因", failure, "failure") : ""}
-        ${detailBlock(entry.kind === "thought" ? "思考内容" : "执行输出", details.thought || details.output || "该操作没有输出", "output")}`;
-      return;
-    }
-
-    const changes = Array.isArray(details.changes) ? details.changes : [];
-    const kindNames = {
-      add: "新增", added: "新增", create: "新增",
-      update: "修改", modified: "修改",
-      delete: "删除", deleted: "删除",
-      rename: "重命名", renamed: "重命名",
-      untracked: "未跟踪文本",
-    };
-    const fileSize = (value) => {
-      if (value === null || value === undefined || value === "") return "";
-      const bytes = Number(value);
-      return Number.isFinite(bytes) && bytes >= 0 ? formatBytes(bytes) : "";
-    };
-    $("#actionDetailTitle").textContent = changes.length
-      ? `本轮文件变更 · ${changes.length} 个` : "本轮文件变更";
-    $("#actionDetailContent").innerHTML = changes.length
-      ? changes.map((change) => {
-        const kind = String(change.kind || "update").toLowerCase();
-        const isRename = ["rename", "renamed"].includes(kind) || Boolean(change.oldPath || change.movePath);
-        const isUntracked = kind === "untracked" || Boolean(change.untracked);
-        const label = isUntracked ? kindNames.untracked : isRename ? kindNames.rename : (kindNames[kind] || "修改");
-        const className = isUntracked ? "untracked" : isRename ? "rename" : kind;
-        const oldPath = change.oldPath || (isRename ? change.movePath : "");
-        const path = change.path || change.newPath || oldPath || "未知路径";
-        const size = fileSize(change.bytes);
-        const flags = [
-          change.binary ? "二进制文件，无法显示文本 Diff" : "",
-          change.large ? `大文件${size ? `（${size}）` : ""}，Diff 可能不完整` : "",
-          change.truncated ? "Diff 已截断，仅显示部分内容" : "",
-          change.baselineUnavailable ? "基线超过采集上限，无法准确归因" : "",
-        ].filter(Boolean);
-        const diff = typeof change.diff === "string" ? change.diff : "";
-        const diffHtml = diff && !change.binary
-          ? `<pre>${escapeHtml(diff)}</pre>`
-          : flags.length
-            ? ""
-            : `<p class="file-change-empty">没有可显示的文本 Diff</p>`;
-        return `
-          <article class="file-change-detail">
-            <header><span class="${escapeHtml(className)}">${escapeHtml(label)}</span><strong>${escapeHtml(path)}</strong></header>
-            ${oldPath && oldPath !== path ? `<p class="file-change-path">原路径：${escapeHtml(oldPath)}</p>` : ""}
-            ${size ? `<p class="file-change-size">文件大小：${escapeHtml(size)}</p>` : ""}
-            ${flags.map((flag) => `<p class="file-change-notice">${escapeHtml(flag)}</p>`).join("")}
-            ${diffHtml}
-          </article>`;
-      }).join("") + (Number(details.baselineUnavailable || 0) > 0
-        ? `<p class="file-change-notice">基线超过采集上限，无法准确归因</p>` : "") +
-        (details.baselineDirty && Number(details.baselineUnavailable || 0) === 0
-          ? `<p class="file-change-notice">回合开始前工作区已有修改，无法确认这些内容均由本轮产生</p>` : "") +
-        developmentWorkflowMarkup(entry, details, changes)
-      : `<div class="detail-error">本轮没有可显示的文件变更。</div>`;
-  }
-
-  function conversationTimeGroup(updatedAt) {
-    if (!updatedAt) return "Earlier";
-    const date = new Date(updatedAt);
-    if (isNaN(date.getTime())) return "Earlier";
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const diffDays = Math.round((today - itemDate) / (1000 * 60 * 60 * 24));
-    if (diffDays <= 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays <= 7) return "Previous 7 Days";
-    if (diffDays <= 30) return "Previous 30 Days";
-    return "Earlier";
-  }
-
-  function renderConversationRow(conversation, isPinned) {
-    const proj = historyProjectName(conversation);
-    const showProj = state.workspaceFeatures && proj && proj !== "未分组";
-    return `
-      <article class="conversation-row ${conversation.id === state.activeId ? "active" : ""}" data-id="${conversation.id}">
-        <button class="conversation-open" data-open="${conversation.id}" title="${escapeHtml(conversation.title)}">
-          <span class="conversation-mark">
-            ${conversation.busy
-              ? '<i class="conversation-busy-spinner"></i>'
-              : '<svg class="conversation-bubble-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
-            }
-          </span>
-          <span class="conversation-copy">
-            ${showProj ? `<span class="history-project-label">${escapeHtml(proj)}</span>` : ""}
-            <strong class="conversation-title">${isPinned ? '<span class="conversation-pin-icon" aria-label="已置顶"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg></span>' : ""}${escapeHtml(conversation.title)}</strong>
-          </span>
-        </button>
-        <button class="conversation-more" data-archive="${conversation.id}" aria-label="更多操作" title="更多操作">•••</button>
-      </article>`;
+  function conversationTask(item) {
+    return item.taskStatus || { state: item.busy ? "running" : "idle", label: item.busy ? "正在执行" : "" };
   }
 
   function renderConversations() {
@@ -2492,49 +1853,28 @@
       if (state.historyResults) return true;
       return (!selectedProject || historyProjectName(item) === selectedProject) &&
         (!q || `${item.title} ${item.lastMessage || ""}`.toLocaleLowerCase().includes(q)) &&
-        (!attachments || item.hasAttachments || (item.id === state.activeId && state.active?.messages?.some((message) => message.attachments?.length || message.artifacts?.length)));
-    }).slice().sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) ||
-      historyProjectName(a).localeCompare(historyProjectName(b)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
-
-    if (!conversations.length) {
-      $("#conversationList").innerHTML = `<div class="drawer-empty">${q || selectedProject || attachments ? "没有匹配的对话" : "还没有历史对话"}</div>`;
-      return;
-    }
-
-    if (q || selectedProject) {
-      $("#conversationList").innerHTML = conversations.map((conversation) => renderConversationRow(conversation, pinned.has(conversation.id))).join("");
-      return;
-    }
-
-    const groupOrder = ["Pinned", "Today", "Yesterday", "Previous 7 Days", "Previous 30 Days", "Earlier"];
-    const groups = new Map();
-    groupOrder.forEach((name) => groups.set(name, []));
-
-    conversations.forEach((conversation) => {
-      if (pinned.has(conversation.id)) {
-        groups.get("Pinned").push(conversation);
-      } else {
-        const group = conversationTimeGroup(conversation.updatedAt);
-        if (!groups.has(group)) groups.set(group, []);
-        groups.get(group).push(conversation);
-      }
-    });
-
-    let html = "";
-    for (const name of groupOrder) {
-      const items = groups.get(name);
-      if (items && items.length > 0) {
-        html += `
-          <div class="history-time-group">
-            <div class="history-group-title">${escapeHtml(name)}</div>
-            <div class="history-group-items">
-              ${items.map((item) => renderConversationRow(item, pinned.has(item.id))).join("")}
-            </div>
-          </div>`;
-      }
-    }
-
-    $("#conversationList").innerHTML = html || conversations.map((conversation) => renderConversationRow(conversation, pinned.has(conversation.id))).join("");
+        (!attachments || item.hasAttachments);
+    }).slice().sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    let previousGroup = '';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate()-1);
+    $("#conversationList").classList.toggle("searching", Boolean(q));
+    $("#conversationList").innerHTML = conversations.length ? conversations.map((item) => {
+      const stamp = new Date(item.updatedAt);
+      const group = q ? "搜索结果" : pinned.has(item.id) ? "置顶" : stamp >= today ? "今天" : stamp >= yesterday ? "昨天" : "更早";
+      const heading = group !== previousGroup ? `<div class="history-date-group">${group}</div>` : '';
+      previousGroup = group;
+      const task = conversationTask(item);
+      const showStatus = ["running", "queued", "awaiting_confirmation", "waiting_confirmation", "failed"].includes(task.state);
+      return `${heading}<article class="conversation-row ${item.id === state.activeId ? "active" : ""}" data-id="${item.id}" data-task-state="${escapeHtml(task.state)}">
+        <button class="conversation-open" data-open="${item.id}" title="${escapeHtml(item.title)}">
+          <span><strong>${escapeHtml(item.title)}</strong>${q ? `<small class="history-search-snippet">${escapeHtml(item.searchSnippet || item.lastMessage || "标题匹配")}</small>` : ''}${showStatus ? `<span class="conversation-task"><i></i>${escapeHtml(task.label)}</span>` : ''}</span>
+        </button>
+        <button class="conversation-more" data-conversation-menu="${item.id}" aria-label="${escapeHtml(item.title)}的更多操作" aria-haspopup="dialog">•••</button>
+      </article>`;
+    }).join('') : `<div class="drawer-empty">${q || selectedProject || attachments ? "没有匹配的对话" : "还没有历史对话"}</div>`;
+    window.WittUpgrades?.renderTasks(state.conversations, maxConcurrentTasks);
+    scheduleSummaryRefresh();
   }
 
   function attachmentHtml(file) {
@@ -2747,7 +2087,7 @@
     if (!url) return;
     const link = document.createElement("a");
     link.href = url;
-    link.download = name || "Chloe 交付文件";
+    link.download = name || "Witt 交付文件";
     link.rel = "noopener";
     document.body.append(link);
     link.click();
@@ -2757,6 +2097,14 @@
   function showActivation(message = "") {
     dismissBoot();
     const gate = $("#authGate");
+    if (state.openAccess) {
+      $("#authGateTitle").textContent = "连接 Witt 开放版";
+      $("#authGateTitle + p").textContent = "本版本自动登录，无需输入激活码。";
+      $("label[for=inviteCode]").hidden = true;
+      $("#inviteCode").hidden = true;
+      $("#activateInviteButton span").textContent = "重新连接";
+      $("#activateInviteButton").disabled = false;
+    }
     gate.classList.add("open");
     gate.setAttribute("aria-hidden", "false");
     if (message) $("#authGateHint").textContent = message;
@@ -2795,7 +2143,7 @@
   function inlineImageHtml(image, className = "") {
     const url = imageUrl(image);
     if (!url) return "";
-    const name = String(image.name || "Chloe 图片");
+    const name = String(image.name || "Witt 图片");
     return `<button type="button" class="inline-image ${className}" data-inline-image="${escapeHtml(url)}" data-image-name="${escapeHtml(name)}" data-image-mime="${escapeHtml(image.mimeType || "")}">
       <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async">
       <span><b>${escapeHtml(name)}</b><small>${formatBytes(image.size)}</small></span>
@@ -2812,39 +2160,93 @@
   function activityHtml(message) {
     const activities = visibleActivities(message);
     if (!activities.length) return "";
-    const latest = activities.at(-1);
-    const icon = latest.type === "command" ? "⌘" : latest.type === "file" ? "◇" : latest.type === "web" ? "◎" : "✦";
-    return `<details class="activity" ${message.status === "running" ? "open" : ""}>
-      <summary><span class="${message.status}">${icon}</span><b>${escapeHtml(latest.label)}</b><i></i></summary>
-      <div>${activities.map((item) => `<p><span class="${item.status}"></span>${escapeHtml(item.label)}</p>`).join("")}</div>
-    </details>`;
+    return processDisclosure(activities.at(-1).label,
+      activities.map((item) => `<p class="process-line ${escapeHtml(item.status || "")}">${escapeHtml(item.label)}</p>`).join(""),
+      processKey(message, "activity"), "activity");
+  }
+
+  function processKey(message, suffix) {
+    return `${state.activeId || "draft"}:${message.sourceMessageId || message.id}:${suffix}`;
+  }
+
+  function processDisclosure(label, body, key, classes = "", attributes = "") {
+    const open = state.expandedProcess.has(key) ? " open" : "";
+    return `<details class="process-node ${classes}" data-process-key="${escapeHtml(key)}"${open} ${attributes}>
+      <summary><span class="process-label">${escapeHtml(label)}</span><svg class="process-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+      <div class="process-body">${body}</div></details>`;
+  }
+
+  function processValueHtml(label, value, key) {
+    if (value === undefined || value === null || value === "") return "";
+    const body = typeof value === "object"
+      ? Object.entries(value).map(([name, child]) => processValueHtml(name, child, `${key}:${name}`)).join("")
+      : `<pre class="process-output">${escapeHtml(String(value))}</pre>`;
+    return processDisclosure(label, body, key);
+  }
+
+  function inlineActionBody(entry, key) {
+    const details = entry.details || {};
+    if (entry.kind === "command") {
+      const meta = [Number.isInteger(details.exitCode) ? `退出码 ${details.exitCode}` : "",
+        Number.isInteger(details.durationMs) ? `${(details.durationMs / 1000).toFixed(2)} 秒` : ""].filter(Boolean).join(" · ");
+      return `${meta ? `<p class="process-meta">${escapeHtml(meta)}</p>` : ""}
+        ${processValueHtml("工作目录", details.cwd, `${key}:cwd`)}
+        ${processValueHtml("完整命令", details.command, `${key}:command`)}
+        ${processValueHtml("执行输出", details.output || "该命令没有输出", `${key}:output`)}`;
+    }
+    if (entry.kind === "file") {
+      const changes = Array.isArray(details.changes) ? details.changes : [];
+      const kinds = { add: "新增", update: "修改", delete: "删除" };
+      return changes.length ? changes.map((change, index) => processDisclosure(
+        `${kinds[change.kind] || "修改"} ${change.path || "文件"}`,
+        processValueHtml("移动到", change.movePath, `${key}:${index}:move`) +
+          processValueHtml("文件差异", change.diff || "没有可显示的差异内容", `${key}:${index}:diff`),
+        `${key}:file:${index}`)).join("") : '<p class="process-meta">暂时没有可显示的文件差异。</p>';
+    }
+    return processValueHtml("详情", details, `${key}:details`);
+  }
+
+  function cachedActionBody(key) {
+    const cached = state.inlineDetails.get(key);
+    if (cached?.entry) return inlineActionBody(cached.entry, key);
+    if (cached?.error) return `<p class="process-meta">${escapeHtml(cached.error)}<button class="process-retry" type="button" data-process-retry="${escapeHtml(key)}">重试</button></p>`;
+    return '<p class="process-meta" role="status">正在读取详情…</p>';
+  }
+
+  function refreshInlineDetail(key) {
+    document.querySelectorAll("details[data-inline-detail]").forEach((node) => {
+      if (node.dataset.processKey === key) node.querySelector(":scope > .process-body").innerHTML = cachedActionBody(key);
+    });
+  }
+
+  function pumpInlineDetails() {
+    if (state.detailRequest || !state.inlineDetailQueue.length) return;
+    const request = state.inlineDetailQueue.shift();
+    state.detailRequest = request;
+    if (typeof bridge()?.requestStreamDetail !== "function") {
+      window.DropVault.onStreamDetailError("当前 App 无法读取执行详情，请更新后重试。");
+      return;
+    }
+    bridge().requestStreamDetail(request.conversationId, request.messageId, request.entryId);
+  }
+
+  function loadInlineDetail(node) {
+    const key = node.dataset.processKey;
+    if (state.inlineDetails.has(key) || state.detailRequest?.key === key || state.inlineDetailQueue.some(item => item.key === key)) return;
+    state.inlineDetailQueue.push({key, conversationId: state.activeId,
+      messageId: node.dataset.messageId, entryId: node.dataset.inlineDetail});
+    pumpInlineDetails();
   }
 
   function streamActionHtml(message, entry) {
-    const icon = entry.kind === "command" ? "⌘"
-      : entry.kind === "file" ? "◇"
-      : entry.kind === "web" ? "◎" : "✦";
-    const detailAttributes = entry.hasDetails
-      ? `data-stream-detail="${escapeHtml(entry.id)}" data-message-id="${escapeHtml(message.sourceMessageId || message.id)}"`
-      : "";
-    const tag = entry.hasDetails ? "button" : "div";
-    const details = entry.details || {};
-    const status = entry.status === "completed" ? "已完成"
-      : entry.status === "failed" ? "失败" : entry.status === "running" ? "执行中" : "";
-    const actualExitCode = Number.isInteger(details.exitCode) ? details.exitCode
-      : Number.isInteger(entry.exitCode) ? entry.exitCode : null;
-    const exitCode = actualExitCode !== null ? `退出码 ${actualExitCode}` : "";
-    const failure = details.error || details.failureReason || details.reason ||
-      entry.error || entry.failureReason || "";
-    const meta = [status, exitCode, failure].filter(Boolean).join(" · ");
-    const fileCount = Number.isFinite(Number(entry.count)) && Number(entry.count) > 0
-      ? `${Number(entry.count)} 个文件` : "";
-    const subline = entry.kind === "file" ? fileCount
-      : entry.kind === "command" || entry.kind === "tool" || entry.kind === "thought" ? meta : "";
-    return `<${tag} ${entry.hasDetails ? 'type="button"' : ""} class="stream-action ${entry.kind || "tool"} ${entry.status || ""} ${entry.hasDetails ? "clickable" : ""}" ${detailAttributes}>
-      <span>${icon}</span><div class="stream-action-copy"><p>${escapeHtml(entry.label || "正在处理")}</p>${subline ? `<small>${escapeHtml(subline)}</small>` : ""}</div>
-      <div class="stream-tail"><i></i>${entry.hasDetails ? `<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>` : ""}</div>
-    </${tag}>`;
+    const label = entry.label || "正在处理";
+    if (!entry.hasDetails) return `<p class="process-line ${escapeHtml(entry.kind || "tool")} ${escapeHtml(entry.status || "")}">${escapeHtml(label)}</p>`;
+    const key = processKey(message, `action:${entry.id}`);
+    const cached = state.inlineDetails.get(key);
+    if (cached?.entry?.status === "running" && entry.status !== "running") state.inlineDetails.delete(key);
+    return processDisclosure(label, cachedActionBody(key), key,
+      `stream-action ${escapeHtml(entry.kind || "tool")} ${escapeHtml(entry.status || "")}`,
+      `data-inline-detail="${escapeHtml(entry.id)}" data-message-id="${escapeHtml(message.sourceMessageId || message.id)}"`);
   }
 
   function approvalQuestionFormHtml(entry) {
@@ -2946,7 +2348,7 @@
     ].filter(Boolean).join("");
     const fallbackOptions = [
       { id: "accept", label: "允许一次", description: "仅批准当前这项操作", tone: "accepted" },
-      { id: "decline", label: "拒绝并继续", description: "不执行操作，让当前 AI 尝试其他做法", tone: "declined" },
+      { id: "decline", label: "拒绝并继续", description: "不执行操作，让 Codex 尝试其他做法", tone: "declined" },
     ];
     const options = Array.isArray(entry.approvalOptions) && entry.approvalOptions.length
       ? entry.approvalOptions : fallbackOptions;
@@ -2961,7 +2363,7 @@
     return `<section class="approval-card ${isUserInput ? "user-input" : ""} ${entry.status || "pending"}" data-approval-card="${escapeHtml(entry.approvalId)}" data-approval-type="${escapeHtml(entry.approvalType || "")}">
       <div class="approval-sheet-grabber" aria-hidden="true"></div>
       <header>
-        <div><small>${escapeHtml(typeLabels[entry.approvalType] || "APPROVAL")}</small><strong>${isUserInput ? "当前 AI 需要输入" : "当前 AI 请求确认"}</strong></div>
+        <div><small>${escapeHtml(typeLabels[entry.approvalType] || "APPROVAL")}</small><strong>${isUserInput ? "Codex 需要输入" : "Codex 请求确认"}</strong></div>
         <b data-approval-page>${pending && isUserInput && questionCount ? `1 / ${questionCount}` : pending ? "待确认" : escapeHtml(statusLabels[entry.status] || "已处理")}</b>
       </header>
       ${pending ? structuredHtml
@@ -3037,15 +2439,13 @@
   function streamGroupLabel(entries) {
     const commands = entries.filter((entry) => entry.kind === "command").length;
     const files = entries
-      .filter((entry) => entry.kind === "file" && !entry.readOnly)
+      .filter((entry) => entry.kind === "file")
       .reduce((total, entry) => total + Math.max(1, Number(entry.count) || 1), 0);
-    const reads = entries.filter((entry) => entry.kind === "file" && entry.readOnly).length;
     const tools = entries.filter((entry) => !["command", "file", "web"].includes(entry.kind)).length;
     const web = entries.filter((entry) => entry.kind === "web").length;
     const parts = [];
     if (commands) parts.push(`执行 ${commands} 条命令`);
     if (files) parts.push(`修改 ${files} 个文件`);
-    if (reads) parts.push(`读取 ${reads} 个文件`);
     if (web) parts.push(`查询 ${web} 次`);
     if (tools) parts.push(`调用 ${tools} 个工具`);
     return parts.join(" · ") || `处理 ${entries.length} 项操作`;
@@ -3075,14 +2475,9 @@
         const failed = actionBuffer.filter((entry) => entry.status === "failed").length;
         const groupStatus = running ? "running" : failed ? "failed" : "completed";
         const statusText = running ? "正在执行" : failed ? `${failed} 项未完成` : "执行完成";
-        rendered.push(`<details class="stream-action-group ${groupStatus}" ${message.status === "running" ? "open" : ""}>
-          <summary>
-            <span class="stream-group-icon">⌘</span>
-            <span class="stream-group-copy"><strong>${escapeHtml(streamGroupLabel(actionBuffer))}</strong><small>${statusText} · 点击${message.status === "running" ? "收起" : "展开"}详情</small></span>
-            <span class="stream-group-tail"><i></i><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></span>
-          </summary>
-          <div class="stream-action-list">${actionBuffer.map((entry) => streamActionHtml(message, entry)).join("")}</div>
-        </details>`);
+        rendered.push(processDisclosure(`${streamGroupLabel(actionBuffer)} · ${statusText}`,
+          actionBuffer.map((entry) => streamActionHtml(message, entry)).join(""),
+          processKey(message, `group:${actionBuffer[0].id}`), `stream-action-group ${groupStatus} ${actionBuffer.some((entry) => entry.kind === "command" && entry.status === "running") ? "command-running" : ""}`));
       }
       actionBuffer = [];
     };
@@ -3126,14 +2521,10 @@
     const interrupted = message.status === "interrupted";
     const stateLabel = failed ? "执行未完成" : interrupted ? "执行已暂停" : "执行过程";
     const resultText = finalEntry?.text || message.text || (failed ? "任务未完成。" : "任务已完成。");
-    const processSummary = processHtml ? `<details class="completed-process ${message.status || "completed"}">
-      <summary>
-        <span class="completed-process-mark" aria-hidden="true">${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>
-        <span class="completed-process-copy"><strong>${stateLabel}</strong><small>${processCount ? `${processCount} 项 · ` : ""}${duration}</small></span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
-      </summary>
-      <div class="completed-process-body">${processHtml}</div>
-    </details>` : (failed || interrupted) ? `<div class="completed-runtime ${message.status || "completed"}"><span>${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>${stateLabel} · ${duration}</div>` : "";
+    const processSummary = processHtml ? processDisclosure(
+      `${stateLabel} · ${processCount ? `${processCount} 项 · ` : ""}${duration}`,
+      processHtml, processKey(message, "process"), `completed-process ${message.status || "completed"}`)
+      : (failed || interrupted) ? `<p class="process-line">${stateLabel} · ${duration}</p>` : "";
     return `${processSummary}<div class="completed-result"><div class="stream-message final ${message.status || "completed"}">${textHtml(resultText)}</div></div>`;
   }
 
@@ -3423,7 +2814,7 @@
       ));
     });
     $("#welcome").hidden = orderedMessages.length > 0;
-    $("#chatTitle").textContent = state.active?.title || "Chloe";
+    $("#chatTitle").textContent = state.active?.title || "Witt";
     const liveIds = new Set(orderedMessages.map((message) => message.id));
     let changed = false;
     list.querySelectorAll(":scope > .message").forEach((node) => {
@@ -3441,13 +2832,8 @@
       }
       const signature = fingerprint(message);
       if (article.dataset.fingerprint !== signature) {
-        const previousStatus = article.dataset.status;
-        const wasOpen = Boolean(article.querySelector("details[open]"));
         article.className = `message ${message.role} ${message.status || ""} ${message.steeredInto ? "guided" : ""}`;
         article.innerHTML = messageInnerHtml(message);
-        if (wasOpen && previousStatus === message.status) {
-          article.querySelector("details")?.setAttribute("open", "");
-        }
         article.dataset.status = message.status || "";
         article.dataset.fingerprint = signature;
         changed = true;
@@ -3497,11 +2883,13 @@
     state.appVisible = Boolean(visible);
     document.body.classList.toggle("power-paused", !state.appVisible);
     clearTimeout(pollTimer);
+    clearTimeout(summaryTimer);
     if (!state.appVisible) {
       saveDraft();
       if (state.supportsSse) bridge()?.unsubscribeConversationEvents?.();
       return;
     }
+    scheduleSummaryRefresh();
     applyTheme(document.documentElement.dataset.themePreference || "system");
     if (state.supportsSse && state.activeId) {
       bridge()?.subscribeConversationEvents?.(state.activeId);
@@ -3517,13 +2905,9 @@
     $("#attachButton").disabled = state.transmitting;
     $(".composer").classList.toggle("has-active-turn", busy);
     refreshActionButton();
-    const hint = $("#composerHint");
-    if (hint) {
-      const lockSvg = '<svg class="hint-lock-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
-      hint.innerHTML = busy
-        ? `${lockSvg} <span>处理中 · 你可以继续补充要求</span>`
-        : `${lockSvg} <span>Protected execution • Critical actions require explicit approval</span>`;
-    }
+    $("#composerHint").textContent = busy
+      ? "处理中 · 你可以继续补充要求"
+      : "由你服务器上的 Codex 处理 · 重要操作会先确认";
   }
 
   function hasComposerContent() {
@@ -3610,19 +2994,13 @@
     state.model = conversation.model || state.model;
     state.reasoning = conversation.reasoning || state.reasoning;
     state.accessMode = conversation.accessMode || state.accessMode;
-    state.draftModel = state.model;
-    state.draftReasoning = state.reasoning;
-    state.draftAccessMode = state.accessMode;
     state.codexProfile = conversation.codexProfile || "default";
     state.workDir = conversation.workDir || "";
+    restorePreferredSettings(conversation);
     persistConversation(conversation);
     updateModelControls();
-    setConnected(true, conversation.busy ? "Chloe 正在处理" : "服务器在线");
+    setConnected(true, conversation.busy ? "Witt 正在处理" : "服务器在线");
     renderMessages(true);
-    if (state.detailRequest && state.detailEntry &&
-        $("#actionDetailSheet").classList.contains("open")) {
-      renderActionDetail(state.detailEntry);
-    }
     if (pendingLatestConversationId === conversation.id) {
       scrollOpenedConversationToLatest(conversation.id, true);
     }
@@ -3635,6 +3013,8 @@
       summary.lastMessage = conversation.lastMessage ||
         conversation.messages?.at(-1)?.text || summary.lastMessage;
       summary.busy = state.busy;
+      summary.taskStatus = conversation.taskStatus;
+      summary.pinned = conversation.pinned;
       renderConversations();
       persistConversationList();
     }
@@ -3645,7 +3025,6 @@
   }
 
   function requestConversationCreation(workDir, callback = null) {
-    if (!state.activeId) prepareNewConversationSettings();
     state.afterCreate = callback;
     const nativeBridge = bridge();
     if (typeof nativeBridge?.createConversation !== "function") {
@@ -3691,8 +3070,22 @@
   }
 
   function sendPreparedMessage(text, uploadedIds) {
-    if (state.workspaceFeatures) bridge()?.sendChatMessageWithRequestId?.(state.activeId, text, JSON.stringify(uploadedIds), state.sendRequest.id);
-    else bridge()?.sendChatMessage?.(state.activeId, text, JSON.stringify(uploadedIds));
+    const transport = bridge();
+    // Workspace support does not imply support for request-ID message transport.
+    const supportsRequestIds = window.WittNative
+      ? state.sendRequestIds
+      : typeof transport?.sendChatMessageWithRequestId === "function";
+    try {
+      if (supportsRequestIds) {
+        transport.sendChatMessageWithRequestId(state.activeId, text, JSON.stringify(uploadedIds), state.sendRequest.id);
+      } else if (typeof transport?.sendChatMessage === "function") {
+        transport.sendChatMessage(state.activeId, text, JSON.stringify(uploadedIds));
+      } else {
+        window.DropVault.onMessageSendError("发送连接不可用，请重新打开 App 后再试");
+      }
+    } catch {
+      window.DropVault.onMessageSendError("消息未能送达，请重新发送");
+    }
   }
 
   function sendMessage(prefill) {
@@ -3756,17 +3149,21 @@
   }
 
   window.DropVault = {
-    openConversation: (id) => {
-      bridge()?.requestConversations?.();
-      selectConversation(id);
-    },
     nativeReady(info = {}) {
       if (state.nativeInitialized) return;
+      if (info.nativeLaunch) {
+        window.wittNativeLaunch = true;
+        const boot = $("#bootScreen");
+        if (boot) boot.style.visibility = "hidden";
+      }
       state.nativeInitialized = true;
+      state.openAccess = Boolean(info.openAccess);
       document.body.classList.add("native");
       const version = String(info.version || window.DropVaultAndroid?.getVersion?.() || "");
       state.nativeVersion = version;
       state.workspaceFeatures = Boolean(info.workspaceFeatures);
+      state.sendRequestIds = Boolean(info.sendRequestIds);
+      state.workspaceOperations = Boolean(info.workspaceOperations);
       // Do not expose controls whose native transport is absent in older APKs.
       $("#workspaceOverviewButton").hidden = !state.workspaceFeatures;
       $("#moreGroupButton").hidden = !state.workspaceFeatures;
@@ -3791,8 +3188,9 @@
         dismissBoot();
         setConnected(false, "需要更新 App");
         $("#welcome h1").textContent = "新版对话已经准备好";
-        $("#welcome>p").textContent = "请先更新 Chloe，更新完成后即可在这里连续对话。";
-        $("#composerHint").textContent = "请在侧栏中检查更新，以使用连续对话功能。";
+        $("#welcome>p").textContent = "请先更新 Witt，更新完成后即可在这里连续对话。";
+        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Witt</b><small>安装支持连续对话的新版本</small></button>`;
+        $("#legacyUpdate").addEventListener("click", () => bridge()?.checkForUpdates?.());
         $("#messageInput").disabled = true;
         $("#attachButton").disabled = true;
         $("#sendButton").disabled = true;
@@ -3808,11 +3206,9 @@
         state.admin = Boolean(payload.principal?.admin);
         applyPrincipalPolicy(payload.principal);
         $("#adminSettingsButton").hidden = !state.admin;
-        $("#customerDevicesButton").hidden = !state.admin;
         $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
         hideActivation();
         bridge()?.requestCapabilities?.();
-        void loadRuntimeExtras();
         hydrateConversationCache().finally(() => bridge()?.requestConversations?.());
         return;
       }
@@ -3821,7 +3217,7 @@
           claimThisDevice();
           return;
         }
-        showActivation("此设备尚未获授权，请输入邀请码。邀请码不会保存到网页中。");
+        showActivation(state.openAccess ? "本设备暂时无法访问，请重新连接或联系管理员。" : "此设备尚未获授权，请输入邀请码。邀请码不会保存到网页中。");
         return;
       }
       showActivation("管理员正在初始化访问控制，请稍后重新连接。");
@@ -3835,12 +3231,10 @@
       state.admin = Boolean(payload.principal?.admin);
       applyPrincipalPolicy(payload.principal);
       $("#adminSettingsButton").hidden = !state.admin;
-      $("#customerDevicesButton").hidden = !state.admin;
       $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
       $("#inviteCode").value = "";
       hideActivation();
       bridge()?.requestCapabilities?.();
-      void loadRuntimeExtras();
       setConnected(true, "设备已激活");
       toast(`已激活：${payload.principal?.label || "此设备"}`);
       state.cacheHydrated = false;
@@ -3854,12 +3248,19 @@
     },
     onConversations(json) {
       const payload = JSON.parse(json);
+      const finishedElsewhere = (payload.conversations || []).filter((item) =>
+        item.id !== state.activeId && !item.busy && state.conversations.some((old) => old.id === item.id && old.busy));
       state.conversations = payload.conversations || [];
+      if (completionReminder && state.appVisible && finishedElsewhere.length) toast(finishedElsewhere.slice(0,2).map(item => `${item.title} · ${item.taskStatus?.label || "已结束"}`).join("；"));
       state.currentDeviceLabel = payload.currentDeviceLabel || "";
+      const wasSummaryRefresh = summaryRefreshPending;
+      summaryRefreshPending = false;
+      maxConcurrentTasks = Number(payload.maxConcurrentTasks) || maxConcurrentTasks;
       persistConversationList();
       setConnected(true, "服务器在线");
       dismissBoot();
       renderConversations();
+      if (wasSummaryRefresh) return;
       if (state.activeId && state.conversations.some((item) => item.id === state.activeId)) {
         if (!state.active || state.active.id !== state.activeId) {
           selectConversation(state.activeId);
@@ -3875,26 +3276,16 @@
         state.activeId = null;
         state.active = null;
         state.workDir = "";
-        prepareNewConversationSettings();
         updateModelControls();
         renderMessages();
       }
     },
     onCapabilities(json) {
-      state.capabilities = JSON.parse(json);
-      const accessModes = Array.isArray(state.capabilities.accessModes)
-        ? state.capabilities.accessModes : ["read-only", "workspace-write", "danger-full-access"];
-      if (!accessModes.includes(state.preferredAccessMode)) {
-        state.preferredAccessMode = state.capabilities.defaultAccessMode || accessModes[0] || "read-only";
-        state.accessMode = state.preferredAccessMode;
-        try {
-          localStorage.setItem("wit_access", state.accessMode);
-          localStorage.setItem("wit_access_preference", state.accessMode);
-        } catch {}
-      }
+      const payload = JSON.parse(json);
+      state.capabilitiesByProfile = payload.capabilitiesByProfile || null;
+      state.capabilities = payload;
+      selectAccountCapabilities();
       renderCapabilities();
-      reconcileModelPreference();
-      renderRuntimeControls();
     },
     onCapabilitiesError(message) {
       const serverLive = $("#appServerLive");
@@ -3920,7 +3311,7 @@
       localSshManualDisconnect = false;
       renderLocalSsh(JSON.parse(json));
       ensureLocalTerminal()?.reset();
-      appendLocalTerminal("\x1b[38;2;85;214;170mChloe SSH\x1b[0m  手机已直连服务器\r\n");
+      appendLocalTerminal("\x1b[38;2;85;214;170mWitt SSH\x1b[0m  手机已直连服务器\r\n");
       toast("服务器已连接");
     },
     onLocalSshOutput(text) {
@@ -3943,7 +3334,7 @@
       $("#localSshDrawerStatus").textContent = "连接已中断";
       $("#localTerminalTarget").textContent = `${state.localSsh.username || "root"}@${state.localSsh.host} · 已断开`;
       syncLocalSshPanels();
-      appendLocalTerminal("\r\n\x1b[31m[Chloe] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
+      appendLocalTerminal("\r\n\x1b[31m[Witt] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
     },
     onLocalSftpList(json) {
       renderLocalSftp(JSON.parse(json));
@@ -3967,9 +3358,6 @@
       state.model = conversation.model || state.model;
       state.reasoning = conversation.reasoning || state.reasoning;
       state.accessMode = conversation.accessMode || state.accessMode;
-      state.draftModel = state.model;
-      state.draftReasoning = state.reasoning;
-      state.draftAccessMode = state.accessMode;
       state.codexProfile = conversation.codexProfile || "default";
       state.workDir = conversation.workDir || "";
       updateModelControls();
@@ -4081,7 +3469,7 @@
     onConversationMetadataUpdated(json) {
       const conversation = JSON.parse(json).conversation;
       const item = state.conversations.find((entry) => entry.id === conversation?.id);
-      if (item) Object.assign(item, { pinned: conversation.pinned, project: conversation.project });
+      if (item) Object.assign(item, { title: conversation.title, pinned: conversation.pinned, project: conversation.project });
       if (conversation?.id === state.activeId) applyConversation(conversation);
       renderConversations();
       persistConversationList();
@@ -4171,9 +3559,6 @@
       state.model = conversation.model;
       state.reasoning = conversation.reasoning;
       state.accessMode = conversation.accessMode;
-      state.draftModel = state.model;
-      state.draftReasoning = state.reasoning;
-      state.draftAccessMode = state.accessMode;
       state.codexProfile = conversation.codexProfile || "default";
       state.workDir = conversation.workDir || "";
       persistConversation(conversation);
@@ -4338,56 +3723,20 @@
     },
     onStreamDetail(json) {
       const payload = JSON.parse(json);
-      if (!state.detailRequest || !payload.entry) return;
-      state.detailEntry = payload.entry;
-      renderActionDetail(payload.entry);
+      const request = state.detailRequest;
+      if (!request || !payload.entry || payload.entry.id !== request.entryId) return;
+      state.inlineDetails.set(request.key, { entry: payload.entry });
+      state.detailRequest = null;
+      refreshInlineDetail(request.key);
+      pumpInlineDetails();
     },
     onStreamDetailError(message) {
-      if (!state.detailRequest) return;
-      $("#actionDetailContent").innerHTML =
-        `<div class="detail-error">${escapeHtml(message || "暂时无法读取执行详情")}</div>`;
-    },
-    onDevelopmentWorkflowError(message) {
-      const key = state.pendingDevelopmentWorkflowKey;
-      const action = state.pendingDevelopmentAction;
-      state.pendingDevelopmentWorkflowKey = "";
-      state.pendingDevelopmentAction = "";
-      if (key) {
-        const previous = state.developmentWorkflowJobs.get(key) || {};
-        const failed = ["commit", "deploy", "resume-push"].includes(action)
-          ? previous
-          : { ...previous, status: "failed", stage: previous.stage || "test",
-            message: message || "无法提交项目交付请求" };
-        state.developmentWorkflowJobs.set(key, failed);
-        if (state.detailEntry) renderActionDetail(state.detailEntry);
-      }
-      toast(message || "项目交付请求失败");
-    },
-    onDevelopmentWorkflow(json) {
-      try {
-        const payload = typeof json === "string" ? JSON.parse(json) : json;
-        const job = payload?.job && typeof payload.job === "object" ? payload.job : payload;
-        const messageId = payload?.messageId || job?.messageId;
-        const conversationId = payload?.conversationId || job?.conversationId ||
-          (state.active?.messages?.some((item) => item.id === messageId) ? state.activeId : "");
-        if (!conversationId || !messageId) return;
-        const update = { ...job, ...payload, conversationId, messageId };
-        if (payload?.job) Object.assign(update, payload.job);
-        const key = developmentWorkflowKey(conversationId, messageId);
-        if (state.pendingDevelopmentWorkflowKey === key) {
-          state.pendingDevelopmentWorkflowKey = "";
-          state.pendingDevelopmentAction = "";
-        }
-        state.developmentWorkflowJobs.set(key, update);
-        if (state.detailEntry && state.detailRequest?.messageId === messageId &&
-            state.activeId === conversationId) renderActionDetail(state.detailEntry);
-        if (state.activeId === conversationId && state.appVisible &&
-            ["completed", "succeeded", "failed"].includes(String(update.status || "").toLowerCase())) {
-          toast(update.message || update.error || developmentWorkflowLabel(update));
-        }
-      } catch {
-        // Ignore malformed progress events; the conversation stream remains usable.
-      }
+      const request = state.detailRequest;
+      if (!request) return;
+      state.inlineDetails.set(request.key, { error: message || "暂时无法读取执行详情" });
+      state.detailRequest = null;
+      refreshInlineDetail(request.key);
+      pumpInlineDetails();
     },
   };
 
@@ -4395,14 +3744,29 @@
     if (state.transmitting) { toast("消息正在送达，完成后即可新建对话"); return; }
     saveDraft();
     const selectedProfile = codexProfile || state.allowedCodexProfiles[0] || "default";
-    state.activeId = null;
-    state.active = null;
+    const previousProfile = state.codexProfile;
     state.codexProfile = state.allowedCodexProfiles.includes(selectedProfile)
       ? selectedProfile : state.allowedCodexProfiles[0];
+    selectAccountCapabilities();
+    const models = state.capabilities?.models;
+    if (Array.isArray(models) && !models.some((model) => model.id === state.model)) {
+      const fallback = models.find((model) => model.isDefault) || models[0];
+      if (!fallback) {
+        state.codexProfile = previousProfile;
+        selectAccountCapabilities();
+        toast("这个账号的模型列表暂时不可用，请稍后重试");
+        return;
+      }
+      state.model = fallback.id;
+      state.reasoning = fallback.defaultReasoningEffort || "medium";
+      state.draftModel = state.model;
+      state.draftReasoning = state.reasoning;
+    }
+    state.activeId = null;
+    state.active = null;
     state.workDir = state.codexProfile === "xuanyu" ? "/data/xuanyu-build-console" : "";
     localStorage.setItem("wit_codex_profile", state.codexProfile);
     localStorage.removeItem("wit_active_conversation");
-    prepareNewConversationSettings();
     resetComposer();
     restoreDraft();
     updateModelControls();
@@ -4432,7 +3796,7 @@
     setChatMoreMenu(!$("#chatMoreMenu").classList.contains("open")));
   $("#moreShareButton").addEventListener("click", async () => {
     setChatMoreMenu(false);
-    const payload = { title: state.active?.title || "Chloe 对话", text: "来自 Chloe 的对话" };
+    const payload = { title: state.active?.title || "Witt 对话", text: "来自 Witt 的对话" };
     try {
       if (navigator.share) await navigator.share(payload);
       else { await navigator.clipboard.writeText(payload.text); toast("分享说明已复制"); }
@@ -4483,26 +3847,17 @@
     bridge()?.requestConversationPage?.(state.activeId, String(state.active.messageOffset), 40);
   });
   $("#workspaceOverviewButton").addEventListener("click", openWorkspaceOverview);
-  $("#runtimeSettingsButton").addEventListener("click", () => {
-    closeDrawer();
-    openSettings();
-  });
   $("#closeWorkspace").addEventListener("click", closeWorkspaceOverview);
   $("#workspaceBackdrop").addEventListener("click", closeWorkspaceOverview);
   $("#refreshWorkspace").addEventListener("click", requestWorkspaceOverview);
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeWorkspaceOverview(); });
-  $("#closeDrawer").addEventListener("click", () => {
-    if (document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches) {
-      document.body.classList.add("sidebar-collapsed");
-    }
-    closeDrawer();
-  });
+  $("#closeDrawer").addEventListener("click", closeDrawer);
   $("#drawerBackdrop").addEventListener("click", closeDrawer);
   $("#profileButton").addEventListener("click", openProfile);
   $("#localSshButton").addEventListener("click", openLocalSsh);
   $("#adminSettingsButton").addEventListener("click", openAdminSettings);
   $("#codexAccountsButton").addEventListener("click", openCodexAccounts);
-  $(".theme-options")?.addEventListener("click", (event) => {
+  $(".theme-options").addEventListener("click", (event) => {
     const button = event.target.closest("[data-theme-choice]");
     if (!button) return;
     applyTheme(button.dataset.themeChoice, true);
@@ -4630,6 +3985,13 @@
   $("#closeCodexAccounts").addEventListener("click", closeCodexAccounts);
   $("#codexAccountBackdrop").addEventListener("click", closeCodexAccounts);
   $("#codexAccountList").addEventListener("click", (event) => {
+    if (event.target.closest("[data-login-claude]")) {
+      const url = state.codexAccounts.find((account) => account.provider === "claude")?.loginUrl;
+      if (typeof url === "string" && /^\/vault-api\/claude\/login#[A-Za-z0-9_-]{43}$/.test(url)) {
+        window.location.href = url;
+      } else toast("登录入口已失效，请重新打开账号列表");
+      return;
+    }
     const login = event.target.closest("[data-login-codex]")?.dataset.loginCodex;
     if (login) {
       state.codexLoginProfile = login;
@@ -4722,171 +4084,6 @@
   });
   $("#closeDelivery").addEventListener("click", closeDelivery);
   $("#deliveryBackdrop").addEventListener("click", closeDelivery);
-  $("#closeActionDetail").addEventListener("click", closeActionDetail);
-  $("#actionDetailContent").addEventListener("click", (event) => {
-    const prepareCommit = event.target.closest("[data-workflow-prepare-commit]");
-    if (prepareCommit) {
-      prepareCommit.hidden = true;
-      prepareCommit.parentElement?.querySelector("[data-workflow-commit-confirm-panel]")?.removeAttribute("hidden");
-      return;
-    }
-    if (event.target.closest("[data-workflow-cancel-commit]")) {
-      const section = event.target.closest(".development-workflow");
-      const prepareButton = section?.querySelector("[data-workflow-prepare-commit]");
-      if (prepareButton) prepareButton.hidden = false;
-      section?.querySelector("[data-workflow-commit-confirm-panel]")?.setAttribute("hidden", "");
-      return;
-    }
-    const confirmCommit = event.target.closest("[data-workflow-confirm-commit]");
-    if (confirmCommit) {
-      if (typeof bridge()?.confirmDevelopmentCommit !== "function") {
-        toast("请更新 Chloe App 后再提交");
-        return;
-      }
-      const section = event.target.closest(".development-workflow");
-      const key = section?.dataset.workflowKey || "";
-      const input = section?.querySelector("[data-workflow-commit-message]");
-      const commitMessage = String(input?.value || "").trim().slice(0, 120);
-      if (!commitMessage) {
-        toast("请填写提交说明");
-        input?.focus();
-        return;
-      }
-      if (!key || !confirmCommit.dataset.jobId || state.pendingDevelopmentWorkflowKey) return;
-      state.pendingDevelopmentWorkflowKey = key;
-      state.pendingDevelopmentAction = "commit";
-      confirmCommit.disabled = true;
-      confirmCommit.textContent = "正在请求提交";
-      bridge().confirmDevelopmentCommit(confirmCommit.dataset.jobId, commitMessage);
-      return;
-    }
-    const prepareResume = event.target.closest("[data-workflow-prepare-resume]");
-    if (prepareResume) {
-      prepareResume.hidden = true;
-      prepareResume.parentElement?.querySelector("[data-workflow-resume-confirm-panel]")?.removeAttribute("hidden");
-      return;
-    }
-    if (event.target.closest("[data-workflow-cancel-resume]")) {
-      const section = event.target.closest(".development-workflow");
-      const prepareButton = section?.querySelector("[data-workflow-prepare-resume]");
-      if (prepareButton) prepareButton.hidden = false;
-      section?.querySelector("[data-workflow-resume-confirm-panel]")?.setAttribute("hidden", "");
-      return;
-    }
-    const prepareDeploy = event.target.closest("[data-workflow-prepare-deploy]");
-    if (prepareDeploy) {
-      prepareDeploy.hidden = true;
-      prepareDeploy.parentElement?.querySelector("[data-workflow-deploy-confirm-panel]")?.removeAttribute("hidden");
-      return;
-    }
-    if (event.target.closest("[data-workflow-cancel-deploy]")) {
-      const section = event.target.closest(".development-workflow");
-      const prepareButton = section?.querySelector("[data-workflow-prepare-deploy]");
-      if (prepareButton) prepareButton.hidden = false;
-      section?.querySelector("[data-workflow-deploy-confirm-panel]")?.setAttribute("hidden", "");
-      return;
-    }
-    const confirmDeploy = event.target.closest("[data-workflow-confirm-deploy]");
-    if (confirmDeploy) {
-      if (typeof bridge()?.confirmDevelopmentDeploy !== "function") {
-        toast("请更新 Chloe App 后再部署");
-        return;
-      }
-      const key = event.target.closest(".development-workflow")?.dataset.workflowKey || "";
-      if (!key || !confirmDeploy.dataset.jobId || state.pendingDevelopmentWorkflowKey) return;
-      state.pendingDevelopmentWorkflowKey = key;
-      state.pendingDevelopmentAction = "deploy";
-      confirmDeploy.disabled = true;
-      confirmDeploy.textContent = "正在请求部署";
-      bridge().confirmDevelopmentDeploy(confirmDeploy.dataset.jobId);
-      return;
-    }
-    const stop = event.target.closest("[data-workflow-stop]");
-    if (stop) {
-      if (typeof bridge()?.cancelDevelopmentWorkflow !== "function") {
-        toast("请更新 Chloe App 后再取消交付");
-        return;
-      }
-      stop.disabled = true;
-      bridge().cancelDevelopmentWorkflow(stop.dataset.jobId);
-      return;
-    }
-    const resumePush = event.target.closest("[data-workflow-resume-push]");
-    if (resumePush) {
-      if (typeof bridge()?.resumeDevelopmentPush !== "function") {
-        toast("请更新 Chloe App 后再重试推送");
-        return;
-      }
-      if (state.pendingDevelopmentWorkflowKey) return;
-      state.pendingDevelopmentWorkflowKey = event.target.closest(".development-workflow")?.dataset.workflowKey || "";
-      state.pendingDevelopmentAction = "resume-push";
-      resumePush.disabled = true;
-      bridge().resumeDevelopmentPush(resumePush.dataset.jobId);
-      return;
-    }
-    const prepare = event.target.closest("[data-workflow-prepare]");
-    if (prepare) {
-      const panel = prepare.parentElement?.querySelector("[data-workflow-confirm-panel]");
-      if (panel) {
-        prepare.hidden = true;
-        panel.hidden = false;
-      }
-      return;
-    }
-    if (event.target.closest("[data-workflow-cancel]")) {
-      const section = event.target.closest(".development-workflow");
-      const prepareButton = section?.querySelector("[data-workflow-prepare]");
-      const panel = section?.querySelector("[data-workflow-confirm-panel]");
-      if (prepareButton) prepareButton.hidden = false;
-      if (panel) panel.hidden = true;
-      return;
-    }
-    if (!event.target.closest("[data-workflow-confirm-send]")) return;
-    const request = state.detailRequest;
-    if (!request || !state.activeId || !state.active || state.busy || state.active.busy) {
-      toast("当前对话状态已变化，请刷新后再试");
-      return;
-    }
-    const native = bridge();
-    if (typeof native?.startDevelopmentWorkflow !== "function") {
-      toast("请更新 Chloe App 后再使用项目交付");
-      bridge()?.checkForUpdates?.();
-      return;
-    }
-    const key = developmentWorkflowKey(state.activeId, request.messageId);
-    const section = event.target.closest(".development-workflow");
-    const button = event.target.closest("[data-workflow-confirm-send]");
-    button.disabled = true;
-    button.textContent = "正在提交请求";
-    const queued = {
-      conversationId: state.activeId,
-      messageId: request.messageId,
-      status: "queued",
-      stage: "test",
-      message: "已请求运行测试；提交与部署需另行确认",
-    };
-    state.developmentWorkflowJobs.set(key, queued);
-    state.pendingDevelopmentWorkflowKey = key;
-    state.pendingDevelopmentAction = "delivery";
-    const status = section?.querySelector("[data-development-workflow-status]");
-    if (status) {
-      status.hidden = false;
-      status.textContent = developmentWorkflowLabel(queued);
-      status.dataset.workflowKey = key;
-    } else if (section) {
-      const statusNode = document.createElement("p");
-      statusNode.className = "development-workflow-status";
-      statusNode.dataset.developmentWorkflowStatus = "";
-      statusNode.dataset.workflowKey = key;
-      statusNode.setAttribute("role", "status");
-      statusNode.setAttribute("aria-live", "polite");
-      statusNode.textContent = developmentWorkflowLabel(queued);
-      section.insertBefore(statusNode, section.querySelector("[data-workflow-confirm-panel]"));
-    }
-    section?.querySelector("[data-workflow-confirm-panel]")?.setAttribute("hidden", "");
-    native.startDevelopmentWorkflow(state.activeId, request.messageId, "");
-  });
-  $("#actionDetailBackdrop").addEventListener("click", closeActionDetail);
   $("#closeImageViewer").addEventListener("click", closeImageViewer);
   $("#downloadImageViewer").addEventListener("click", () => {
     const button = $("#downloadImageViewer");
@@ -4898,7 +4095,7 @@
     }
     const link = document.createElement("a");
     link.href = button.dataset.url;
-    link.download = button.dataset.name || "Chloe 图片";
+    link.download = button.dataset.name || "Witt 图片";
     link.click();
   });
   $("#imageViewerBackdrop").addEventListener("click", closeImageViewer);
@@ -4908,6 +4105,7 @@
     const artifact = allArtifacts().find((item) =>
       item.id === button.dataset.artifact && item.messageId === button.dataset.message);
     if (!artifact) return;
+    if (window.WittFeatures) { window.WittFeatures.preview(state.activeId,artifact); return; }
     if (typeof bridge()?.downloadArtifact === "function") {
       bridge().downloadArtifact(
         state.activeId, artifact.messageId, artifact.id, artifact.name, artifact.mimeType || "");
@@ -5000,61 +4198,8 @@
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      if (state.artifactOpen) {
-        closeArtifact();
-        return;
-      }
-      const historyControls = document.querySelector(".history-controls");
-      if (historyControls?.classList.contains("open")) {
-        event.preventDefault();
-        historyControls.classList.remove("open");
-        const toggleBtn = $("#historySearchToggle");
-        if (toggleBtn) {
-          toggleBtn.setAttribute("aria-expanded", "false");
-          toggleBtn.focus();
-        }
-        return;
-      }
-    }
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-      const isModalOpen = document.querySelector(".workspace-overview.open, #settingsSheet.open");
-      if (!isModalOpen) {
-        event.preventDefault();
-        closeDrawer();
-        beginNewConversation();
-      }
-    }
+    if (event.key === "Escape" && state.artifactOpen) closeArtifact();
   });
-  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
-  const shortcutHint = $("#newChatShortcutHint");
-  if (shortcutHint) shortcutHint.textContent = isMac ? "⌘ K" : "Ctrl K";
-
-  const historySearchToggle = $("#historySearchToggle");
-  const historyControls = document.querySelector(".history-controls");
-  const historySearchInput = $("#historySearch");
-  if (historySearchInput) {
-    historySearchInput.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        historyControls?.classList.remove("open");
-        historySearchToggle?.setAttribute("aria-expanded", "false");
-        historySearchToggle?.focus();
-      }
-    });
-  }
-  if (historySearchToggle && historyControls) {
-    historySearchToggle.setAttribute("aria-expanded", historyControls.classList.contains("open") ? "true" : "false");
-    historySearchToggle.addEventListener("click", () => {
-      const willOpen = !historyControls.classList.contains("open");
-      historyControls.classList.toggle("open", willOpen);
-      historySearchToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
-      if (willOpen && historySearchInput) {
-        historySearchInput.focus();
-        historySearchInput.select();
-      }
-    });
-  }
   $("#drawerNewChat").addEventListener("click", () => {
     closeDrawer();
     beginNewConversation();
@@ -5064,15 +4209,14 @@
   });
   $("#attachPhotoButton").addEventListener("click", () => {
     setAttachmentMenu(false);
-    // Keep the photo action focused on image inputs so desktop browsers and
-    // mobile pickers expose the right media source instead of a generic file list.
-    bridge()?.pickFiles?.("image/*");
+    bridge()?.pickFiles?.();
   });
   $("#attachFileButton").addEventListener("click", () => {
     setAttachmentMenu(false);
     bridge()?.pickFiles?.();
   });
   $("#activateInviteButton").addEventListener("click", () => {
+    if (state.openAccess) { bridge()?.requestAuthStatus?.(); return; }
     const code = $("#inviteCode").value.trim();
     if (!code) { $("#authGateHint").textContent = "请先输入邀请码。"; return; }
     const button = $("#activateInviteButton");
@@ -5199,11 +4343,22 @@
       openImageViewer(image.dataset.inlineImage, image.dataset.imageName, image.dataset.imageMime);
       return;
     }
-    const action = event.target.closest("[data-stream-detail]");
-    if (!action) return;
-    openActionDetail(action.dataset.messageId, action.dataset.streamDetail,
-      action.querySelector("p")?.textContent || "执行详情");
+    const retry = event.target.closest("[data-process-retry]");
+    if (retry) {
+      const node = retry.closest("details[data-inline-detail]");
+      state.inlineDetails.delete(retry.dataset.processRetry);
+      refreshInlineDetail(node.dataset.processKey);
+      loadInlineDetail(node);
+    }
   });
+  document.addEventListener("toggle", (event) => {
+    const node = event.target;
+    if (!node.matches?.("details[data-process-key]")) return;
+    if (!node.isConnected) return;
+    if (node.open) state.expandedProcess.add(node.dataset.processKey);
+    else state.expandedProcess.delete(node.dataset.processKey);
+    if (node.open && node.hasAttribute("data-inline-detail")) loadInlineDetail(node);
+  }, true);
   document.addEventListener("submit", (event) => {
     const inputForm = event.target.closest("[data-approval-input-form]");
     const mcpForm = event.target.closest("[data-approval-mcp-form]");
@@ -5263,9 +4418,17 @@
   });
   $("#conversationList").addEventListener("click", (event) => {
     const openId = event.target.closest("[data-open]")?.dataset.open;
-    const archiveId = event.target.closest("[data-archive]")?.dataset.archive;
+    const menuId = event.target.closest("[data-conversation-menu]")?.dataset.conversationMenu;
     if (openId) selectConversation(openId);
-    if (archiveId) openArchiveDialog(archiveId);
+    if (menuId) window.WittUpgrades?.openConversationMenu(menuId);
+  });
+  $(".suggestions").addEventListener("click", (event) => {
+    const prompt = event.target.closest("[data-prompt]")?.dataset.prompt;
+    if (prompt) {
+      $("#messageInput").value = prompt;
+      $("#messageInput").dispatchEvent(new Event("input"));
+      $("#messageInput").focus();
+    }
   });
   $("#cancelArchive").addEventListener("click", closeArchiveDialog);
   $(".dialog-backdrop").addEventListener("click", closeArchiveDialog);
@@ -5314,32 +4477,17 @@
     const model = event.target.closest("[data-quick-model]")?.dataset.quickModel;
     if (!model) return;
     state.draftModel = model;
-    state.model = model;
-    state.harness = "auto";
     const offered = availableReasoningEfforts();
-    if (offered.length && !offered.includes(state.draftReasoning)) {
-      state.draftReasoning = offered.includes("medium") ? "medium" : offered[0];
-      state.reasoning = state.draftReasoning;
-    }
+    if (!offered.includes(state.draftReasoning)) state.draftReasoning = offered.includes("medium") ? "medium" : offered[0];
     applySettings({ closeSheet: false });
-    renderQuickModelPicker();
-    updateModelControls();
+    setQuickModelMenu(false);
   });
   $("#quickReasoningOptions").addEventListener("click", (event) => {
     const reasoning = event.target.closest("[data-quick-reasoning]")?.dataset.quickReasoning;
     if (!reasoning) return;
     state.draftReasoning = reasoning;
-    state.reasoning = reasoning;
     applySettings({ closeSheet: false });
-    updateModelControls();
     setQuickModelMenu(false);
-  });
-  $("#composerEnvButton")?.addEventListener("click", () => {
-    if (activeRemoteWorkspace(state.active)) {
-      openCustomerDevices();
-    } else {
-      openProject();
-    }
   });
   document.addEventListener("pointerdown", (event) => {
     if (!event.target.closest(".composer-wrap")) {
@@ -5361,7 +4509,6 @@
     const model = event.target.closest("[data-model]")?.dataset.model;
     if (!model) return;
     state.draftModel = model;
-    state.harness = "auto";
     updateModelControls();
   });
   const selectReasoning = (event) => {
@@ -5373,33 +4520,12 @@
   $("#reasoningStops").addEventListener("click", selectReasoning);
   $("#reasoningSegments").addEventListener("click", selectReasoning);
   $(".access-options").addEventListener("click", (event) => {
-    if (Boolean(activeRemoteWorkspace(state.active))) return;
     const accessMode = event.target.closest("[data-access]")?.dataset.access;
     if (!accessMode) return;
     state.draftAccessMode = accessMode;
     updateModelControls();
   });
-  $("#saveSettings").addEventListener("click", () => {
-    applySettings();
-  });
-  document.addEventListener("click", (event) => {
-    const harness = event.target.closest?.("[data-harness]");
-    if (harness && !harness.disabled) {
-      state.harness = harness.dataset.harness;
-      renderRuntimeControls();
-    }
-    const profile = event.target.closest?.("[data-runtime-profile]");
-    if (profile && !profile.disabled) {
-      const selected = (state.runtimeProfiles || []).find((item) => item.id === profile.dataset.runtimeProfile);
-      if (!selected) return;
-      state.draftModel = selected.model;
-      state.draftReasoning = selected.reasoning;
-      state.harness = "auto";
-      applySettings({ closeSheet: false });
-      renderRuntimeControls();
-      toast(`${runtimeProfileDisplayName(selected)} · 自动`);
-    }
-  });
+  $("#saveSettings").addEventListener("click", () => applySettings());
   $("#forkConversationButton").addEventListener("click", () => {
     if (state.activeId) bridge()?.forkConversation?.(state.activeId);
   });
@@ -5410,6 +4536,30 @@
     if (state.activeId) bridge()?.reviewConversation?.(state.activeId);
   });
 
+  window.WittUI = {
+    settings: () => ({model:state.model,codexProfile:state.codexProfile,reasoning:state.reasoning,accessMode:state.accessMode}),
+    workspaceOperations: () => Boolean(state.workspaceOperations),
+    draft: text => { $("#messageInput").value=text; $("#messageInput").dispatchEvent(new Event("input")); $("#messageInput").focus(); },
+    download: (id,a) => { if(typeof bridge()?.downloadArtifact==='function')bridge().downloadArtifact(id,a.messageId,a.id,a.name,a.mimeType||'');else downloadArtifactUrl(artifactUrl(a.messageId,a),a.name);toast('正在下载文件'); },
+    conversations: () => state.conversations,
+    task: conversationTask,
+    select: selectConversation,
+    archive: openArchiveDialog,
+    toast,
+    refresh: renderConversations,
+    refreshSummaries: () => { summaryRefreshPending = true; summaryRefreshAt = Date.now(); bridge()?.requestConversations?.(); },
+    updateMetadata: (id, changes) => {
+      if (!state.workspaceFeatures) { toast("此操作需要新版客户端，请先检查更新"); return false; }
+      bridge()?.updateConversationMetadata?.(id, JSON.stringify(changes));
+      return true;
+    },
+    togglePin: (id) => {
+      const pins = pinnedIds(); const added = !pins.has(id);
+      if (state.workspaceFeatures) bridge()?.updateConversationMetadata?.(id, JSON.stringify({ pinned: added }));
+      else { if (added) pins.add(id); else pins.delete(id); localStorage.setItem("wit_pinned_conversations", JSON.stringify([...pins])); renderConversations(); }
+    },
+    refreshMath: () => { document.querySelectorAll(".message").forEach((node) => delete node.dataset.fingerprint); renderMessages(true); },
+  };
   updateModelControls();
   renderDeliveries();
   document.addEventListener("visibilitychange", () => setAppVisible(!document.hidden));

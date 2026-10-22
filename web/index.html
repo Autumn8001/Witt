@@ -6,78 +6,33 @@
   <meta name="theme-color" id="themeColor" content="#ffffff">
   <script>
     (() => {
-      const choices = ["system", "light", "colorful", "dark"];
-      let stored = localStorage.getItem("wit_theme");
-      if (!localStorage.getItem("wit_claude_style_v1")) {
-        stored = choices.includes(stored) ? stored : "system";
-        localStorage.setItem("wit_theme", stored);
-        localStorage.setItem("wit_claude_style_v1", "1");
-      }
-      const preference = choices.includes(stored) ? stored : "system";
-      const mode = preference === "system"
-        ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-        : preference;
+      const stored = localStorage.getItem("wit_theme");
+      const mode = stored === "dark" ? "dark"
+        : stored === "light" || stored === "colorful" ? "light"
+        : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      const preference = mode;
+      localStorage.setItem("wit_theme", mode);
+      localStorage.setItem("wit_claude_style_v1", "1");
       document.documentElement.dataset.theme = mode;
       document.documentElement.dataset.themeMode = mode;
       document.documentElement.dataset.themePreference = preference;
     })();
   </script>
-  <title>Chloe · 私人服务器助手</title>
+  <title>Witt · 私人服务器助手</title>
   <link rel="icon" href="/vault/icon.svg">
-  <link rel="stylesheet" href="/vault/styles.css?v=2.2.4-boot1">
-  <link rel="stylesheet" href="/vault/quota.css?v=2.1.12-quota1">
-  <link rel="stylesheet" href="/vault/quota-fix.css?v=2.1.12-quota1">
-  <link rel="stylesheet" href="/vault/reset-glow.css?v=2.1.12-quota1">
-  <link rel="stylesheet" href="/vault/composer-aura.css?v=2.1.12-composer1">
-  <link rel="stylesheet" href="/vault/composer-refine.css?v=2.1.12-composer2">
-  <link rel="stylesheet" href="/vault/composer-transparency.css?v=2.1.12-composer3">
-  <link rel="stylesheet" href="/vault/composer-overlay.css?v=2.1.12-composer4">
-  <link rel="stylesheet" href="/vault/composer-spectra.css?v=2.2.0-composer5">
-  <link rel="stylesheet" href="/vault/quota-layout.css?v=2.1.12-quota2">
-  <link rel="stylesheet" href="/vault/quota-header-restore.css?v=2.1.12-quota3">
-  <link rel="stylesheet" href="/vault/quota-confirm.css?v=2.1.12-quota4">
-  <link rel="stylesheet" href="/vault/quota-compact.css?v=2.1.12-quota5">
-  <link rel="stylesheet" href="/vault/drawer-motion.css?v=2.1.12-drawer1">
-  <link rel="stylesheet" href="/vault/quota-profile-motion.css?v=3.2.2-pro-quota2">
-  <link rel="stylesheet" href="/vault/usage-insight.css?v=2.1.12-usage1">
-  <link rel="stylesheet" href="/vault/quota-spacing.css?v=2.1.12-quota7">
-  <link rel="stylesheet" href="/vault/usage-ring-fit.css?v=2.1.12-usage2">
-  <link rel="stylesheet" href="/vault/auth-gate.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/approval-card.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/conversation-type.css?v=2.2.0-type1">
-  <link rel="stylesheet" href="/vault/night-theme.css?v=2.2.13-night2">
-  <link rel="stylesheet" href="/vault/message-collapse.css?v=2.2.0-collapse1">
-  <link rel="stylesheet" href="/vault/chat-overflow-fix.css?v=2.2.0-overflow1">
-  <link rel="stylesheet" href="/vault/vendor/katex/katex.min.css?v=0.16.22">
-  <link rel="stylesheet" href="/vault/formula-code.css?v=2.2.10-table1">
-  <link rel="stylesheet" href="/vault/codex-accounts.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/performance.css?v=2.2.8-power1">
-  <link rel="stylesheet" href="/vault/landscape.css?v=2.2.5-landscape3">
-  <link rel="stylesheet" href="/vault/lumora-global.css?v=2.2.6-perf1">
-  <link rel="stylesheet" href="/vault/codex-model-picker.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/chat-links.css?v=2.2.9-links1">
-  <link rel="stylesheet" href="/vault/completed-turn.css?v=2.2.10-result1">
-  <link rel="stylesheet" href="/vault/drawer-layout.css?v=2.2.11-drawer2">
-  <link rel="stylesheet" href="/vault/witt-next.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/artifact-preview.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/claude-app.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/vendor/xterm/xterm.css?v=6.0.0">
-  <link rel="stylesheet" href="/vault/local-terminal.css?v=2.2.16-terminal-workspace4">
-  <link rel="stylesheet" href="/vault/customer-devices.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/night-contrast.css?v=2.2.13-nightfix1">
-  <link rel="stylesheet" href="/vault/approval-dock.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/witt-white.css?v=4.1.0-autumn-system">
+  <link rel="stylesheet" href="/vault/witt-base-20261008.css?v=1">
   <style id="workspace-critical-style">
 /* Semantic workspace layer. Legacy terminal/artifact/theme styles stay intact. */
-:root { --ws-ink: var(--chloe-ink); --ws-muted: var(--chloe-muted); --ws-line: var(--chloe-line); --ws-surface: var(--chloe-surface); --ws-accent: var(--chloe-olive); --ws-radius: 16px; }
+:root { --ws-ink: #243839; --ws-muted: #718181; --ws-line: rgba(42,68,68,.12); --ws-surface: rgba(255,255,255,.94); --ws-accent: #227b70; --ws-radius: 16px; }
+[data-theme="dark"] { --ws-ink: #e1edeb; --ws-muted: #a3b8b3; --ws-line: rgba(183,215,208,.18); --ws-surface: #17201f; --ws-accent: #79cabc; }
 .workspace-chat-title { flex: 1; min-width: 0; margin: 0 8px; font-size: 15px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ws-ink); }
 .task-status-strip { display: flex; align-items: center; gap: 9px; max-width: 900px; margin: calc(92px + env(safe-area-inset-top)) auto 22px; padding: 11px 14px; border: 1px solid var(--ws-line); border-radius: var(--ws-radius); color: var(--ws-ink); background: var(--ws-surface); font-size: 12px; }
 .task-status-strip:not([hidden]) ~ .messages { padding-top: 12px !important; }
 .task-status-strip[hidden], .history-load[hidden] { display: none; }
 .task-state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ws-accent); flex: none; }
 .task-origin { flex: 1; color: var(--ws-muted); line-height: 1.5; }
-.task-status-strip[data-state="awaiting_confirmation"], .task-status-strip[data-state="waiting_confirmation"] { border-color: var(--ui-warning); }
-.task-status-strip[data-state="failed"] .task-state-dot { background: var(--ui-error); }
+.task-status-strip[data-state="awaiting_confirmation"], .task-status-strip[data-state="waiting_confirmation"] { border-color: #c79848; }
+.task-status-strip[data-state="failed"] .task-state-dot { background: #c45555; }
 .task-status-strip button { border: none; background: transparent; color: var(--ws-accent); font: inherit; cursor: pointer; }
 .history-load { display: block; margin: 0 auto 24px; padding: 10px 20px; border: 1px solid var(--ws-line); border-radius: 999px; color: var(--ws-accent); background: var(--ws-surface); font: inherit; font-size: 12px; cursor: pointer; }
 .drawer-panel .drawer-history { display: flex; flex-direction: column; min-height: 0; }
@@ -123,222 +78,34 @@
 }
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
-  <link rel="stylesheet" href="/vault/browser-chatgpt.css?v=1.0.0">
-  <link rel="stylesheet" href="/vault/component-interactions.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/profile-overview.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/ui-system.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/chloe-autumn.css?v=4.1.0-autumn-system">
-  <link rel="stylesheet" href="/vault/remote-assist.css?v=1">
+  <link rel="stylesheet" href="/vault/witt-interface-20261008.css?v=4-usage-restored">
 </head>
-<body class="chloe-autumn-workspace">
-  <!-- Chloe autumn: supplied Figma is visual authority. Warm ivory sidebar,
-       olive actions, botanical SVG branding, landscape-led welcome and floating
-       composer. Homepage shortcuts are removed; runtime task status is retained. -->
-  <div class="chloe-bg-layer" aria-hidden="true"></div>
-  <div class="chloe-bg-mask" aria-hidden="true"></div>
-  <svg class="autumn-icon-defs" aria-hidden="true" focusable="false"><defs>
-      <symbol id="autumn-icon-leaf" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M11 57 C17 48 21 45 29 38" fill="none" stroke="#684025" stroke-width="2.6" stroke-linecap="round"/>
- <path d="M18 45 C13 36 21 25 32 19 C42 13 51 12 57 6 C59 25 56 36 48 43 C39 52 27 53 18 45Z" fill="url(#leaf-rust)" stroke="#8A4B21" stroke-width="1.35" stroke-linejoin="round"/>
- <path d="M19 46 C32 35 45 22 54 10" fill="none" stroke="#653E21" stroke-width="1.75" stroke-linecap="round"/>
- <path d="M30 37 L25 29 M37 31 L37 20 M42 26 L51 29 M34 34 L45 38 M26 42 L20 38" fill="none" stroke="#FBE3A0" stroke-opacity=".78" stroke-width="1.1" stroke-linecap="round"/>
- <path d="M25 42 Q29 28 43 20" fill="none" stroke="#FFD88E" stroke-width="1.4" stroke-opacity=".36"/>
-
-</symbol>
-      <symbol id="autumn-icon-acorn" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="acorn-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="acorn-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="acorn-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="acorn-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="acorn-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="acorn-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="acorn-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="acorn-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M31 15 C30 10 34 7 38 8" fill="none" stroke="#6B4327" stroke-width="3" stroke-linecap="round"/>
- <path d="M21 27 C21 22 25 19 32 19 C39 19 44 22 44 27 L45 38 C45 48 38 56 31 57 C24 55 18 48 19 39Z" fill="url(#acorn-acorn)" stroke="#8B451F" stroke-width="1.65"/>
- <path d="M23 35 C23 43 27 49 31 51" fill="none" stroke="#FFE09B" stroke-width="2.4" opacity=".6" stroke-linecap="round"/>
- <path d="M13 28 C17 17 25 15 32 15 C42 15 49 20 51 28 L48 33 Q32 37 16 32Z" fill="#9C4620" stroke="#783719" stroke-width="1.5"/>
- <path d="M18 26 Q32 19 46 27 M18 30 Q32 25 48 30" stroke="#C87939" stroke-width="1.15" fill="none" opacity=".95"/>
- <path d="M22 22 L25 29 M30 20 L32 30 M39 21 L39 30" stroke="#D89B55" stroke-width="1.3" opacity=".7" stroke-linecap="round"/>
-
-</symbol>
-      <symbol id="autumn-icon-sprout" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="sprout-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="sprout-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="sprout-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="sprout-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="sprout-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="sprout-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="sprout-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="sprout-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M31 58 C29 49 31 44 32 35 Q31 28 29 23" fill="none" stroke="#633E24" stroke-width="2.8" stroke-linecap="round"/>
- <path d="M31 44 Q21 35 15 31 M32 35 Q40 30 48 24" fill="none" stroke="#714424" stroke-width="2" stroke-linecap="round"/>
- <path d="M13 19 C20 17 28 22 30 32 C26 39 18 38 13 33 C8 27 9 22 13 19Z" fill="url(#sprout-olive)" stroke="#4A4F30" stroke-width="1.25"/>
- <path d="M12 20 C20 23 24 29 29 34" fill="none" stroke="#E5CA87" stroke-width="1.2" stroke-opacity=".8"/>
- <path d="M51 13 C51 25 49 33 42 36 C37 37 34 35 32 32 C33 21 41 13 51 13Z" fill="url(#sprout-orange)" stroke="#8D4D21" stroke-width="1.3"/>
- <path d="M34 32 C40 28 47 21 50 15" fill="none" stroke="#FFE1A1" stroke-opacity=".8" stroke-width="1.3"/>
- <path d="M27 40 C23 37 18 38 16 44 C21 47 26 46 30 44" fill="url(#sprout-gold)" stroke="#98632B" stroke-width=".9"/>
-
-</symbol>
-      <symbol id="autumn-icon-document-leaf" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="document-leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="document-leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="document-leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="document-leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="document-leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="document-leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="document-leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="document-leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M15 7 H39 L49 17 V55 H15 Q12 55 12 51 V11 Q12 7 15 7Z" fill="url(#document-leaf-cream)" stroke="#4E553B" stroke-width="3.1" stroke-linejoin="round"/>
- <path d="M39 8 V18 H49" fill="#EFD7A8" stroke="#596045" stroke-width="2.5" stroke-linejoin="round"/>
- <path d="M20 29 H33 M20 35 H29 M20 42 H36" stroke="#B67739" stroke-width="2.6" stroke-linecap="round"/>
- <path d="M38 47 C33 42 35 35 41 32 C46 30 50 31 53 28 C55 38 51 46 43 48Z" fill="url(#document-leaf-orange)" stroke="#8F4F21" stroke-width="1.1"/>
- <path d="M39 47 L51 31" fill="none" stroke="#F8CE85" stroke-width="1.1" opacity=".8"/>
-
-</symbol>
-      <symbol id="autumn-icon-monitor-leaf" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="monitor-leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="monitor-leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="monitor-leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="monitor-leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="monitor-leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="monitor-leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="monitor-leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="monitor-leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <rect x="7" y="13" width="50" height="34" rx="5" fill="url(#monitor-leaf-cream)" stroke="#4B4F37" stroke-width="3.5"/>
- <path d="M24 54 H40 M32 47 V53" stroke="#55503A" stroke-width="3.5" stroke-linecap="round"/>
- <path d="M17 24 L23 30 L17 36 M26 36 H36" stroke="#6A6843" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
- <path d="M41 18 C47 14 53 17 52 24 C51 30 46 33 40 32 C36 29 36 22 41 18Z" fill="url(#monitor-leaf-rust)" stroke="#925324" stroke-width=".9"/>
- <path d="M40 31 L49 20" stroke="#F9D58D" opacity=".72" stroke-width="1.1" stroke-linecap="round"/>
-
-</symbol>
-      <symbol id="autumn-icon-branch" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="branch-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="branch-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="branch-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="branch-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="branch-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="branch-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="branch-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="branch-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M19 13 V39 Q19 44 25 44 H40" fill="none" stroke="#A2622B" stroke-width="4" stroke-linecap="round"/>
- <circle cx="19" cy="11" r="5" fill="url(#branch-rust)" stroke="#754221" stroke-width="1.6"/>
- <circle cx="43" cy="44" r="5" fill="url(#branch-gold)" stroke="#754221" stroke-width="1.6"/>
- <path d="M26 27 C28 19 35 18 38 20 C38 27 34 31 28 32Z" fill="url(#branch-olive)" stroke="#4C5A35" stroke-width="1"/>
- <path d="M27 31 L37 21" stroke="#D9C288" stroke-width="1.1"/>
-
-</symbol>
-      <symbol id="autumn-icon-gear-leaf" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="gear-leaf-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="gear-leaf-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="gear-leaf-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="gear-leaf-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="gear-leaf-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="gear-leaf-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="gear-leaf-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="gear-leaf-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M27 7 H37 L39 14 L45 16 L51 13 L57 22 L52 27 L53 34 L59 38 L54 48 L47 46 L42 50 L42 57 H22 L22 50 L17 46 L10 48 L5 39 L11 34 L11 27 L6 22 L12 13 L19 16 L25 14Z" fill="url(#gear-leaf-rust)" stroke="#743C24" stroke-width="1.65" stroke-linejoin="round"/>
- <circle cx="32" cy="32" r="11" fill="url(#gear-leaf-cream)" stroke="#8B4927" stroke-width="2"/>
- <circle cx="32" cy="32" r="4" fill="#A96E37"/>
- <path d="M20 19 L25 16 M43 18 L46 19 M45 45 L42 49" stroke="#FFE0A5" stroke-width="1.3" stroke-linecap="round" opacity=".75"/>
-
-</symbol>
-      <symbol id="autumn-icon-home-usage" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="home-usage-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="home-usage-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="home-usage-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="home-usage-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="home-usage-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="home-usage-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="home-usage-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="home-usage-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M10 29 L32 10 L54 29 V54 H10Z" fill="url(#home-usage-rust)" stroke="#764420" stroke-width="2.4" stroke-linejoin="round"/>
- <path d="M16 30 L32 16 L48 30" fill="none" stroke="#F6CD82" stroke-width="1.5" stroke-linecap="round"/>
- <path d="M27 54 V37 H37 V54" fill="url(#home-usage-cream)" stroke="#FFF0CE" stroke-width=".7"/>
- <path d="M43 34 C46 31 50 32 51 35 C51 40 47 43 43 41 C41 40 41 37 43 34Z" fill="#E9BC65"/>
-
-</symbol>
-      <symbol id="autumn-icon-tree" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="tree-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="tree-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="tree-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="tree-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="tree-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="tree-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="tree-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="tree-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <path d="M31 55 C31 43 31 38 31 31" stroke="#504C2B" stroke-width="3" stroke-linecap="round" fill="none"/>
- <path d="M30 33 C22 35 15 30 16 24 C9 21 13 13 20 14 C20 7 28 6 31 12 C35 5 43 8 43 14 C51 10 56 17 51 23 C57 28 50 34 44 32 C38 36 33 33 30 33Z" fill="url(#tree-gold)" stroke="#98602D" stroke-width="1.4"/>
- <path d="M31 32 L20 15 M31 32 L25 11 M31 32 L32 12 M31 32 L43 13 M31 32 L49 20" stroke="#98602D" stroke-width="1.2" opacity=".65" fill="none"/>
- <path d="M18 24 C24 24 30 29 31 33" stroke="#FFE5A4" stroke-opacity=".7" stroke-width="1.1" fill="none"/>
- <path d="M21 55 H42" stroke="#454F32" stroke-width="2.3" stroke-linecap="round"/>
-
-</symbol>
-      <symbol id="autumn-icon-user-badge" viewBox="0 0 64 64">
-<defs>
-  <linearGradient id="user-badge-gold" x1="12%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#F5C463"/><stop offset=".44" stop-color="#D98B28"/><stop offset="1" stop-color="#964214"/></linearGradient>
-  <linearGradient id="user-badge-rust" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#EDAA43"/><stop offset=".48" stop-color="#C36B1F"/><stop offset="1" stop-color="#8C3F20"/></linearGradient>
-  <linearGradient id="user-badge-orange" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#F6BD4E"/><stop offset=".55" stop-color="#DF7E26"/><stop offset="1" stop-color="#A44715"/></linearGradient>
-  <linearGradient id="user-badge-olive" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#83905B"/><stop offset=".48" stop-color="#526642"/><stop offset="1" stop-color="#2E4B36"/></linearGradient>
-  <linearGradient id="user-badge-oliveDark" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#60704B"/><stop offset=".7" stop-color="#31452F"/><stop offset="1" stop-color="#243D2A"/></linearGradient>
-  <linearGradient id="user-badge-acorn" x1="10%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#F2BC55"/><stop offset=".52" stop-color="#D18723"/><stop offset="1" stop-color="#9D4819"/></linearGradient>
-  <linearGradient id="user-badge-cream" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F4E8D0"/></linearGradient>
-  <linearGradient id="user-badge-wood" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#93471C"/><stop offset="1" stop-color="#533A23"/></linearGradient>
-</defs>
-
- <circle cx="32" cy="32" r="25" fill="url(#user-badge-rust)" stroke="#904C2A" stroke-width="1.2"/>
- <circle cx="32" cy="25" r="9" fill="#FFFAEC"/>
- <path d="M16 48 C17 36 24 35 32 35 C40 35 47 38 48 48" fill="#FFF7E7"/>
- <path d="M21 46 Q32 51 44 46" stroke="#EFD8B5" opacity=".9" stroke-width="1.1" fill="none"/>
-
-</symbol>
-      <symbol id="autumn-icon-lightning" viewBox="0 0 24 24"><path d="M13.5 2.5 6 12.5h5.5L9.5 21.5l8.5-10.5h-5.5Z" fill="#cf7f22" stroke="#753d0a" stroke-width="1.2" stroke-linejoin="round"/></symbol>
-      <symbol id="autumn-icon-tree-mini" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#4d6134"/><path d="M12 17v-4" stroke="#f6edd8" stroke-width="1.8" stroke-linecap="round"/><path d="M12 7c-2.4 0-4 1.8-4 4 0 1.5 1 2.8 2.5 3h3c1.5-.2 2.5-1.5 2.5-3 0-2.2-1.6-4-4-4Z" fill="#edd9aa"/></symbol>
-      <symbol id="autumn-icon-model-feather" viewBox="0 0 64 64"><use href="#autumn-icon-leaf"/></symbol>
-    </defs></svg>
+<body>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
-  <div class="boot-screen" id="bootScreen" aria-label="Chloe 正在启动">
-    <div class="boot-wordmark">Chloe<span>.</span></div>
-    <p>PRIVATE SERVER AI</p>
-    <div class="boot-track"><i></i></div>
-    <small id="bootLabel">正在连接你的服务器</small>
+  <div class="boot-screen" id="bootScreen" aria-label="Witt 正在启动">
+    <div class="boot-stage"><div class="halo" aria-hidden="true"></div><svg viewBox="0 0 280 150" aria-hidden="true">
+<defs>
+<path id="wittLaunch-w" pathLength="1" d="M24 30 L49 112 Q52 124 57 112 L80 54 L103 112 Q108 124 111 112 L136 30"/>
+<path id="wittLaunch-i" pathLength="1" d="M158 40 L158 40.2 M158 66 L158 109 Q158 124 169 114"/>
+<path id="wittLaunch-t1" pathLength="1" d="M198 36 L198 107 Q198 127 213 114 M184 67 L212 67"/>
+<path id="wittLaunch-t2" pathLength="1" d="M244 36 L244 107 Q244 127 259 114 M230 67 L258 67"/>
+<linearGradient id="wittLaunch-ink" x1="0" y1="0" x2=".85" y2="1"><stop stop-color="var(--ink)"/><stop offset=".46" stop-color="var(--edge)"/><stop offset="1" stop-color="var(--ink)"/></linearGradient>
+<linearGradient id="wittLaunch-sheen" gradientUnits="userSpaceOnUse" x1="-65" y1="0" x2="65" y2="20"><stop stop-color="var(--shine)" stop-opacity="0"/><stop offset=".5" stop-color="var(--shine)"/><stop offset="1" stop-color="var(--shine)" stop-opacity="0"/></linearGradient>
+<filter id="wittLaunch-soft" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="wittLaunch-shadow" x="-50%" y="-300%" width="200%" height="700%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<ellipse class="shadow" cx="140" cy="143" rx="85" ry="3"/>
+<g id="wittLaunch-word">
+<g class="glow"><use class="letter light" href="#wittLaunch-w"/><use class="letter light" href="#wittLaunch-i"/><use class="letter light" href="#wittLaunch-t1"/><use class="letter light" href="#wittLaunch-t2"/></g>
+<g class="strokes"><use class="letter ink" href="#wittLaunch-w"/><use class="letter ink" href="#wittLaunch-i"/><use class="letter ink" href="#wittLaunch-t1"/><use class="letter ink" href="#wittLaunch-t2"/></g>
+<g class="finish"><use href="#wittLaunch-w"/><use href="#wittLaunch-i"/><use href="#wittLaunch-t1"/><use href="#wittLaunch-t2"/></g>
+<g id="wittLaunch-pen" opacity="0"><circle class="nib" r="8"/><circle class="nib-core" r="2.4"/></g>
+<g id="wittLaunch-sparks"></g>
+</g>
+</svg></div>
   </div>
-  <script>window.WittNative?.postMessage('{"method":"launchSurfaceReady","args":[]}');</script>
+  <script src="/vault/boot-w.js?v=20261007-3"></script>
+  <script>window.wittBootStartedAt = performance.now(); window.WittNative?.postMessage('{"method":"launchSurfaceReady","args":[]}');</script>
   <section class="auth-gate" id="authGate" aria-hidden="true" aria-labelledby="authGateTitle">
     <div class="auth-gate-halo" aria-hidden="true"></div>
     <div class="auth-gate-card">
@@ -357,17 +124,17 @@
       <button class="compact-nav-button compact-menu-button" id="menuButton" aria-label="打开对话列表">
         <svg viewBox="0 0 24 24"><path d="M4.5 9h15M4.5 15h10.5"/></svg>
       </button>
-      <h1 id="chatTitle" class="visually-hidden">Chloe</h1>
+      <h1 id="chatTitle" class="visually-hidden">Witt</h1>
       <div class="compact-nav-actions">
         <button class="compact-nav-button night-mode-toggle" id="nightModeButton" aria-label="开启夜间模式" aria-pressed="false">
           <svg class="night-icon-moon" viewBox="0 0 24 24"><path d="M20 15.2A8.2 8.2 0 0 1 8.8 4a8.3 8.3 0 1 0 11.2 11.2Z"/></svg>
           <svg class="night-icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v2M12 19.5v2M4.3 4.3l1.4 1.4m12.6 12.6 1.4 1.4M2.5 12h2m15 0h2M4.3 19.7l1.4-1.4M18.3 5.7l1.4-1.4"/></svg>
         </button>
-        <button class="compact-nav-button compact-new-chat" id="newChatButton" aria-label="秋日主题与对话">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c0 2.5-.5 4-1.6 9.8A7 7 0 0 1 11 20z"/><path d="M2 21c0-3 1.8-6.5 5-8"/></svg>
+        <button class="compact-nav-button compact-new-chat" id="newChatButton" aria-label="新建对话">
+          <svg viewBox="0 0 24 24"><path d="M5 19h4l10-10a2.8 2.8 0 0 0-4-4L5 15v4Z"/><path d="m13.5 6.5 4 4"/></svg>
         </button>
         <button class="compact-nav-button compact-more-button" id="chatMoreButton" aria-label="更多操作" aria-expanded="false">
-          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 5.5v.1M12 11.95v.1M12 18.4v.1"/></svg>
         </button>
       </div>
       <section class="chat-more-menu" id="chatMoreMenu" aria-hidden="true">
@@ -409,13 +176,16 @@
     </header>
 
     <main class="chat-stage" id="chatStage">
-      <section class="welcome animate-blur-fade-up" id="welcome">
-        <div class="welcome-status-pill" id="heroStatusPill" title="Chloe 开发工作台" aria-label="Chloe 开发工作台">
-          <span class="status-pulse-dot" aria-hidden="true"></span>
-          <span id="heroStatusText">Server Online • Ready</span>
+      <section class="welcome" id="welcome">
+        <div class="welcome-mark animate-blur-fade-up" style="animation-delay:100ms" aria-hidden="true"><span>W</span><i></i><b>SERVER NATIVE</b></div>
+        <span class="lumora-badge liquid-glass animate-blur-fade-up" style="animation-delay:160ms"><i></i>你的私人 Codex 已就绪</span>
+        <h1 class="animate-blur-fade-up" style="animation-delay:220ms">有什么可以帮忙的？</h1>
+        <p class="animate-blur-fade-up" style="animation-delay:280ms">在你的服务器上持续工作、调用工具、整理结果。上下文、文件和执行过程始终归你所有。</p>
+        <div class="suggestions">
+          <button data-prompt="我有一个新任务，先帮我梳理目标和下一步。"><span>01</span><b>开始新任务</b><small>从目标到交付，完整推进</small><i>↗</i></button>
+          <button data-prompt="查看我接下来发送的文件，先分析内容，不要修改任何数据。"><span>02</span><b>分析文件</b><small>表格、图片与文档</small><i>↗</i></button>
+          <button data-prompt="检查服务器当前状态，先告诉我是否有异常。"><span>03</span><b>检查服务器</b><small>服务、资源与异常</small><i>↗</i></button>
         </div>
-        <h1 class="hero-greeting-title">Hello, I'm <span class="chloe-brand-name">Chloe</span></h1>
-        <p class="hero-greeting-desc">Your private AI workspace for architecture, debugging, and systems</p>
       </section>
       <section class="task-status-strip" id="taskStatusStrip" aria-live="polite" hidden></section>
       <button class="history-load" id="loadOlderMessages" type="button" hidden>加载更早消息</button>
@@ -427,37 +197,22 @@
       <div class="approval-dock-panel" id="approvalDockPanel"></div>
     </section>
 
-    <section class="composer-wrap animate-blur-fade-up" style="animation-delay:500ms">
+    <section class="composer-wrap" id="composerWrap">
       <div class="attachment-strip" id="attachmentStrip"></div>
       <div class="composer liquid-glass" id="composer">
-        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="回复 Chloe"></textarea>
+        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="回复 Witt"></textarea>
         <div class="composer-toolbar">
-          <div class="composer-toolbar-left">
-            <button class="attach-button" id="attachButton" aria-label="添加内容" aria-expanded="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-            </button>
-            <button class="composer-pill-btn composer-env-btn" id="composerEnvButton" type="button" aria-label="运行环境" title="服务器运行环境">
-              <svg class="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-              <span class="pill-prefix">Server: </span>
-              <span class="composer-env-pill" id="composerEnvPill">服务器</span>
-            </button>
-            <button class="composer-model composer-pill-btn" id="modelButton" type="button" aria-label="选择模型与推理强度" aria-haspopup="true" aria-expanded="false" title="选择模型与推理强度">
-              <svg class="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
-              <b id="modelLabel">Grok 4.7 High</b>
-              <svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-              <span id="reasoningLabel" class="visually-hidden">Deep</span>
-              <span id="accessLabel" class="visually-hidden">完全访问</span>
-            </button>
-          </div>
-          <div class="composer-toolbar-right">
-            <span class="composer-toolbar-divider" aria-hidden="true"></span>
-            <button class="voice-button" id="voiceButton" aria-label="语音模式暂未接入" title="语音模式暂未接入" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-            </button>
-            <button class="send-button" id="sendButton" aria-label="发送">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
-            </button>
-          </div>
+          <button class="attach-button" id="attachButton" aria-label="添加内容" aria-expanded="false">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button class="composer-model" id="modelButton" aria-label="模型与智能程度">
+            <span class="model-spark">✦</span><b id="modelLabel">Astra</b><i></i><span id="reasoningLabel">均衡</span>
+            <span id="accessLabel" class="visually-hidden">完全访问</span>
+          </button>
+
+          <button class="send-button" id="sendButton" aria-label="发送">
+            <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0L6.5 10.5M12 5l5.5 5.5"/></svg>
+          </button>
         </div>
       </div>
       <div class="attachment-menu" id="attachmentMenu" aria-hidden="true">
@@ -467,17 +222,14 @@
       </div>
       <section class="quick-model-menu" id="quickModelMenu" aria-hidden="true" aria-label="模型与智能程度">
         <button class="quick-model-row" id="quickModelExpand" aria-expanded="false">
-          <span>模型</span><strong id="quickModelCurrent">Grok 4.7 High</strong><svg viewBox="0 0 24 24"><path d="m9 5 6 7-6 7"/></svg>
+          <span>模型</span><strong id="quickModelCurrent">GPT-6-Astra</strong><svg viewBox="0 0 24 24"><path d="m9 5 6 7-6 7"/></svg>
         </button>
         <div class="quick-model-options" id="quickModelOptions" role="radiogroup" aria-label="选择模型"></div>
-        <div class="quick-picker-divider"></div>
-        <span class="quick-reasoning-heading">Runtime Profile</span>
-        <div class="quick-reasoning-options" id="runtimeProfileOptions" role="radiogroup" aria-label="选择 Runtime Profile"></div>
         <div class="quick-picker-divider"></div>
         <span class="quick-reasoning-heading">智能程度</span>
         <div class="quick-reasoning-options" id="quickReasoningOptions" role="radiogroup" aria-label="选择智能程度"></div>
       </section>
-      <p id="composerHint" class="composer-hint"><svg class="hint-lock-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> <span>Protected execution • Critical actions require explicit approval</span></p>
+      <p id="composerHint" class="composer-hint">重要操作会先确认</p>
     </section>
   </div>
 
@@ -514,7 +266,7 @@
       <pre class="artifact-code" id="artifactCode" tabindex="0"><code></code></pre>
       <section class="artifact-runtime-error" id="artifactRuntimeError" hidden>
         <span>!</span><div><strong>Artifact 运行时出错</strong><p id="artifactErrorMessage">页面脚本发生错误。</p></div>
-        <button type="button" id="artifactFixError">让 Chloe 修复</button>
+        <button type="button" id="artifactFixError">让 Witt 修复</button>
       </section>
     </main>
   </aside>
@@ -522,116 +274,85 @@
   <aside class="drawer" id="drawer" aria-hidden="true">
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <div class="drawer-panel">
-      <div class="drawer-head sidebar-brand">
-        <div class="sidebar-brand-left">
-          <img class="chloe-logo-icon" src="/vault/assets/icons/chloe/brand-mark.svg" alt="" aria-hidden="true">
-          <h2>Chloe</h2>
-        </div>
-        <div class="sidebar-brand-actions">
-          <button type="button" class="sidebar-search-trigger" id="historySearchToggle" aria-label="搜索历史对话">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          </button>
-          <button class="icon-button sidebar-toggle-btn" id="closeDrawer" aria-label="关闭侧边栏">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-        </div>
+      <div class="drawer-head">
+        <h2>Witt</h2>
+        <button class="icon-button drawer-search-toggle" id="drawerSearchToggle" type="button" aria-label="搜索对话" aria-expanded="false" aria-controls="drawerSearchControls"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
+        <button class="icon-button" id="closeDrawer" aria-label="关闭边栏"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
-
-      <nav class="sidebar-nav-list pinned-system-grid" id="pinnedSystemGrid" aria-label="核心系统与服务状态">
-        <button class="sidebar-nav-item drawer-admin-entry" id="customerDevicesButton" type="button" aria-controls="customerDevicesSheet">
-          <div class="nav-item-left">
-            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-            <span class="nav-item-title">Remote Windows</span>
-          </div>
-          <div class="nav-item-right">
-            <span class="status-indicator-dot online" aria-hidden="true"></span>
-            <small class="nav-item-sub">Online</small>
-          </div>
-        </button>
-        <button class="sidebar-nav-item" id="workspaceOverviewButton" type="button">
-          <div class="nav-item-left">
-            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-            <span class="nav-item-title">Server Health</span>
-          </div>
-          <div class="nav-item-right">
-            <span class="status-indicator-dot online" aria-hidden="true"></span>
-            <small class="nav-item-sub">Operational</small>
-          </div>
-        </button>
-        <button class="sidebar-nav-item" id="runtimeSettingsButton" type="button" aria-controls="settingsSheet">
-          <div class="nav-item-left">
-            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
-            <span class="nav-item-title">Model Settings</span>
-          </div>
-          <div class="nav-item-right">
-            <span class="status-indicator-dot online" aria-hidden="true"></span>
-            <small class="nav-item-sub">2 jobs</small>
-          </div>
-        </button>
-        <button class="sidebar-nav-item" id="profileButton" type="button">
-          <div class="nav-item-left">
-            <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
-            <span class="nav-item-title">CPA Quota</span>
-          </div>
-          <div class="nav-item-right">
-            <span class="status-indicator-dot online" aria-hidden="true"></span>
-            <small class="nav-item-sub">11d left</small>
-          </div>
-        </button>
-      </nav>
-
       <section class="drawer-history" aria-labelledby="drawerHistoryTitle">
         <div class="drawer-history-head">
-          <div class="drawer-history-title-group">
-            <span id="drawerHistoryTitle">History</span>
-            <b id="conversationCount" class="conversation-count-badge">0</b>
-          </div>
+          <span id="drawerHistoryTitle">最近</span>
+          <b id="conversationCount">0</b><button type="button" id="taskOverviewButton" aria-label="查看全部任务">任务 <span id="taskOverviewCount">0</span></button>
         </div>
-        <div class="history-controls">
+        <div class="history-controls" id="drawerSearchControls" hidden>
           <input id="historySearch" type="search" placeholder="搜索对话和消息" aria-label="搜索历史对话" autocomplete="off">
           <div><select id="historyProject" aria-label="按项目筛选"><option value="">全部项目</option></select><label><input type="checkbox" id="historyAttachments"> 含附件</label></div>
           <small id="historySearchHint">按项目整理，置顶优先显示</small>
         </div>
         <div class="conversation-list" id="conversationList"></div>
       </section>
-
-      <div class="drawer-dock" id="drawerDock">
-        <button class="drawer-new" id="drawerNewChat" aria-label="新建对话">
-          <div class="drawer-new-copy">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-            <span>New Chat</span>
-          </div>
-          <kbd class="drawer-new-shortcut" id="newChatShortcutHint">⌘ K</kbd>
-        </button>
-        <button class="drawer-avatar" id="drawerAvatar" type="button" aria-label="设置与状态" title="模型与运行设置" onclick="document.getElementById('runtimeSettingsButton')?.click()">
-          <span aria-hidden="true">C</span>
-        </button>
+      <div class="drawer-dock">
+      <button class="drawer-new" id="drawerNewChat">
+        <svg viewBox="0 0 24 24"><path d="M5 19h4l10-10a2.8 2.8 0 0 0-4-4L5 15v4Z M13.5 6.5l4 4"/></svg>
+        <span><strong>新建对话</strong><small>开启一个独立上下文</small></span>
+      </button>
+        <button class="drawer-avatar" id="drawerAvatar" type="button" aria-label="我的与设置" aria-expanded="false" aria-controls="drawerAccountMenu"><span aria-hidden="true">W</span></button>
       </div>
 
-      <div class="drawer-tools">
-        <div class="drawer-admin-auxiliary" hidden>
-          <button class="drawer-profile drawer-admin-entry" id="adminSettingsButton" hidden>
-            <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree"></use></svg></span>
-            <span><strong>设备管理</strong><small>/4端可登录</small></span>
-          </button>
-          <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
-            <span class="drawer-profile-svg"><svg class="autumn-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-user-badge"></use></svg></span>
-            <span><strong>账号</strong><small>Codex</small></span>
-          </button>
-          <button class="drawer-profile" id="localSshButton" style="display:none;">
-            <span class="profile-monogram terminal-monogram"><svg viewBox="0 0 24 24"><path d="m6 8 4 4-4 4M12 17h6"/></svg></span>
-            <span><strong>服务器</strong><small id="localSshDrawerStatus">本地终端</small></span>
-          </button>
-        </div>
-
-        <div class="drawer-footer">
-          <span>Chloe <b id="appVersion">v—</b></span>
-          <button id="updateButton" class="update-link">检查更新<i class="update-badge-dot" aria-hidden="true"></i></button>
-        </div>
-      </div>
     </div>
   </aside>
 
+  <aside id="drawerAccountMenu" class="user-settings-sheet" hidden>
+    <button type="button" class="upgrade-backdrop" id="userSettingsBackdrop" aria-label="关闭设置"></button>
+      <div class="drawer-tools user-settings-panel" role="dialog" aria-modal="true" aria-labelledby="userSettingsTitle">
+        <div class="drawer-account-head"><strong id="userSettingsTitle">设置</strong><button id="closeDrawerAccount" type="button" aria-label="关闭头像菜单">×</button></div>
+        <div class="settings-user-identity"><span>W</span><div><strong>Witt</strong><small>你的私人助手</small></div></div>
+        <section class="settings-block"><div class="settings-section-label">工作区</div>        <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>›</span></button>
+        <button class="feature-entry" id="featureProjects">项目工作区</button><button class="feature-entry" id="featureSchedules">定时任务</button><button class="feature-entry" id="featureNotifications" data-enabled="false">任务通知：开启</button>
+</section>
+        <section class="settings-block">
+        <div class="settings-section-label">账号与连接</div>
+        <div class="drawer-utilities">
+          <button class="drawer-profile" id="profileButton">
+            <span class="profile-monogram">W</span>
+            <span><strong>我的</strong><small>用量记录</small></span>
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+          <button class="drawer-profile" id="localSshButton">
+            <span class="profile-monogram terminal-monogram"><svg viewBox="0 0 24 24"><path d="m6 8 4 4-4 4M12 17h6"/></svg></span>
+            <span><strong>服务器</strong><small id="localSshDrawerStatus">本地终端</small></span>
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+          <button class="drawer-profile drawer-admin-entry" id="adminSettingsButton" hidden>
+            <span class="profile-monogram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M10 17h4"/></svg></span>
+            <span><strong>设备</strong><small>访问控制</small></span>
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+          <button class="drawer-profile drawer-admin-entry" id="codexAccountsButton" hidden>
+            <span class="profile-monogram"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span>
+            <span><strong>账号</strong><small>Codex</small></span>
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+        </div>
+        </section>
+        <section class="settings-block"><div class="settings-section-label">偏好设置</div>
+        <section class="drawer-theme" aria-labelledby="themeTitle">
+          <span>
+            <i aria-hidden="true">◐</i>
+            <b id="themeTitle">外观</b>
+          </span>
+          <div class="theme-options" role="group" aria-label="选择界面主题">
+            <button type="button" data-theme-choice="light">白天</button>
+            <button type="button" data-theme-choice="dark">夜晚</button>
+          </div>
+        </section>
+        </section>
+        <div class="drawer-footer">
+          <span>Witt <b id="appVersion">v—</b></span>
+          <button id="updateButton">检查更新</button>
+        </div>
+      </div>
+  </aside>
   <aside class="project-sheet" id="projectSheet" aria-hidden="true">
     <div class="sheet-backdrop" id="projectBackdrop"></div>
     <div class="sheet-panel project-panel">
@@ -643,7 +364,7 @@
       <p class="project-intro">项目仅决定当前对话的工作目录；选择“空白”时从服务器主目录开始。</p>
       <div class="project-options">
         <button data-project-path=""><span class="project-code">—</span><span><strong>空白</strong><small>不绑定项目</small></span><i></i></button>
-        <button data-project-path="/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app"><span class="project-code">CH</span><span><strong>Chloe</strong><small>Chloe 客户端与服务</small></span><i></i></button>
+        <button data-project-path="/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app"><span class="project-code">WI</span><span><strong>维特</strong><small>Witt 客户端与服务</small></span><i></i></button>
         <button data-project-path="/home/ubuntu/Documents/Codex/2026-07-26-xlsb"><span class="project-code">年</span><span><strong>年报</strong><small>道路桥梁协同工作台</small></span><i></i></button>
         <button data-project-path="/data/xuanyu-build-console/repo"><span class="project-code">玄</span><span><strong>玄遇</strong><small>玄遇项目工作区</small></span><i></i></button>
       </div>
@@ -655,32 +376,14 @@
     <div class="sheet-panel profile-panel">
       <div class="sheet-handle"></div>
       <div class="sheet-head">
-        <div><h2>我的</h2></div>
+        <div><span class="eyebrow">MY CODEX</span><h2>我的</h2></div>
         <button class="icon-button" id="closeProfile" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
       <section class="profile-hero">
-        <div class="profile-letter">C</div>
-        <div><strong>Chloe on your server</strong><small>模型额度与能力概览</small></div>
-        <span id="profileConnectionStatus" data-state="checking" role="status">检查连接</span>
+        <div class="profile-letter">W</div>
+        <div><strong>Witt on your server</strong><small>你的 Codex 使用概览</small></div>
+        <span>在线</span>
       </section>
-      <section id="modelQuotaOverview" aria-label="CPA 模型额度" aria-busy="false">
-        <header class="model-quota-head"><div><h3>CPA 模型额度</h3><p>全部账号真实查询 · 每分钟自动刷新</p></div><button type="button" data-refresh-quota>立即刷新</button></header>
-        <div class="model-quota-cards" data-quota-cards>
-          <article class="model-quota-card"><h4>Grok</h4><p class="model-quota-no-data">打开页面后读取真实额度</p></article>
-          <article class="model-quota-card"><h4>Gemini</h4><p class="model-quota-no-data">额度可单独查询，执行暂未启用</p></article>
-        </div>
-        <details class="quota-information" data-quota-information><summary>额度说明与更新时间</summary><p data-quota-note role="status">连接 CPA 后展示额度，未提供的总量不会估算。</p><small data-quota-updated>额度更新：暂无</small></details>
-      </section>
-      <section class="profile-extensions" aria-label="能力与扩展">
-        <header class="profile-extension-head"><div><h3>能力与扩展</h3><p>先完成单设备，再逐步开放</p></div><button type="button" data-extension-settings>执行设置</button></header>
-        <div class="profile-extension-list">
-          <article><div><strong>模型执行</strong><p id="extensionRuntimeStatus">打开后检查 Grok Build 与 Codex；Gemini 执行暂停。</p></div><span class="profile-extension-badge" id="extensionRuntimeBadge">检查中</span></article>
-          <article><div><strong>浏览器验收</strong><p>Grok 可调用 Playwright，在手机与桌面视口检查页面、交互和控制台。</p></div><span class="profile-extension-badge" id="browserMcpStatus">检查中</span></article>
-          <article><div><strong>Windows 设备</strong><p>公网 WSS 连接、hostname 执行、断线重连与 MCP 调用已完成实机验收。</p></div><span class="profile-extension-badge" id="remoteDeviceStatus">检查中</span></article>
-          <article><div><strong>客户与多设备</strong><p>保留扩展位置，单设备验收后再设计账号归属与多设备管理。</p></div><span class="profile-extension-badge">后续阶段</span></article>
-        </div>
-      </section>
-      <h3 class="profile-usage-heading">Codex 用量</h3>
       <div id="usageContent">
         <div class="usage-loading"><i></i><span>正在读取 Token 用量</span></div>
       </div>
@@ -767,27 +470,6 @@
     </div>
   </aside>
 
-  <aside class="settings-sheet customer-devices-sheet" id="customerDevicesSheet" aria-hidden="true">
-    <div class="sheet-backdrop" id="customerDevicesBackdrop"></div>
-    <div class="sheet-panel customer-devices-panel">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head customer-devices-head">
-        <div><span class="eyebrow">REMOTE WORKSPACE</span><h2>远程开发工作区</h2></div>
-        <button class="icon-button" id="closeCustomerDevices" type="button" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
-      </div>
-      <p class="customer-devices-intro">临时协助由客户主动授权，结束即失效。也可继续使用已配置的设备工作区。</p>
-      <section id="customerDevices" aria-label="客户电脑工作台">
-        <header class="customer-devices-toolbar">
-          <div><h3>可用开发设备</h3><p>在线且能力齐全的 Agent 可以立即创建远程工作区。</p></div>
-          <button type="button" class="customer-refresh-button" data-refresh-devices><span aria-hidden="true">↻</span>刷新</button>
-        </header>
-        <p class="customer-status" data-customer-status role="status" aria-live="polite">打开时读取</p>
-        <div class="customer-device-list" data-customer-list></div>
-        <div class="customer-device-detail" data-customer-detail hidden></div>
-      </section>
-    </div>
-  </aside>
-
   <aside class="settings-sheet codex-account-sheet" id="codexAccountSheet" aria-hidden="true">
     <div class="sheet-backdrop" id="codexAccountBackdrop"></div>
     <div class="sheet-panel codex-account-panel">
@@ -803,7 +485,7 @@
       <section class="codex-login-flow" id="codexLoginFlow" hidden>
         <span class="codex-login-kicker" id="codexLoginKicker">子账号登录</span>
         <strong>在浏览器中登录新 Codex 账号</strong>
-        <p>打开登录页面后输入下面的一次性代码。Chloe 默认账号不会退出。</p>
+        <p>打开登录页面后输入下面的一次性代码。Witt 默认账号不会退出。</p>
         <button class="codex-device-code" id="copyCodexDeviceCode" type="button"><code id="codexDeviceCode"></code><small>点击复制</small></button>
         <div><button id="openCodexLogin" class="codex-login-primary">打开登录页面</button><button id="cancelCodexLogin">取消</button></div>
         <small id="codexLoginHint">等待你完成授权…</small>
@@ -839,7 +521,7 @@
        <section class="model-picker-section">
         <div class="settings-section-head"><h3>选择模型</h3><small>由 App Server 实时提供</small></div>
         <div class="model-options" role="radiogroup" aria-label="选择模型">
-          <button type="button" data-model="grok-4.7-high"><span class="model-glyph grok">G</span><span><strong>Grok 4.7 High</strong><small>Grok Build · 复杂任务</small></span><i></i></button>
+          <button data-model="gpt-6.1-sol"><span class="model-glyph sol">S</span><span><strong>GPT-6.1 Sol</strong><small>近 Astra 智能与更低成本</small></span><i></i></button>
         </div>
       </section>
       <section class="reasoning-picker-section">
@@ -863,26 +545,6 @@
           <button data-access="read-only"><span>只读</span><small>只能检查和分析，不修改文件</small><i></i></button>
         </div>
         <p class="reasoning-note">权限应用于当前对话；删除数据、对外发送等重要动作仍会谨慎处理。</p>
-      </section>
-      <section>
-        <div class="settings-section-head"><h3>Harness</h3><small>默认 Auto</small></div>
-        <div class="access-options" id="harnessOptions">
-          <button type="button" data-harness="auto"><span>Auto</span><small>按模型选择 Runtime</small><i></i></button>
-          <button type="button" data-harness="codex"><span>Codex</span><small>GPT 与未知模型</small><i></i></button>
-          <button type="button" data-harness="grok-build"><span>Grok Build</span><small>Grok 模型</small><i></i></button>
-          <button type="button" data-harness="google-antigravity"><span>Gemini</span><small>Google Antigravity</small><i></i></button>
-        </div>
-      </section>
-      <section>
-        <div class="settings-section-head"><h3>Servers</h3><small id="serverCenterChecked">未检查</small></div>
-        <div id="serverCenterStatus">正在读取服务器概览…</div>
-        <a class="open-webui-entry" id="openWebuiLink" href="#" hidden>
-          <span><strong>打开 Open WebUI</strong><small>通用聊天、知识库与文件问答 · 独立工作台</small></span><i>↗</i>
-        </a>
-      </section>
-      <section>
-        <div class="settings-section-head"><h3>版本</h3><small id="deploymentVersionStatus" role="status">正在检查…</small></div>
-        <p class="reasoning-note">Backend <code id="backendVersionSha">unknown</code> · Frontend <code id="frontendVersionSha">unknown</code></p>
       </section>
       <section class="app-server-capabilities">
         <div class="app-server-heading">
@@ -917,24 +579,14 @@
     </div>
   </aside>
 
-  <aside class="action-detail-sheet" id="actionDetailSheet" aria-hidden="true">
-    <div class="sheet-backdrop" id="actionDetailBackdrop"></div>
-    <div class="sheet-panel action-detail-panel">
-      <div class="sheet-handle"></div>
-      <div class="sheet-head">
-        <div><span class="eyebrow">EXECUTION DETAIL</span><h2 id="actionDetailTitle">执行详情</h2></div>
-        <button class="icon-button" id="closeActionDetail" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
-      </div>
-      <div class="action-detail-content" id="actionDetailContent"></div>
-    </div>
-  </aside>
+
 
   <aside class="image-viewer" id="imageViewer" aria-hidden="true">
     <button class="image-viewer-backdrop" id="imageViewerBackdrop" aria-label="关闭图片"></button>
     <div class="image-viewer-panel">
-      <img id="imageViewerImage" src="/vault/icon.svg" alt="">
+      <img id="imageViewerImage" alt="">
       <footer>
-        <strong id="imageViewerName">Chloe 图片</strong>
+        <strong id="imageViewerName">Witt 图片</strong>
         <button class="icon-button" id="downloadImageViewer" aria-label="下载图片">
           <svg viewBox="0 0 24 24"><path d="M12 4v10m0 0-4-4m4 4 4-4M5 19h14"/></svg>
         </button>
@@ -945,11 +597,35 @@
     </div>
   </aside>
 
+  <aside class="upgrade-sheet" id="conversationActions" hidden>
+    <button class="upgrade-backdrop" type="button" data-close-upgrade aria-label="关闭对话操作"></button>
+    <section class="upgrade-panel conversation-actions-panel" role="dialog" aria-modal="true" aria-labelledby="conversationActionsTitle">
+      <header><h2 id="conversationActionsTitle">对话操作</h2><button type="button" data-close-upgrade aria-label="关闭">×</button></header>
+      <button type="button" id="conversationRenameButton">重命名 <span>↗</span></button>
+      <button type="button" id="conversationPinButton">置顶 <span>⌖</span></button>
+      <button type="button" id="conversationArchiveButton">归档 <span>↓</span></button>
+      <small>归档只移出列表，历史记录仍会保留。</small>
+    </section>
+  </aside>
+  <aside class="upgrade-sheet" id="conversationRenameSheet" hidden>
+    <button class="upgrade-backdrop" type="button" data-close-upgrade aria-label="取消重命名"></button>
+    <form class="upgrade-panel rename-panel" id="conversationRenameForm" role="dialog" aria-modal="true" aria-labelledby="conversationRenameTitle">
+      <header><h2 id="conversationRenameTitle">重命名对话</h2><button type="button" data-close-upgrade aria-label="关闭">×</button></header>
+      <label for="conversationRenameInput">对话名称</label><input id="conversationRenameInput" maxlength="100" required autocomplete="off">
+      <div class="rename-actions"><button type="button" data-close-upgrade>取消</button><button type="submit">保存</button></div>
+    </form>
+  </aside>
+  <aside class="upgrade-sheet" id="taskOverviewSheet" hidden>
+    <button class="upgrade-backdrop" type="button" data-close-upgrade aria-label="关闭任务列表"></button>
+    <section class="upgrade-panel tasks-panel" role="dialog" aria-modal="true" aria-labelledby="taskOverviewTitle">
+      <header><div><h2 id="taskOverviewTitle">任务</h2><p id="taskOverviewSummary">不同对话可以同时执行</p></div><button type="button" data-close-upgrade aria-label="关闭">×</button></header>
+      <div id="taskOverviewList"></div>
+      <button id="taskOverviewRefresh" class="tasks-refresh" type="button">刷新状态</button>
+    </section>
+  </aside>
+  <aside id="featureSheet" hidden><button class="upgrade-backdrop" id="featureBackdrop" aria-label="关闭"></button><section id="featurePanel" role="dialog" aria-modal="true" aria-labelledby="featureTitle"><header><h2 id="featureTitle">工作区</h2><button id="featureClose" aria-label="关闭">×</button></header><div id="featureContent"></div></section></aside>
   <div class="toast" id="toast"></div>
-  <script src="/vault/vendor/katex/katex.min.js?v=0.16.22"></script>
-  <script src="/vault/vendor/xterm/xterm.js?v=6.0.0"></script>
-  <script src="/vault/vendor/xterm/addon-fit.js?v=0.11.0"></script>
-  <script src="/vault/vendor/xterm/addon-web-links.js?v=0.12.0"></script>
+  <script src="/vault/optional-modules.js?v=20261008-1"></script>
   <aside class="workspace-overview" id="workspaceOverview" aria-hidden="true">
     <button class="workspace-backdrop" id="workspaceBackdrop" aria-label="关闭项目与服务连接"></button>
     <section class="workspace-panel" role="dialog" aria-modal="true" aria-labelledby="workspaceTitle">
@@ -959,10 +635,10 @@
       <button class="workspace-refresh" id="refreshWorkspace">刷新状态</button>
     </section>
   </aside>
-  <script src="/vault/profile-overview.js?v=3"></script>
   <script src="/vault/browser-bridge.js?v=1.0.0"></script>
-  <script src="/vault/customer-devices.js?v=3"></script>
-  <script src="/vault/remote-assist.js?v=4"></script>
-  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.8-autumn-icons"></script>
+  <script src="/vault/app-workspace-20260916-r3.js?v=3.2.5-gpt61&claude=20261007&accountModels=20261007&processLines=20261007&commandMotion=2&openAccess=20261007&singleLaunch=1&sidebar=20261008&upgrades=3&sendCompat=20261008-1&workspaceOverview=20261009-1"></script>
+  <script src="/vault/sidebar-layout.js?v=20261008-2"></script>
+  <script src="/vault/ui-upgrades.js?v=20261008-2"></script>
+  <script src="/vault/witt-features.js?v=20261008-1"></script>
 </body>
 </html>

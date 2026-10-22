@@ -2,9 +2,7 @@
   "use strict";
   if (window.WittNative || window.DropVaultAndroid) return;
 
-  const markWebBrowser = () => document.body?.classList.add("web-browser");
-  if (document.body) markWebBrowser();
-  else document.addEventListener("DOMContentLoaded", markWebBrowser);
+  document.body?.classList.add("web-browser");
 
   const API = "/vault-api/";
   const files = new Map();
@@ -66,7 +64,7 @@
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = name || "Chloe-文件";
+      link.download = name || "Witt-文件";
       document.body.append(link);
       link.click();
       link.remove();
@@ -122,7 +120,7 @@
       run("chat/capabilities", {}, "onCapabilities", "onCapabilitiesError", "无法读取服务能力");
     },
     requestConversation(id) {
-      if (validId(id)) run(`chat/conversations/${id}`, {}, "onConversation", "onChatError", "无法读取对话");
+      if (validId(id)) run(`chat/conversations/${id}?limit=40`, {}, "onConversation", "onChatError", "无法读取对话");
     },
     requestConversationDelta(id) {
       if (validId(id)) run(`chat/conversations/${id}/sync`, {}, "onConversationDelta", "onChatError", "同步失败");
@@ -135,7 +133,7 @@
     subscribeConversationEvents(id) {
       if (!validId(id)) return;
       this.unsubscribeConversationEvents();
-      events = new EventSource(`${API}chat/conversations/${id}/events`);
+      events = new EventSource(`${API}chat/conversations/${id}/events?limit=40`);
       events.addEventListener("snapshot", (event) => callback("onConversation", event.data));
       events.addEventListener("delta", (event) => callback("onConversationDelta", event.data));
     },
@@ -166,10 +164,9 @@
         model, reasoning, accessMode, workDir: workDir || "", codexProfile: codexProfile || "default",
       } }, "onConversationCreated", "onChatError", "无法创建对话");
     },
-    updateConversationSettings(id, model, reasoning, accessMode, harness) {
-      run(`chat/conversations/${id}`, { method: "PATCH", json: {
-        model, reasoning, accessMode, ...(harness ? { harness } : {}),
-      } }, "onSettingsUpdated", "onChatError", "设置保存失败");
+    updateConversationSettings(id, model, reasoning, accessMode) {
+      run(`chat/conversations/${id}`, { method: "PATCH", json: { model, reasoning, accessMode } },
+        "onSettingsUpdated", "onChatError", "设置保存失败");
     },
     updateConversationProject(id, workDir) {
       run(`chat/conversations/${id}`, { method: "PATCH", json: { workDir: workDir || "" } },
@@ -193,33 +190,6 @@
     },
     interruptConversation(id) {
       conversationAction(id, "interrupt", {}, "onConversationInterruptRequested");
-    },
-    startDevelopmentWorkflow(conversationId, messageId, commitMessage) {
-      if (!validId(conversationId) || !validId(messageId)) return;
-      run(`chat/conversations/${conversationId}/messages/${messageId}/development`,
-        { method: "POST", json: { commitMessage: String(commitMessage || "") } },
-        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "提交请求失败");
-    },
-    confirmDevelopmentCommit(jobId, commitMessage) {
-      if (!validId(jobId)) return;
-      run(`chat/development/${jobId}/commit`,
-        { method: "POST", json: { commitMessage: String(commitMessage || "") } },
-        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "提交推送请求失败");
-    },
-    confirmDevelopmentDeploy(jobId) {
-      if (!validId(jobId)) return;
-      run(`chat/development/${jobId}/deploy`, { method: "POST", json: {} },
-        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "部署请求失败");
-    },
-    cancelDevelopmentWorkflow(jobId) {
-      if (!validId(jobId)) return;
-      run(`chat/development/${jobId}/cancel`, { method: "POST", json: {} },
-        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "取消交付失败");
-    },
-    resumeDevelopmentPush(jobId) {
-      if (!validId(jobId)) return;
-      run(`chat/development/${jobId}/resume-push`, { method: "POST", json: {} },
-        "onDevelopmentWorkflow", "onDevelopmentWorkflowError", "重试推送失败");
     },
     archiveConversation(id) {
       request(`chat/conversations/${id}`, { method: "DELETE" })
@@ -273,11 +243,10 @@
         "onCodexLoginCancelled", "onAdminError", "无法取消登录");
     },
 
-    pickFiles(accept = "") {
+    pickFiles() {
       const input = document.createElement("input");
       input.type = "file";
       input.multiple = true;
-      if (accept) input.accept = String(accept);
       input.onchange = () => {
         const selected = [...input.files].filter((file) => file.size <= 500 * 1024 * 1024)
           .map((file) => {
@@ -325,9 +294,9 @@
     if (!window.DropVault?.nativeReady) { setTimeout(ready, 10); return; }
     document.getElementById("localSshButton")?.setAttribute("hidden", "");
     const drawerTitle = document.querySelector(".drawer-head h2");
-    if (drawerTitle) drawerTitle.textContent = "Chloe";
+    if (drawerTitle) drawerTitle.textContent = "Witt";
     const input = document.getElementById("messageInput");
-    if (input) input.placeholder = "向 Chloe 发送消息";
+    if (input) input.placeholder = "向 Witt 发送消息";
     window.DropVault.nativeReady({
       version: "3.0.0",
       cacheScope: bridge.getCacheScope(),

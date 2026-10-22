@@ -1,0 +1,69 @@
+/* Witt conversation rail: recent titles and a quiet bottom dock. */
+#drawer .drawer-panel {
+  --rail-hover:#f3f3f1; --rail-menu:#fff; --rail-ink:#171717; --rail-muted:#767676;
+  position:relative; height:100% !important; max-height:100dvh !important; min-height:0 !important; width:min(80vw,380px) !important; max-width:calc(100vw - 48px);
+  display:grid; grid-template-rows:auto minmax(0,1fr) auto !important;
+  gap:26px !important; padding:calc(28px + env(safe-area-inset-top)) 24px calc(20px + env(safe-area-inset-bottom)) !important;
+  overflow:hidden !important; background:#fff !important; color:var(--rail-ink) !important;
+  box-sizing:border-box; box-shadow:none !important;
+}
+:root[data-theme="dark"] #drawer .drawer-panel { --rail-hover:#292929; --rail-menu:#242424; --rail-ink:#f1f1f1; --rail-muted:#a4a4a4; background:#181818 !important; }
+#drawer .drawer-panel::after { display:none; }
+#drawer .drawer-head { display:flex !important; align-items:center; justify-content:space-between; gap:10px; min-height:48px !important; padding:0 !important; }
+#drawer .drawer-head h2 { flex:1; margin:0 !important; font-family:inherit !important; font-size:27px !important; font-weight:650 !important; letter-spacing:-.8px !important; color:var(--rail-ink) !important; }
+#drawer .drawer-search-toggle { display:grid; place-items:center; flex:none; width:44px; height:44px; padding:10px !important; background:var(--rail-hover) !important; border:0 !important; border-radius:50%; color:var(--rail-ink) !important; }
+#drawer .drawer-search-toggle svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; }
+#drawer #closeDrawer { display:none !important; position:absolute; top:8px; right:6px; width:24px; height:24px; padding:5px; opacity:.5; background:transparent !important; border:0; }
+#drawer .drawer-history { display:flex !important; flex-direction:column; min-height:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; box-shadow:none !important; overflow:hidden; }
+#drawer .drawer-history-head { min-height:30px !important; padding:0 0 14px !important; font-size:15px !important; font-weight:500; letter-spacing:0 !important; color:var(--rail-ink) !important; }
+#drawer #conversationCount { display:none; }
+#drawer .history-controls { padding:0 0 14px !important; gap:9px; }
+#drawer .history-controls[hidden], #drawer .drawer-tools[hidden] { display:none !important; }
+#drawer #historySearch { box-sizing:border-box; width:100%; height:42px; padding:10px 12px !important; border:1px solid var(--line) !important; border-radius:12px; background:var(--rail-hover) !important; color:var(--rail-ink) !important; font:inherit; font-size:14px; }
+#drawer .history-controls select { min-width:0; height:36px; background:var(--rail-menu); color:var(--rail-ink); border-color:var(--line); }
+#drawer .history-controls label { color:var(--rail-muted); font-size:11px; }
+#drawer #historySearchHint { color:var(--rail-muted); font-size:11px; }
+#drawer .drawer-history .conversation-list { flex:1; min-height:0; display:flex !important; flex-direction:column; gap:1px; margin:0 !important; padding:0 !important; overflow-y:auto; overflow-x:hidden; scrollbar-width:none; scrollbar-gutter:auto; overscroll-behavior:contain; }
+#drawer .conversation-list::-webkit-scrollbar { display:none; }
+#drawer .conversation-row { flex:none; position:relative; display:grid !important; grid-template-columns:minmax(0,1fr) 28px !important; min-height:54px !important; border:0 !important; border-radius:10px !important; background:transparent !important; box-shadow:none !important; }
+#drawer .conversation-row.active { background:var(--rail-hover) !important; }
+#drawer .conversation-row.active::before { display:none !important; }
+#drawer .conversation-open { display:flex !important; align-items:center; min-width:0; min-height:54px !important; padding:12px 4px !important; background:transparent !important; }
+#drawer .conversation-open > span:last-child { display:block; min-width:0; width:100%; }
+#drawer .conversation-open strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px !important; font-weight:400 !important; line-height:1.6; color:var(--rail-ink) !important; }
+#drawer .conversation-mark, #drawer .history-project-label, #drawer .conversation-open small { display:none !important; }
+#drawer .conversation-row:has(.conversation-mark i) strong::after { content:" ·"; color:var(--rail-muted); }
+#drawer .conversation-more { align-self:center; min-height:44px; width:28px; padding:0; opacity:.35; color:var(--rail-muted) !important; }
+#drawer .drawer-dock { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:6px 0 0; }
+#drawer .drawer-new { display:flex !important; align-items:center; gap:10px; width:auto !important; min-height:52px !important; padding:12px 21px !important; border:0 !important; border-radius:999px !important; background:#f6c743 !important; color:#30260c !important; box-shadow:none !important; }
+#drawer .drawer-new > svg { width:23px; height:23px; padding:0; border-radius:0; background:transparent !important; color:inherit !important; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+#drawer .drawer-new strong { font-size:15px !important; font-weight:600; color:inherit !important; white-space:nowrap; }
+#drawer .drawer-new small { display:none !important; }
+#drawer .drawer-avatar { display:grid; place-items:center; flex:none; width:52px; height:52px; padding:5px; border:1px solid var(--line); border-radius:50%; background:var(--rail-menu); color:#fff; cursor:pointer; }
+#drawer .drawer-avatar span { display:grid; place-items:center; width:40px; height:40px; border-radius:50%; background:linear-gradient(150deg,#617b73,#263d39); font-size:18px; font-weight:600; }
+#drawer .drawer-avatar[aria-expanded="true"] { outline:2px solid #b4973e; outline-offset:3px; }
+#drawer .drawer-tools { position:absolute; z-index:5; left:16px; right:16px; bottom:calc(86px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:8px !important; max-height:calc(100% - 110px - env(safe-area-inset-bottom)); overflow-y:auto; overscroll-behavior:contain; margin:0; padding:14px !important; border:1px solid var(--line) !important; border-radius:20px !important; color:var(--rail-ink); background:var(--rail-menu) !important; box-shadow:0 12px 48px #0002 !important; }
+#drawer .drawer-account-head { display:flex; justify-content:space-between; align-items:center; font-size:15px; padding-left:8px; }
+#drawer #closeDrawerAccount { display:grid; place-items:center; width:36px; height:36px; border:0; border-radius:50%; background:transparent; color:inherit; font-size:24px; cursor:pointer; }
+#drawer .drawer-utilities { display:flex !important; flex-direction:column; gap:3px !important; }
+#drawer .drawer-tools .drawer-profile { width:100%; min-height:50px !important; padding:8px !important; display:grid; grid-template-columns:28px minmax(0,1fr); gap:10px; border:0 !important; border-radius:10px !important; background:transparent !important; box-shadow:none !important; text-align:left; }
+#drawer .drawer-profile[hidden] { display:none !important; }
+#drawer .drawer-tools .profile-monogram { display:grid; place-items:center; width:28px; height:28px; padding:0; border-radius:7px; background:var(--rail-hover) !important; color:var(--rail-ink) !important; font-size:14px; }
+#drawer .profile-monogram svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; }
+#drawer .drawer-tools .drawer-profile strong { font-size:14px !important; color:var(--rail-ink) !important; }
+#drawer .drawer-tools .drawer-profile small { display:block; margin-top:2px; font-size:11px !important; color:var(--rail-muted) !important; }
+#drawer .drawer-profile > svg { display:none; }
+#drawer .workspace-entry { flex:none; width:100%; margin:0; padding:12px 8px; border:0; border-radius:10px; background:var(--rail-hover); color:var(--rail-ink); font-size:13px; }
+#drawer .drawer-theme { display:flex !important; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; min-height:48px; margin:0; padding:8px !important; border:0 !important; border-radius:0; background:transparent !important; }
+#drawer .drawer-theme > span i { display:none; }
+#drawer .drawer-theme b { font-size:13px; color:var(--rail-muted); }
+#drawer .theme-options { display:flex; gap:3px; padding:3px; border-radius:10px; background:var(--rail-hover) !important; }
+#drawer .theme-options button { min-height:36px; padding:6px 9px; border-radius:8px; font-size:12px; color:var(--rail-muted) !important; }
+#drawer .theme-options button.active { background:var(--rail-menu) !important; color:var(--rail-ink) !important; box-shadow:0 1px 3px #0001 !important; }
+#drawer .drawer-footer { display:flex !important; align-items:center; justify-content:space-between; min-height:40px; margin:0; padding:0 8px !important; border:0 !important; color:var(--rail-muted) !important; font-size:11px; }
+#drawer .drawer-footer button { min-height:40px; padding:8px; border:0 !important; background:transparent !important; color:var(--rail-ink) !important; font-size:12px; }
+#nightModeButton { display:none !important; }
+#drawer button:focus-visible, #drawer input:focus-visible, #drawer select:focus-visible { outline:2px solid #b4973e; outline-offset:2px; }
+@media (hover:hover) { #drawer .conversation-row:hover, #drawer .drawer-profile:hover { background:var(--rail-hover) !important; } #drawer .conversation-more { opacity:0; } #drawer .conversation-row:hover .conversation-more, #drawer .conversation-more:focus-visible { opacity:1; } }
+@media (min-width:900px) { body.web-browser #drawer .drawer-panel { width:260px !important; max-width:none; padding:24px 18px 18px !important; gap:24px !important; } body.web-browser #drawer .drawer-head h2 { font-size:25px !important; } body.web-browser #drawer .conversation-open, body.web-browser #drawer .conversation-row { min-height:46px !important; } body.web-browser #drawer .conversation-open strong { font-size:14px !important; } }
+@media (max-height:550px) { #drawer .drawer-panel { gap:12px !important; padding-top:calc(12px + env(safe-area-inset-top)) !important; padding-bottom:calc(10px + env(safe-area-inset-bottom)) !important; } #drawer .drawer-history { min-height:0 !important; } #drawer .drawer-head { min-height:40px !important; } #drawer .drawer-history-head { padding-bottom:4px !important; } #drawer .drawer-new { min-height:44px !important; padding:10px 18px !important; } #drawer .drawer-tools { bottom:calc(68px + env(safe-area-inset-bottom)); max-height:calc(100% - 84px - env(safe-area-inset-bottom)); } }

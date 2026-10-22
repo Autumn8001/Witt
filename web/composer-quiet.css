@@ -1,0 +1,168 @@
+:root {
+  --quiet-composer-bg: rgba(255, 255, 255, .28);
+  --quiet-composer-shadow: 0 4px 24px rgba(0, 0, 0, .09);
+  --quiet-composer-wash:
+    radial-gradient(ellipse at 18% 12%, rgba(98, 98, 98, .10), transparent 70%),
+    radial-gradient(ellipse at 88% 92%, rgba(125, 125, 125, .07), transparent 65%);
+  --quiet-button-bg: #171717;
+  --quiet-button-ink: #ffffff;
+}
+:root[data-theme="dark"], :root[data-theme-mode="colorful"] {
+  --quiet-composer-bg: rgba(31, 31, 28, .32);
+  --quiet-composer-shadow: none;
+  --quiet-button-bg: #ededeb;
+  --quiet-button-ink: #222222;
+}
+body .composer-wrap,
+body .composer-wrap::before,
+body .composer-wrap::after,
+body .composer-meta,
+body .composer-hint,
+#composer,
+#composer::before,
+#composer::after,
+#messageInput {
+  animation: none !important;
+  transition: none !important;
+}
+#composer, #composer.has-active-turn, #composer:focus-within {
+  background: var(--quiet-composer-bg) !important;
+  background-image: var(--quiet-composer-wash) !important;
+  border: 0 !important;
+  box-shadow: var(--quiet-composer-shadow) !important;
+}
+#composer::before, #composer::after { content: none !important; }
+#sendButton, #sendButton svg, #sendButton::before, #sendButton::after {
+  animation: none !important;
+  filter: none !important;
+}
+#sendButton:is(.working, .sending, .pausing) {
+  color: var(--quiet-button-ink) !important;
+  background: var(--quiet-button-bg) !important;
+  box-shadow: none !important;
+  animation: quiet-button-breathe 2s ease-in-out infinite !important;
+}
+@keyframes quiet-button-breathe {
+  0%, 100% { opacity: .72; }
+  50% { opacity: 1; }
+}
+#messageList .message.user .bubble,
+#messageList .message.user.guided .bubble {
+  color: #262626 !important;
+  background: #ffffff !important;
+  border: 1px solid #e3e3e3 !important;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .07) !important;
+}
+#messageList .message.user .user-message-rich,
+#messageList .message.user .bubble p { color: #262626 !important; }
+#messageList .message.user .message-file { background: rgba(255,255,255,.3) !important; }
+#messageList .message.user .message-file small { color: #666666 !important; }
+.power-paused #sendButton { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  #sendButton:is(.working, .sending, .pausing) { animation: none !important; opacity: 1; }
+}
+
+/* One centered, two-row layout across native and browser clients. */
+#composerWrap {
+  box-sizing: border-box !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: min(calc(100% - 24px), 760px) !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom)) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+#composerWrap::before, #composerWrap::after { content: none !important; }
+#composer {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: none !important;
+  align-items: stretch !important;
+  min-height: 0 !important;
+  gap: 6px !important;
+  padding: 12px 14px 10px !important;
+  border: 0 !important;
+  border-radius: 22px !important;
+  overflow: visible !important;
+  backdrop-filter: blur(22px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.08) !important;
+}
+#messageInput {
+  box-sizing: border-box !important;
+  display: block !important;
+  order: 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 42px !important;
+  max-height: 128px !important;
+  margin: 0 !important;
+  padding: 4px 2px !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+  background: transparent !important;
+}
+#composer .composer-toolbar {
+  display: flex !important;
+  order: 1 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+}
+#attachButton, #sendButton {
+  flex: 0 0 40px !important;
+  width: 40px !important;
+  height: 40px !important;
+  margin: 0 !important;
+}
+#attachButton { order: 0 !important; }
+#sendButton { order: 2 !important; margin-left: auto !important; }
+#modelButton {
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  order: 1 !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 40px !important;
+  height: auto !important;
+  padding: 6px 2px !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 5px !important;
+  overflow: visible !important;
+}
+#modelLabel {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+@media (max-width: 520px) {
+  #modelButton .model-spark, #modelButton > i, #reasoningLabel { display: none !important; }
+  #composerWrap .composer-meta, #composerWrap .composer-hint { display: none !important; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #composer { background: #f4f4f4 !important; }
+  :root[data-theme="dark"] #composer { background: #302f2b !important; }
+}

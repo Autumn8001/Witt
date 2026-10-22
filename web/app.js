@@ -9,7 +9,7 @@
   const CODEX_PROFILE_IDS = ["default", "xuanyu", "account4", "account5"];
   const savedModel = localStorage.getItem("wit_model_preference") || localStorage.getItem("wit_model") || "gpt-5.6-sol";
   const savedReasoning = localStorage.getItem("wit_reasoning_preference") || localStorage.getItem("wit_reasoning") || "medium";
-  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "workspace-write";
+  const savedAccessMode = localStorage.getItem("wit_access_preference") || localStorage.getItem("wit_access") || "danger-full-access";
   const state = {
     conversations: [],
     activeId: localStorage.getItem("wit_active_conversation") || null,
@@ -55,9 +55,11 @@
     codexLoginTimer: null,
     appVisible: !document.hidden,
     supportsSse: false,
+    expandedProcess: new Set(),
+    inlineDetails: new Map(),
+    inlineDetailQueue: [],
     capabilities: null,
-    harness: "auto",
-    runtimeProfiles: [],
+    capabilitiesByProfile: null,
     artifactOpen: false,
     artifactKey: "",
     artifactVersionIndex: -1,
@@ -599,12 +601,12 @@
   function renderQuickModelPicker() {
     const menu = $("#quickModelMenu");
     if (!menu) return;
-    const models = Array.isArray(state.capabilities?.models) && state.capabilities.models.length
+    const models = Array.isArray(state.capabilities?.models)
       ? state.capabilities.models
       : Object.keys(modelNames).map((id) => ({ id, displayName: modelNames[id] }));
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
-    $("#quickModelCurrent").textContent = modelNames[selectedModel] || selectedModel;
+    $("#quickModelCurrent").textContent = `GPT-5.6 ${modelNames[selectedModel] || selectedModel}`;
     $("#quickModelOptions").innerHTML = models.map((model) => {
       const selected = model.id === selectedModel;
       return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span><i>✓</i></button>`;
@@ -616,43 +618,6 @@
     }).join("");
   }
 
-  function renderRuntimeControls() {
-    const profileHost = $("#runtimeProfileOptions");
-    if (profileHost) {
-      profileHost.innerHTML = (state.runtimeProfiles || []).map((profile) =>
-        `<button type="button" data-runtime-profile="${escapeHtml(profile.id)}"><span>${escapeHtml(profile.name)}</span><small>${escapeHtml(profile.model)}</small></button>`).join("");
-    }
-    document.querySelectorAll("[data-harness]").forEach((button) => {
-      button.classList.toggle("selected", button.dataset.harness === (state.harness || "auto"));
-    });
-  }
-
-  async function loadRuntimeExtras() {
-    try {
-      const profiles = await fetch("/vault-api/runtime/profiles", { credentials: "same-origin", cache: "no-store" });
-      if (profiles.ok) state.runtimeProfiles = (await profiles.json()).profiles || [];
-    } catch {}
-    try {
-      const overview = await fetch("/vault-api/servers/overview", { credentials: "same-origin", cache: "no-store" });
-      const host = $("#serverCenterStatus");
-      if (overview.ok && host) {
-        const body = await overview.json();
-        const memory = body.memory || {};
-        const used = memory.total ? Math.round((memory.used / memory.total) * 100) : 0;
-        host.innerHTML = `<div class="app-server-metrics"><div><strong>${body.cpu?.count || 0}</strong><small>CPU</small></div><div><strong>${used}%</strong><small>Memory</small></div><div><strong>${Math.round((body.uptimeSeconds || 0) / 3600)}h</strong><small>Uptime</small></div></div><small>${(body.services || []).map((service) => `${service.name}: ${service.status}`).join(" · ")}</small>`;
-        if ($("#serverCenterChecked")) $("#serverCenterChecked").textContent = body.checkedAt || "";
-        const link = $("#openWebuiLink");
-        if (link && body.openWebuiUrl) {
-          link.hidden = false;
-          link.href = body.openWebuiUrl;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-        }
-      }
-    } catch {}
-    renderRuntimeControls();
-  }
-
   function renderCapabilities() {
     const capabilities = state.capabilities;
     const serverLive = $("#appServerLive");
@@ -660,22 +625,17 @@
       serverLive.classList.remove("offline");
       serverLive.innerHTML = "<i></i>ONLINE";
     }
-    const support = capabilities?.support || {};
-    const actionSupport = {
-      "#forkConversationButton": support.fork,
-      "#compactConversationButton": support.compact,
-      "#reviewConversationButton": support.review,
-    };
-    Object.entries(actionSupport).forEach(([selector, enabled]) => {
+    const actions = ["#forkConversationButton", "#compactConversationButton", "#reviewConversationButton"];
+    actions.forEach((selector) => {
       const button = $(selector);
-      if (button) button.disabled = !state.activeId || state.busy || !state.active?.hasCodexContext || enabled === false;
+      if (button) button.disabled = !state.activeId || state.busy || !state.active?.hasCodexContext;
     });
     if (!capabilities) {
       renderReasoningControl();
       return;
     }
     const models = Array.isArray(capabilities.models) ? capabilities.models : [];
-    if (models.length) {
+    if (Array.isArray(capabilities.models)) {
       models.forEach((model) => {
         modelNames[model.id] = modelNames[model.id] || model.displayName || model.id;
       });
@@ -711,7 +671,7 @@
       </div>
       <div class="app-server-sync">
         <span><i></i>能力已实时同步</span>
-        <small>${escapeHtml(featureNames.join(" · ") || "Runtime ready")}</small>
+        <small>${escapeHtml(featureNames.join(" · ") || "Codex runtime ready")}</small>
       </div>`;
   }
   const reasoningNames = Object.fromEntries(Object.entries(reasoningMeta).map(([id, meta]) => [id, meta.label]));
@@ -722,7 +682,7 @@
   };
   const projects = {
     "": "空白",
-    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "Chloe",
+    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "维特",
     "/home/ubuntu/Documents/Codex/2026-07-26-xlsb": "年报",
     "/data/xuanyu-build-console/repo": "玄遇",
   };
@@ -815,7 +775,16 @@
       xuanyuOnly ? "使用玄遇专用 Codex 账号" : "开启一个独立上下文";
   }
 
+  function selectAccountCapabilities() {
+    if (!state.capabilitiesByProfile) return;
+    state.capabilities = state.capabilitiesByProfile[state.codexProfile] || {
+      codexProfile: state.codexProfile, models: [], skills: [], mcpServers: [], features: [],
+      error: "这个账号的模型列表暂时不可用",
+    };
+  }
+
   function updateModelControls() {
+    selectAccountCapabilities();
     $("#modelLabel").textContent = modelNames[state.model] || "Sol";
     $("#reasoningLabel").textContent = reasoningNames[state.reasoning] || "均衡";
     $("#accessLabel").textContent = accessNames[state.accessMode] || "完全访问";
@@ -1407,7 +1376,7 @@
   function openLocalSsh() {
     closeDrawer();
     if (versionLessThan(state.nativeVersion, "2.2.16")) {
-      toast("请先更新 Chloe 后使用本地终端");
+      toast("请先更新 Witt 后使用本地终端");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -1460,6 +1429,10 @@
   function renderCodexAccounts(accounts = []) {
     state.codexAccounts = accounts;
     $("#codexAccountList").innerHTML = accounts.map((account) => {
+      if (account.provider === "claude") {
+        const detail = account.authenticated ? `${account.account?.email || "已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}` : "通过官方 Claude Code 登录";
+        return `<article class="codex-account-card additional"><span class="codex-account-avatar">C</span><div class="codex-account-identity"><strong>Claude</strong><small>${escapeHtml(detail)}</small></div><div class="codex-account-actions"><button class="login" data-login-claude>${account.authenticated ? "管理登录" : "登录账号"}</button></div></article>`;
+      }
       const signedIn = Boolean(account.authenticated);
       const canLogin = state.admin && account.id !== "default";
       const detail = signedIn
@@ -1522,7 +1495,7 @@
     const currentBridge = bridge();
     if (versionLessThan(state.nativeVersion, "2.2.19")) {
       if (profile !== "xuanyu") {
-        toast("请先更新 Chloe 后登录更多账号");
+        toast("请先更新 Witt 后登录更多账号");
         currentBridge?.checkForUpdates?.();
         return false;
       }
@@ -1555,7 +1528,7 @@
   function consumeQuotaReset() {
     closeQuotaResetConfirm();
     if (typeof bridge()?.consumeRateLimitReset !== "function") {
-      toast("请先更新 Chloe 后再使用重置额度");
+      toast("请先更新 Witt 后再使用重置额度");
       bridge()?.checkForUpdates?.();
       return;
     }
@@ -1594,7 +1567,7 @@
     if (state.activeId) {
       if (state.supports21) {
         bridge()?.updateConversationSettings?.(
-          state.activeId, state.model, state.reasoning, state.accessMode, state.harness || "auto");
+          state.activeId, state.model, state.reasoning, state.accessMode);
       } else {
         bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning);
       }
@@ -1663,33 +1636,13 @@
     $("#deliverySheet").setAttribute("aria-hidden", "true");
   }
 
-  function openActionDetail(messageId, entryId, label) {
-    state.detailRequest = { messageId, entryId };
-    $("#actionDetailTitle").textContent = label || "执行详情";
-    $("#actionDetailContent").innerHTML = `<div class="detail-loading"><i></i><span>正在读取详情</span></div>`;
-    $("#actionDetailSheet").classList.add("open");
-    $("#actionDetailSheet").setAttribute("aria-hidden", "false");
-    if (typeof bridge()?.requestStreamDetail !== "function") {
-      $("#actionDetailContent").innerHTML = `<div class="detail-error">请先更新到新版 App，再查看执行详情。</div>`;
-      bridge()?.checkForUpdates?.();
-      return;
-    }
-    bridge().requestStreamDetail(state.activeId, messageId, entryId);
-  }
-
-  function closeActionDetail() {
-    state.detailRequest = null;
-    $("#actionDetailSheet").classList.remove("open");
-    $("#actionDetailSheet").setAttribute("aria-hidden", "true");
-  }
-
   function openImageViewer(url, name, mimeType = "") {
     if (!url) return;
     $("#imageViewerImage").src = url;
-    $("#imageViewerImage").alt = name || "Chloe 图片";
-    $("#imageViewerName").textContent = name || "Chloe 图片";
+    $("#imageViewerImage").alt = name || "Witt 图片";
+    $("#imageViewerName").textContent = name || "Witt 图片";
     $("#downloadImageViewer").dataset.url = url;
-    $("#downloadImageViewer").dataset.name = name || "Chloe 图片";
+    $("#downloadImageViewer").dataset.name = name || "Witt 图片";
     $("#downloadImageViewer").dataset.mimeType = mimeType;
     $("#imageViewer").classList.add("open");
     $("#imageViewer").setAttribute("aria-hidden", "false");
@@ -1702,53 +1655,6 @@
     delete $("#downloadImageViewer").dataset.url;
   }
 
-  function detailBlock(title, value, className = "") {
-    if (value === null || value === undefined || value === "") return "";
-    return `<section class="detail-block ${className}"><h3>${escapeHtml(title)}</h3><pre>${escapeHtml(value)}</pre></section>`;
-  }
-
-  function renderActionDetail(entry) {
-    const details = entry.details || {};
-    if (entry.kind === "command") {
-      const status = entry.status === "completed" ? "已完成"
-        : entry.status === "failed" ? "失败" : "执行中";
-      const meta = [
-        status,
-        Number.isInteger(details.exitCode) ? `退出码 ${details.exitCode}` : "",
-        Number.isInteger(details.durationMs) ? `${(details.durationMs / 1000).toFixed(2)} 秒` : "",
-      ].filter(Boolean).join(" · ");
-      $("#actionDetailTitle").textContent = "命令执行详情";
-      $("#actionDetailContent").innerHTML = `
-        <div class="detail-summary"><span>⌘</span><div><strong>${escapeHtml(meta)}</strong><small>${escapeHtml(details.cwd || "未提供工作目录")}</small></div></div>
-        ${detailBlock("完整命令", details.command, "command")}
-        ${detailBlock("执行输出", details.output || "该命令没有输出", "output")}`;
-      return;
-    }
-    const kindNames = { add: "新增", update: "修改", delete: "删除" };
-    $("#actionDetailTitle").textContent = "文件修改详情";
-    const changes = Array.isArray(details.changes) ? details.changes : [];
-    $("#actionDetailContent").innerHTML = changes.length
-      ? changes.map((change) => `
-        <article class="file-change-detail">
-          <header><span class="${escapeHtml(change.kind)}">${escapeHtml(kindNames[change.kind] || "修改")}</span><strong>${escapeHtml(change.path)}</strong></header>
-          ${change.movePath ? `<p>移动到：${escapeHtml(change.movePath)}</p>` : ""}
-          ${change.diff ? `<pre>${escapeHtml(change.diff)}</pre>` : `<p>没有可显示的差异内容</p>`}
-        </article>`).join("")
-      : `<div class="detail-error">暂时没有可显示的文件差异。</div>`;
-  }
-
-  const autumnHistoryIcons = ["leaf", "acorn", "sprout", "document-leaf"];
-  function autumnHistoryIcon(item) {
-    const seed = String(item?.id || item?.title || "history");
-    let hash = 0;
-    for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-    const icon = autumnHistoryIcons[hash % autumnHistoryIcons.length];
-    return `<svg class="autumn-history-icon autumn-history-${icon}" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${icon}"></use></svg>`;
-  }
-  function autumnPinnedIcon() {
-    return '<svg class="autumn-history-icon autumn-history-leaf" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
-  }
-
   function renderConversations() {
     $("#conversationCount").textContent = String(state.conversations.length);
     const pinned = new Set(JSON.parse(localStorage.getItem("wit_pinned_conversations") || "[]"));
@@ -1758,8 +1664,8 @@
       ? conversations.map((conversation) => `
         <article class="conversation-row ${conversation.id === state.activeId ? "active" : ""}" data-id="${conversation.id}">
           <button class="conversation-open" data-open="${conversation.id}">
-            <span class="conversation-mark">${conversation.busy ? '<i></i>' : autumnHistoryIcon(conversation)}</span>
-            <span><strong>${pinned.has(conversation.id) ? `<span class="conversation-pin" aria-label="已置顶">${autumnPinnedIcon()}</span>` : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.lastMessage || "暂无消息")}</small></span>
+            <span class="conversation-mark">${conversation.busy ? '<i></i>' : '<svg viewBox="0 0 24 24"><path d="M5 6h14v10H9l-4 4V6Z"/></svg>'}</span>
+            <span><strong>${pinned.has(conversation.id) ? "⌖ " : ""}${escapeHtml(conversation.title)}</strong><small>${conversation.busy ? "正在处理" : formatDate(conversation.updatedAt)} · ${escapeHtml(conversation.lastMessage || "暂无消息")}</small></span>
           </button>
           <button class="conversation-more" data-archive="${conversation.id}" aria-label="移除对话">•••</button>
         </article>`).join("")
@@ -1976,7 +1882,7 @@
     if (!url) return;
     const link = document.createElement("a");
     link.href = url;
-    link.download = name || "Chloe 交付文件";
+    link.download = name || "Witt 交付文件";
     link.rel = "noopener";
     document.body.append(link);
     link.click();
@@ -2024,7 +1930,7 @@
   function inlineImageHtml(image, className = "") {
     const url = imageUrl(image);
     if (!url) return "";
-    const name = String(image.name || "Chloe 图片");
+    const name = String(image.name || "Witt 图片");
     return `<button type="button" class="inline-image ${className}" data-inline-image="${escapeHtml(url)}" data-image-name="${escapeHtml(name)}" data-image-mime="${escapeHtml(image.mimeType || "")}">
       <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async">
       <span><b>${escapeHtml(name)}</b><small>${formatBytes(image.size)}</small></span>
@@ -2041,26 +1947,93 @@
   function activityHtml(message) {
     const activities = visibleActivities(message);
     if (!activities.length) return "";
-    const latest = activities.at(-1);
-    const icon = latest.type === "command" ? "⌘" : latest.type === "file" ? "◇" : latest.type === "web" ? "◎" : "✦";
-    return `<details class="activity" ${message.status === "running" ? "open" : ""}>
-      <summary><span class="${message.status}">${icon}</span><b>${escapeHtml(latest.label)}</b><i></i></summary>
-      <div>${activities.map((item) => `<p><span class="${item.status}"></span>${escapeHtml(item.label)}</p>`).join("")}</div>
-    </details>`;
+    return processDisclosure(activities.at(-1).label,
+      activities.map((item) => `<p class="process-line ${escapeHtml(item.status || "")}">${escapeHtml(item.label)}</p>`).join(""),
+      processKey(message, "activity"), "activity");
+  }
+
+  function processKey(message, suffix) {
+    return `${state.activeId || "draft"}:${message.sourceMessageId || message.id}:${suffix}`;
+  }
+
+  function processDisclosure(label, body, key, classes = "", attributes = "") {
+    const open = state.expandedProcess.has(key) ? " open" : "";
+    return `<details class="process-node ${classes}" data-process-key="${escapeHtml(key)}"${open} ${attributes}>
+      <summary><span class="process-label">${escapeHtml(label)}</span><svg class="process-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+      <div class="process-body">${body}</div></details>`;
+  }
+
+  function processValueHtml(label, value, key) {
+    if (value === undefined || value === null || value === "") return "";
+    const body = typeof value === "object"
+      ? Object.entries(value).map(([name, child]) => processValueHtml(name, child, `${key}:${name}`)).join("")
+      : `<pre class="process-output">${escapeHtml(String(value))}</pre>`;
+    return processDisclosure(label, body, key);
+  }
+
+  function inlineActionBody(entry, key) {
+    const details = entry.details || {};
+    if (entry.kind === "command") {
+      const meta = [Number.isInteger(details.exitCode) ? `退出码 ${details.exitCode}` : "",
+        Number.isInteger(details.durationMs) ? `${(details.durationMs / 1000).toFixed(2)} 秒` : ""].filter(Boolean).join(" · ");
+      return `${meta ? `<p class="process-meta">${escapeHtml(meta)}</p>` : ""}
+        ${processValueHtml("工作目录", details.cwd, `${key}:cwd`)}
+        ${processValueHtml("完整命令", details.command, `${key}:command`)}
+        ${processValueHtml("执行输出", details.output || "该命令没有输出", `${key}:output`)}`;
+    }
+    if (entry.kind === "file") {
+      const changes = Array.isArray(details.changes) ? details.changes : [];
+      const kinds = { add: "新增", update: "修改", delete: "删除" };
+      return changes.length ? changes.map((change, index) => processDisclosure(
+        `${kinds[change.kind] || "修改"} ${change.path || "文件"}`,
+        processValueHtml("移动到", change.movePath, `${key}:${index}:move`) +
+          processValueHtml("文件差异", change.diff || "没有可显示的差异内容", `${key}:${index}:diff`),
+        `${key}:file:${index}`)).join("") : '<p class="process-meta">暂时没有可显示的文件差异。</p>';
+    }
+    return processValueHtml("详情", details, `${key}:details`);
+  }
+
+  function cachedActionBody(key) {
+    const cached = state.inlineDetails.get(key);
+    if (cached?.entry) return inlineActionBody(cached.entry, key);
+    if (cached?.error) return `<p class="process-meta">${escapeHtml(cached.error)}<button class="process-retry" type="button" data-process-retry="${escapeHtml(key)}">重试</button></p>`;
+    return '<p class="process-meta" role="status">正在读取详情…</p>';
+  }
+
+  function refreshInlineDetail(key) {
+    document.querySelectorAll("details[data-inline-detail]").forEach((node) => {
+      if (node.dataset.processKey === key) node.querySelector(":scope > .process-body").innerHTML = cachedActionBody(key);
+    });
+  }
+
+  function pumpInlineDetails() {
+    if (state.detailRequest || !state.inlineDetailQueue.length) return;
+    const request = state.inlineDetailQueue.shift();
+    state.detailRequest = request;
+    if (typeof bridge()?.requestStreamDetail !== "function") {
+      window.DropVault.onStreamDetailError("当前 App 无法读取执行详情，请更新后重试。");
+      return;
+    }
+    bridge().requestStreamDetail(request.conversationId, request.messageId, request.entryId);
+  }
+
+  function loadInlineDetail(node) {
+    const key = node.dataset.processKey;
+    if (state.inlineDetails.has(key) || state.detailRequest?.key === key || state.inlineDetailQueue.some(item => item.key === key)) return;
+    state.inlineDetailQueue.push({key, conversationId: state.activeId,
+      messageId: node.dataset.messageId, entryId: node.dataset.inlineDetail});
+    pumpInlineDetails();
   }
 
   function streamActionHtml(message, entry) {
-    const icon = entry.kind === "command" ? "⌘"
-      : entry.kind === "file" ? "◇"
-      : entry.kind === "web" ? "◎" : "✦";
-    const detailAttributes = entry.hasDetails
-      ? `data-stream-detail="${escapeHtml(entry.id)}" data-message-id="${escapeHtml(message.sourceMessageId || message.id)}"`
-      : "";
-    const tag = entry.hasDetails ? "button" : "div";
-    return `<${tag} ${entry.hasDetails ? 'type="button"' : ""} class="stream-action ${entry.kind || "tool"} ${entry.status || ""} ${entry.hasDetails ? "clickable" : ""}" ${detailAttributes}>
-      <span>${icon}</span><p>${escapeHtml(entry.label || "正在处理")}</p>
-      <div class="stream-tail"><i></i>${entry.hasDetails ? `<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>` : ""}</div>
-    </${tag}>`;
+    const label = entry.label || "正在处理";
+    if (!entry.hasDetails) return `<p class="process-line ${escapeHtml(entry.kind || "tool")} ${escapeHtml(entry.status || "")}">${escapeHtml(label)}</p>`;
+    const key = processKey(message, `action:${entry.id}`);
+    const cached = state.inlineDetails.get(key);
+    if (cached?.entry?.status === "running" && entry.status !== "running") state.inlineDetails.delete(key);
+    return processDisclosure(label, cachedActionBody(key), key,
+      `stream-action ${escapeHtml(entry.kind || "tool")} ${escapeHtml(entry.status || "")}`,
+      `data-inline-detail="${escapeHtml(entry.id)}" data-message-id="${escapeHtml(message.sourceMessageId || message.id)}"`);
   }
 
   function approvalQuestionFormHtml(entry) {
@@ -2162,7 +2135,7 @@
     ].filter(Boolean).join("");
     const fallbackOptions = [
       { id: "accept", label: "允许一次", description: "仅批准当前这项操作", tone: "accepted" },
-      { id: "decline", label: "拒绝并继续", description: "不执行操作，让当前 AI 尝试其他做法", tone: "declined" },
+      { id: "decline", label: "拒绝并继续", description: "不执行操作，让 Codex 尝试其他做法", tone: "declined" },
     ];
     const options = Array.isArray(entry.approvalOptions) && entry.approvalOptions.length
       ? entry.approvalOptions : fallbackOptions;
@@ -2177,7 +2150,7 @@
     return `<section class="approval-card ${isUserInput ? "user-input" : ""} ${entry.status || "pending"}" data-approval-card="${escapeHtml(entry.approvalId)}" data-approval-type="${escapeHtml(entry.approvalType || "")}">
       <div class="approval-sheet-grabber" aria-hidden="true"></div>
       <header>
-        <div><small>${escapeHtml(typeLabels[entry.approvalType] || "APPROVAL")}</small><strong>${isUserInput ? "当前 AI 需要输入" : "当前 AI 请求确认"}</strong></div>
+        <div><small>${escapeHtml(typeLabels[entry.approvalType] || "APPROVAL")}</small><strong>${isUserInput ? "Codex 需要输入" : "Codex 请求确认"}</strong></div>
         <b data-approval-page>${pending && isUserInput && questionCount ? `1 / ${questionCount}` : pending ? "待确认" : escapeHtml(statusLabels[entry.status] || "已处理")}</b>
       </header>
       ${pending ? structuredHtml
@@ -2289,14 +2262,9 @@
         const failed = actionBuffer.filter((entry) => entry.status === "failed").length;
         const groupStatus = running ? "running" : failed ? "failed" : "completed";
         const statusText = running ? "正在执行" : failed ? `${failed} 项未完成` : "执行完成";
-        rendered.push(`<details class="stream-action-group ${groupStatus}" ${message.status === "running" ? "open" : ""}>
-          <summary>
-            <span class="stream-group-icon">⌘</span>
-            <span class="stream-group-copy"><strong>${escapeHtml(streamGroupLabel(actionBuffer))}</strong><small>${statusText} · 点击${message.status === "running" ? "收起" : "展开"}详情</small></span>
-            <span class="stream-group-tail"><i></i><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></span>
-          </summary>
-          <div class="stream-action-list">${actionBuffer.map((entry) => streamActionHtml(message, entry)).join("")}</div>
-        </details>`);
+        rendered.push(processDisclosure(`${streamGroupLabel(actionBuffer)} · ${statusText}`,
+          actionBuffer.map((entry) => streamActionHtml(message, entry)).join(""),
+          processKey(message, `group:${actionBuffer[0].id}`), `stream-action-group ${groupStatus} ${actionBuffer.some((entry) => entry.kind === "command" && entry.status === "running") ? "command-running" : ""}`));
       }
       actionBuffer = [];
     };
@@ -2340,14 +2308,10 @@
     const interrupted = message.status === "interrupted";
     const stateLabel = failed ? "执行未完成" : interrupted ? "执行已暂停" : "执行过程";
     const resultText = finalEntry?.text || message.text || (failed ? "任务未完成。" : "任务已完成。");
-    const processSummary = processHtml ? `<details class="completed-process ${message.status || "completed"}">
-      <summary>
-        <span class="completed-process-mark" aria-hidden="true">${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>
-        <span class="completed-process-copy"><strong>${stateLabel}</strong><small>${processCount ? `${processCount} 项 · ` : ""}${duration}</small></span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
-      </summary>
-      <div class="completed-process-body">${processHtml}</div>
-    </details>` : (failed || interrupted) ? `<div class="completed-runtime ${message.status || "completed"}"><span>${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>${stateLabel} · ${duration}</div>` : "";
+    const processSummary = processHtml ? processDisclosure(
+      `${stateLabel} · ${processCount ? `${processCount} 项 · ` : ""}${duration}`,
+      processHtml, processKey(message, "process"), `completed-process ${message.status || "completed"}`)
+      : (failed || interrupted) ? `<p class="process-line">${stateLabel} · ${duration}</p>` : "";
     return `${processSummary}<div class="completed-result"><div class="stream-message final ${message.status || "completed"}">${textHtml(resultText)}</div></div>`;
   }
 
@@ -2637,7 +2601,7 @@
       ));
     });
     $("#welcome").hidden = orderedMessages.length > 0;
-    $("#chatTitle").textContent = state.active?.title || "Chloe";
+    $("#chatTitle").textContent = state.active?.title || "Witt";
     const liveIds = new Set(orderedMessages.map((message) => message.id));
     let changed = false;
     list.querySelectorAll(":scope > .message").forEach((node) => {
@@ -2655,13 +2619,8 @@
       }
       const signature = fingerprint(message);
       if (article.dataset.fingerprint !== signature) {
-        const previousStatus = article.dataset.status;
-        const wasOpen = Boolean(article.querySelector("details[open]"));
         article.className = `message ${message.role} ${message.status || ""} ${message.steeredInto ? "guided" : ""}`;
         article.innerHTML = messageInnerHtml(message);
-        if (wasOpen && previousStatus === message.status) {
-          article.querySelector("details")?.setAttribute("open", "");
-        }
         article.dataset.status = message.status || "";
         article.dataset.fingerprint = signature;
         changed = true;
@@ -2731,7 +2690,7 @@
     refreshActionButton();
     $("#composerHint").textContent = busy
       ? "处理中 · 你可以继续补充要求"
-      : "由你服务器上的 AI Harness 处理 · 重要操作会先确认";
+      : "由你服务器上的 Codex 处理 · 重要操作会先确认";
   }
 
   function hasComposerContent() {
@@ -2806,7 +2765,7 @@
     restorePreferredSettings(conversation);
     persistConversation(conversation);
     updateModelControls();
-    setConnected(true, conversation.busy ? "Chloe 正在处理" : "服务器在线");
+    setConnected(true, conversation.busy ? "Witt 正在处理" : "服务器在线");
     renderMessages(true);
     if (pendingLatestConversationId === conversation.id) {
       scrollOpenedConversationToLatest(conversation.id, true);
@@ -2946,8 +2905,8 @@
         dismissBoot();
         setConnected(false, "需要更新 App");
         $("#welcome h1").textContent = "新版对话已经准备好";
-        $("#welcome>p").textContent = "请先更新 Chloe，更新完成后即可在这里连续对话。";
-        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Chloe</b><small>安装支持连续对话的新版本</small></button>`;
+        $("#welcome>p").textContent = "请先更新 Witt，更新完成后即可在这里连续对话。";
+        $(".suggestions").innerHTML = `<button id="legacyUpdate"><b>立即更新 Witt</b><small>安装支持连续对话的新版本</small></button>`;
         $("#legacyUpdate").addEventListener("click", () => bridge()?.checkForUpdates?.());
         $("#messageInput").disabled = true;
         $("#attachButton").disabled = true;
@@ -3031,9 +2990,11 @@
       }
     },
     onCapabilities(json) {
-      state.capabilities = JSON.parse(json);
+      const payload = JSON.parse(json);
+      state.capabilitiesByProfile = payload.capabilitiesByProfile || null;
+      state.capabilities = payload;
+      selectAccountCapabilities();
       renderCapabilities();
-      renderRuntimeControls();
     },
     onCapabilitiesError(message) {
       const serverLive = $("#appServerLive");
@@ -3059,7 +3020,7 @@
       localSshManualDisconnect = false;
       renderLocalSsh(JSON.parse(json));
       ensureLocalTerminal()?.reset();
-      appendLocalTerminal("\x1b[38;2;85;214;170mChloe SSH\x1b[0m  手机已直连服务器\r\n");
+      appendLocalTerminal("\x1b[38;2;85;214;170mWitt SSH\x1b[0m  手机已直连服务器\r\n");
       toast("服务器已连接");
     },
     onLocalSshOutput(text) {
@@ -3082,7 +3043,7 @@
       $("#localSshDrawerStatus").textContent = "连接已中断";
       $("#localTerminalTarget").textContent = `${state.localSsh.username || "root"}@${state.localSsh.host} · 已断开`;
       syncLocalSshPanels();
-      appendLocalTerminal("\r\n\x1b[31m[Chloe] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
+      appendLocalTerminal("\r\n\x1b[31m[Witt] SSH 连接意外中断，请返回后重新连接。\x1b[0m\r\n");
     },
     onLocalSftpList(json) {
       renderLocalSftp(JSON.parse(json));
@@ -3412,22 +3373,45 @@
     },
     onStreamDetail(json) {
       const payload = JSON.parse(json);
-      if (!state.detailRequest || !payload.entry) return;
-      renderActionDetail(payload.entry);
+      const request = state.detailRequest;
+      if (!request || !payload.entry || payload.entry.id !== request.entryId) return;
+      state.inlineDetails.set(request.key, { entry: payload.entry });
+      state.detailRequest = null;
+      refreshInlineDetail(request.key);
+      pumpInlineDetails();
     },
     onStreamDetailError(message) {
-      if (!state.detailRequest) return;
-      $("#actionDetailContent").innerHTML =
-        `<div class="detail-error">${escapeHtml(message || "暂时无法读取执行详情")}</div>`;
+      const request = state.detailRequest;
+      if (!request) return;
+      state.inlineDetails.set(request.key, { error: message || "暂时无法读取执行详情" });
+      state.detailRequest = null;
+      refreshInlineDetail(request.key);
+      pumpInlineDetails();
     },
   };
 
   function beginNewConversation(codexProfile = null) {
     const selectedProfile = codexProfile || state.allowedCodexProfiles[0] || "default";
-    state.activeId = null;
-    state.active = null;
+    const previousProfile = state.codexProfile;
     state.codexProfile = state.allowedCodexProfiles.includes(selectedProfile)
       ? selectedProfile : state.allowedCodexProfiles[0];
+    selectAccountCapabilities();
+    const models = state.capabilities?.models;
+    if (Array.isArray(models) && !models.some((model) => model.id === state.model)) {
+      const fallback = models.find((model) => model.isDefault) || models[0];
+      if (!fallback) {
+        state.codexProfile = previousProfile;
+        selectAccountCapabilities();
+        toast("这个账号的模型列表暂时不可用，请稍后重试");
+        return;
+      }
+      state.model = fallback.id;
+      state.reasoning = fallback.defaultReasoningEffort || "medium";
+      state.draftModel = state.model;
+      state.draftReasoning = state.reasoning;
+    }
+    state.activeId = null;
+    state.active = null;
     state.workDir = state.codexProfile === "xuanyu" ? "/data/xuanyu-build-console" : "";
     localStorage.setItem("wit_codex_profile", state.codexProfile);
     localStorage.removeItem("wit_active_conversation");
@@ -3459,7 +3443,7 @@
     setChatMoreMenu(!$("#chatMoreMenu").classList.contains("open")));
   $("#moreShareButton").addEventListener("click", async () => {
     setChatMoreMenu(false);
-    const payload = { title: state.active?.title || "Chloe 对话", text: "来自 Chloe 的对话" };
+    const payload = { title: state.active?.title || "Witt 对话", text: "来自 Witt 的对话" };
     try {
       if (navigator.share) await navigator.share(payload);
       else { await navigator.clipboard.writeText(payload.text); toast("分享说明已复制"); }
@@ -3481,7 +3465,7 @@
   $("#localSshButton").addEventListener("click", openLocalSsh);
   $("#adminSettingsButton").addEventListener("click", openAdminSettings);
   $("#codexAccountsButton").addEventListener("click", openCodexAccounts);
-  $(".theme-options")?.addEventListener("click", (event) => {
+  $(".theme-options").addEventListener("click", (event) => {
     const button = event.target.closest("[data-theme-choice]");
     if (!button) return;
     applyTheme(button.dataset.themeChoice, true);
@@ -3609,6 +3593,13 @@
   $("#closeCodexAccounts").addEventListener("click", closeCodexAccounts);
   $("#codexAccountBackdrop").addEventListener("click", closeCodexAccounts);
   $("#codexAccountList").addEventListener("click", (event) => {
+    if (event.target.closest("[data-login-claude]")) {
+      const url = state.codexAccounts.find((account) => account.provider === "claude")?.loginUrl;
+      if (typeof url === "string" && /^\/vault-api\/claude\/login#[A-Za-z0-9_-]{43}$/.test(url)) {
+        window.location.href = url;
+      } else toast("登录入口已失效，请重新打开账号列表");
+      return;
+    }
     const login = event.target.closest("[data-login-codex]")?.dataset.loginCodex;
     if (login) {
       state.codexLoginProfile = login;
@@ -3701,8 +3692,6 @@
   });
   $("#closeDelivery").addEventListener("click", closeDelivery);
   $("#deliveryBackdrop").addEventListener("click", closeDelivery);
-  $("#closeActionDetail").addEventListener("click", closeActionDetail);
-  $("#actionDetailBackdrop").addEventListener("click", closeActionDetail);
   $("#closeImageViewer").addEventListener("click", closeImageViewer);
   $("#downloadImageViewer").addEventListener("click", () => {
     const button = $("#downloadImageViewer");
@@ -3714,7 +3703,7 @@
     }
     const link = document.createElement("a");
     link.href = button.dataset.url;
-    link.download = button.dataset.name || "Chloe 图片";
+    link.download = button.dataset.name || "Witt 图片";
     link.click();
   });
   $("#imageViewerBackdrop").addEventListener("click", closeImageViewer);
@@ -3958,11 +3947,22 @@
       openImageViewer(image.dataset.inlineImage, image.dataset.imageName, image.dataset.imageMime);
       return;
     }
-    const action = event.target.closest("[data-stream-detail]");
-    if (!action) return;
-    openActionDetail(action.dataset.messageId, action.dataset.streamDetail,
-      action.querySelector("p")?.textContent || "执行详情");
+    const retry = event.target.closest("[data-process-retry]");
+    if (retry) {
+      const node = retry.closest("details[data-inline-detail]");
+      state.inlineDetails.delete(retry.dataset.processRetry);
+      refreshInlineDetail(node.dataset.processKey);
+      loadInlineDetail(node);
+    }
   });
+  document.addEventListener("toggle", (event) => {
+    const node = event.target;
+    if (!node.matches?.("details[data-process-key]")) return;
+    if (!node.isConnected) return;
+    if (node.open) state.expandedProcess.add(node.dataset.processKey);
+    else state.expandedProcess.delete(node.dataset.processKey);
+    if (node.open && node.hasAttribute("data-inline-detail")) loadInlineDetail(node);
+  }, true);
   document.addEventListener("submit", (event) => {
     const inputForm = event.target.closest("[data-approval-input-form]");
     const mcpForm = event.target.closest("[data-approval-mcp-form]");
@@ -4130,27 +4130,6 @@
     updateModelControls();
   });
   $("#saveSettings").addEventListener("click", () => applySettings());
-  document.addEventListener("click", (event) => {
-    const harness = event.target.closest?.("[data-harness]");
-    if (harness) {
-      state.harness = harness.dataset.harness;
-      renderRuntimeControls();
-    }
-    const profile = event.target.closest?.("[data-runtime-profile]");
-    if (profile) {
-      const selected = (state.runtimeProfiles || []).find((item) => item.id === profile.dataset.runtimeProfile);
-      if (!selected) return;
-      state.draftModel = selected.model;
-      state.model = selected.model;
-      state.draftReasoning = selected.reasoning;
-      state.reasoning = selected.reasoning;
-      state.harness = "auto";
-      updateModelControls();
-      renderRuntimeControls();
-      toast(`${selected.name} · Auto`);
-    }
-  });
-  loadRuntimeExtras();
   $("#forkConversationButton").addEventListener("click", () => {
     if (state.activeId) bridge()?.forkConversation?.(state.activeId);
   });
