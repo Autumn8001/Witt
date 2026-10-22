@@ -162,99 +162,84 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   text-wrap: balance;
 }
 
-/* Sidebar: Light warm translucent frosted glass matching design baseline */
+/* Sidebar: Light warm translucent frosted glass matching Witt-refined structure */
 :root body.web-browser.chloe-autumn-workspace .drawer-panel {
   color: #F8F5EE !important;
   background: linear-gradient(165deg, rgba(255, 248, 240, 0.28) 0%, rgba(255, 238, 228, 0.22) 50%, rgba(245, 228, 218, 0.18) 100%) !important;
   backdrop-filter: blur(28px) saturate(135%) brightness(104%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(135%) brightness(104%) !important;
-  padding: 16px 12px 14px !important;
+  padding: calc(20px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom)) !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 0 !important;
+  gap: 12px !important;
+  width: min(84vw, 360px) !important;
+  max-width: calc(100vw - 44px) !important;
   height: 100dvh !important;
   border-right: 1px solid rgba(255, 255, 255, 0.35) !important;
   box-shadow: 10px 0 35px rgba(0, 0, 0, 0.08), inset -1px 0 0 rgba(255, 255, 255, 0.35) !important;
-  overflow-y: auto;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
-:root body.web-browser.chloe-autumn-workspace .sidebar-brand {
+
+/* Sidebar Header / Brand */
+:root body.web-browser.chloe-autumn-workspace .drawer-head.sidebar-brand {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
   padding: 0 4px !important;
-  min-height: 40px !important;
-  margin-bottom: 14px;
-  flex: none;
+  min-height: 44px !important;
+  margin-bottom: 2px !important;
+  flex: none !important;
+}
+:root body.web-browser.chloe-autumn-workspace .sidebar-brand-left {
+  display: flex !important;
+  align-items: center !important;
 }
 :root body.web-browser.chloe-autumn-workspace .sidebar-brand-left h2 {
   margin: 0 !important;
-  font-family: ui-serif, Georgia, "Songti SC", serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 26px !important;
-  font-weight: 600 !important;
-  letter-spacing: -.02em !important;
-  color: #F8E8D2 !important;
-  text-shadow: 0 1px 3px rgba(30, 20, 10, 0.3) !important;
-  background: none !important;
-  -webkit-text-fill-color: initial !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.8px !important;
+  color: #FFFFFF !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
 }
 :root body.web-browser.chloe-autumn-workspace .chloe-logo-icon { display: none !important; }
+
+/* Sidebar Header Action Buttons */
+.sidebar-brand-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:root body.web-browser.chloe-autumn-workspace .sidebar-search-trigger,
 :root body.web-browser.chloe-autumn-workspace #closeDrawer {
   display: grid !important;
-  place-items: center;
-  color: #FFFFFF !important;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  place-items: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
   background: rgba(255, 255, 255, 0.20) !important;
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
-  cursor: pointer;
-  transition: all .15s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-:root body.web-browser.chloe-autumn-workspace #closeDrawer:hover {
-  background: rgba(255, 255, 255, 0.30) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
-}
-
-/* Sidebar: Refined "+ New Chat" button */
-:root body.web-browser.chloe-autumn-workspace #drawerNewChat {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  flex: none;
-  min-height: 42px !important;
-  padding: 0 12px !important;
-  margin: 0 0 14px !important;
   border: 1px solid rgba(255, 255, 255, 0.38) !important;
-  border-radius: 12px !important;
   color: #FFFFFF !important;
-  background: rgba(255, 255, 255, 0.22) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
-  cursor: pointer;
-  transition: all .15s ease;
+  cursor: pointer !important;
+  transition: all .16s ease !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  padding: 0 !important;
+  flex: none !important;
 }
-:root body.web-browser.chloe-autumn-workspace #drawerNewChat:hover {
+:root body.web-browser.chloe-autumn-workspace .sidebar-search-trigger:hover,
+:root body.web-browser.chloe-autumn-workspace #closeDrawer:hover {
   background: rgba(255, 255, 255, 0.32) !important;
   border-color: rgba(255, 255, 255, 0.55) !important;
   transform: translateY(-0.5px);
 }
-.drawer-new-copy {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #FFFFFF;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-.drawer-new-copy svg { width: 16px; height: 16px; color: #FFFFFF; }
-.drawer-new-shortcut {
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.30);
-  color: rgba(255, 255, 255, 0.85);
-  border-radius: 6px;
-  padding: 2px 7px;
-  font: 550 11px "Segoe UI", -apple-system, sans-serif;
+:root body.web-browser.chloe-autumn-workspace .sidebar-search-trigger svg,
+:root body.web-browser.chloe-autumn-workspace #closeDrawer svg {
+  width: 17px !important;
+  height: 17px !important;
+  stroke: #FFFFFF !important;
+  color: #FFFFFF !important;
 }
 
 /* Sidebar: Compact System Navigation List */
@@ -262,11 +247,11 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 .pinned-system-grid {
   display: flex !important;
   flex-direction: column !important;
-  gap: 2px !important;
-  margin: 0 0 14px !important;
+  gap: 3px !important;
+  margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
-  flex: none;
+  flex: none !important;
 }
 .sidebar-nav-item,
 .pinned-grid-cell {
@@ -274,20 +259,21 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   align-items: center !important;
   justify-content: space-between !important;
   width: 100% !important;
-  min-height: 34px !important;
-  padding: 6px 9px !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 8px !important;
+  min-height: 36px !important;
+  padding: 7px 10px !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 10px !important;
   color: #FFFFFF !important;
   text-align: left;
   cursor: pointer;
-  transition: background .12s ease !important;
+  transition: all .14s ease !important;
   box-sizing: border-box;
 }
 .sidebar-nav-item:hover,
 .pinned-grid-cell:hover {
-  background: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.40) !important;
 }
 .nav-item-left {
   display: flex;
@@ -300,7 +286,7 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 .cell-icon {
   width: 15px;
   height: 15px;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.88);
   flex: none;
 }
 .nav-item-title,
@@ -323,7 +309,7 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 .nav-item-sub,
 .cell-sub {
   font-size: 11px;
-  color: #FFFFFF;
+  color: rgba(255, 255, 255, 0.82);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .status-indicator-dot.online {
@@ -344,169 +330,319 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   display: flex !important;
   flex: 1 1 0 !important;
   flex-direction: column !important;
-  min-height: 100px !important;
+  min-height: 0 !important;
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  margin-bottom: 12px;
+  margin: 4px 0 0 !important;
+  overflow: hidden !important;
 }
 :root body.web-browser.chloe-autumn-workspace .drawer-history-head {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px 8px !important;
-  color: rgba(255, 255, 255, 0.78) !important;
-  font-size: 11px !important;
+  padding: 6px 4px 8px !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+  font-size: 11.5px !important;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: .06em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  flex: none;
 }
 .drawer-history-title-group { display: flex; align-items: center; gap: 8px; }
 :root body.web-browser.chloe-autumn-workspace .conversation-count-badge {
   display: inline-grid !important;
   place-items: center !important;
-  width: 19px !important;
-  height: 19px !important;
+  width: 18px !important;
+  height: 18px !important;
   border-radius: 50% !important;
-  background: #FFFFFF !important;
+  background: rgba(255, 255, 255, 0.88) !important;
   color: #2B1E12 !important;
-  font-size: 11px !important;
+  font-size: 10.5px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
 }
-.sidebar-search-trigger {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.8) !important;
-  cursor: pointer;
-}
-.sidebar-search-trigger svg { width: 16px; height: 16px; }
 :root body.web-browser.chloe-autumn-workspace .history-controls:not(.open) { display: none !important; }
-:root body.web-browser.chloe-autumn-workspace .history-controls.open { display: grid !important; min-height: 0 !important; padding: 0 2px 8px !important; gap: 6px; }
+:root body.web-browser.chloe-autumn-workspace .history-controls.open {
+  display: grid !important;
+  min-height: 0 !important;
+  padding: 0 2px 10px !important;
+  gap: 7px;
+  flex: none;
+}
 :root body.web-browser.chloe-autumn-workspace #historySearch {
   background: rgba(255, 255, 255, 0.22) !important;
   border: 1px solid rgba(255, 255, 255, 0.35) !important;
   color: #FFFFFF !important;
   height: 36px !important;
-  border-radius: 8px !important;
-  font-size: 12.5px !important;
+  border-radius: 10px !important;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  outline: none;
+}
+:root body.web-browser.chloe-autumn-workspace #historySearch::placeholder {
+  color: rgba(255, 255, 255, 0.65);
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-list {
-  padding: 0 !important;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px !important;
-}
-:root body.web-browser.chloe-autumn-workspace .conversation-row {
-  position: relative;
+  padding: 2px 0 !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   display: flex !important;
-  align-items: center;
-  border-radius: 10px !important;
-  min-height: 34px !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  scrollbar-width: none !important;
+}
+:root body.web-browser.chloe-autumn-workspace .conversation-list::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Conversation Row: Witt visual subtraction */
+:root body.web-browser.chloe-autumn-workspace .conversation-row {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  border-radius: 12px !important;
+  min-height: 44px !important;
   border: 0 !important;
   box-shadow: none !important;
   background: transparent !important;
-  transition: background .12s ease;
+  transition: background .14s ease, transform .14s ease !important;
+  flex: none;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-row:hover {
-  background: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-row.active {
-  background: rgba(255, 255, 255, 0.40) !important;
-  backdrop-filter: blur(8px) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  background: rgba(255, 255, 255, 0.38) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-row.active::before {
   content: '' !important;
   position: absolute !important;
   left: 0 !important;
-  top: 7px !important;
-  bottom: 7px !important;
+  top: 9px !important;
+  bottom: 9px !important;
   width: 3.5px !important;
   border-radius: 0 3px 3px 0 !important;
   background: #DF8936 !important;
-  box-shadow: 0 0 6px rgba(223, 137, 54, 0.4) !important;
+  box-shadow: 0 0 8px rgba(223, 137, 54, 0.45) !important;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-open {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
-  flex: 1;
-  min-width: 0;
-  padding: 6px 8px !important;
+  min-width: 0 !important;
+  flex: 1 1 0 !important;
+  padding: 8px 10px !important;
+  background: transparent !important;
+  border: 0 !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+:root body.web-browser.chloe-autumn-workspace .conversation-open > span:last-child {
+  display: block !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+/* Pure clean title, hiding cluttered icon box and subtitles */
+:root body.web-browser.chloe-autumn-workspace .conversation-mark {
+  display: none !important;
+}
+:root body.web-browser.chloe-autumn-workspace .conversation-open small {
+  display: none !important;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-open strong,
 :root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-title {
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
   color: #241A12 !important;
+  font-size: 14.5px !important;
   font-weight: 600 !important;
+  line-height: 1.4 !important;
   text-shadow: none !important;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-row:not(.active) .conversation-open strong,
 :root body.web-browser.chloe-autumn-workspace .conversation-row:not(.active) .conversation-title {
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
   color: rgba(255, 255, 255, 0.94) !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 450 !important;
+  line-height: 1.4 !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
-}
-:root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-mark,
-:root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-bubble-icon {
-  stroke: #241A12 !important;
-  color: #241A12 !important;
-}
-:root body.web-browser.chloe-autumn-workspace .conversation-row:not(.active) .conversation-mark,
-:root body.web-browser.chloe-autumn-workspace .conversation-row:not(.active) .conversation-bubble-icon {
-  stroke: rgba(255, 255, 255, 0.85) !important;
-  color: rgba(255, 255, 255, 0.85) !important;
-}
-:root body.web-browser.chloe-autumn-workspace .conversation-mark {
-  display: grid !important;
-  width: 16px !important;
-  height: 16px !important;
-  background: transparent !important;
-  flex: none;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-more {
   flex: none;
-  width: 24px;
-  color: rgba(255, 255, 255, 0.6) !important;
-  font-size: 13px !important;
+  width: 30px !important;
+  height: 30px !important;
+  margin-right: 6px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 14px !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
   opacity: 0;
-  transition: opacity .12s ease;
+  transition: opacity .14s ease, color .14s ease;
+}
+:root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-more {
+  color: rgba(36, 26, 18, 0.6) !important;
 }
 :root body.web-browser.chloe-autumn-workspace .conversation-row:hover .conversation-more,
 :root body.web-browser.chloe-autumn-workspace .conversation-row:focus-within .conversation-more {
-  opacity: 1;
+  opacity: 1 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .conversation-more:hover {
+  color: #FFFFFF !important;
+}
+:root body.web-browser.chloe-autumn-workspace .conversation-row.active .conversation-more:hover {
+  color: #241A12 !important;
 }
 
-/* Sidebar Bottom Tools & Footer */
+/* Sidebar Bottom Dock */
+:root body.web-browser.chloe-autumn-workspace .drawer-dock {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 0 0 !important;
+  margin-top: auto !important;
+  flex: none !important;
+}
+
+/* Amber-Gold Pill "New Chat" Button */
+:root body.web-browser.chloe-autumn-workspace #drawerNewChat {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex: 1 1 0 !important;
+  min-height: 48px !important;
+  padding: 0 18px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #F6C743 0%, #E6AC28 100%) !important;
+  color: #30260C !important;
+  box-shadow: 0 6px 20px rgba(230, 172, 40, 0.28), 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: all .16s ease !important;
+}
+:root body.web-browser.chloe-autumn-workspace #drawerNewChat:hover {
+  background: linear-gradient(135deg, #F8CD50 0%, #EDB532 100%) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 24px rgba(230, 172, 40, 0.38), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+}
+:root body.web-browser.chloe-autumn-workspace #drawerNewChat:active {
+  transform: translateY(0) scale(0.99) !important;
+}
+:root body.web-browser.chloe-autumn-workspace .drawer-new-copy {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 14.5px !important;
+  font-weight: 600 !important;
+  color: #30260C !important;
+  text-shadow: none !important;
+}
+:root body.web-browser.chloe-autumn-workspace .drawer-new-copy svg {
+  width: 18px !important;
+  height: 18px !important;
+  stroke: #30260C !important;
+  color: #30260C !important;
+  stroke-width: 2.2 !important;
+}
+:root body.web-browser.chloe-autumn-workspace .drawer-new-shortcut {
+  background: rgba(48, 38, 12, 0.12) !important;
+  border: 1px solid rgba(48, 38, 12, 0.16) !important;
+  color: #30260C !important;
+  border-radius: 6px !important;
+  padding: 2px 7px !important;
+  font: 600 11px "Segoe UI", -apple-system, sans-serif !important;
+}
+
+/* Sheen sweep animation across New Chat button */
+:root body.web-browser.chloe-autumn-workspace #drawerNewChat::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: -55% auto -55% -30% !important;
+  width: 28% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent) !important;
+  transform: translateX(-220%) skewX(-18deg) !important;
+  pointer-events: none !important;
+}
+.drawer.open :root body.web-browser.chloe-autumn-workspace #drawerNewChat::after,
+#drawer.open #drawerNewChat::after {
+  animation: drawer-sheen 1.15s .22s ease-out both !important;
+}
+
+/* Circular Monogram Avatar */
+:root body.web-browser.chloe-autumn-workspace .drawer-avatar {
+  display: grid !important;
+  place-items: center !important;
+  flex: none !important;
+  width: 48px !important;
+  height: 48px !important;
+  padding: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.38) !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+  cursor: pointer !important;
+  transition: all .16s ease !important;
+  box-sizing: border-box !important;
+}
+:root body.web-browser.chloe-autumn-workspace .drawer-avatar:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  transform: translateY(-0.5px);
+}
+:root body.web-browser.chloe-autumn-workspace .drawer-avatar span {
+  display: grid !important;
+  place-items: center !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(150deg, #5B7558 0%, #2B3E29 100%) !important;
+  color: #FFFFFF !important;
+  font-size: 17px !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.5px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Drawer Footer */
 :root body.web-browser.chloe-autumn-workspace .drawer-tools {
   display: flex !important;
   flex-direction: column !important;
   flex: none;
   gap: 4px !important;
-  margin-top: auto !important;
-  padding-top: 8px !important;
+  margin-top: 2px !important;
+  padding-top: 4px !important;
   border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 :root body.web-browser.chloe-autumn-workspace .drawer-footer {
   display: flex !important;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 4px 2px !important;
-  color: rgba(255, 255, 255, 0.75) !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 4px 4px 0 !important;
+  color: rgba(255, 255, 255, 0.72) !important;
   font-size: 11.5px !important;
   font-weight: 500 !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  flex: none !important;
 }
 :root body.web-browser.chloe-autumn-workspace .drawer-footer span b {
   color: #FFFFFF !important;
@@ -534,6 +670,26 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
+/* Staggered entrance rhythm on drawer open */
+#drawer.open .drawer-head,
+.drawer.open .drawer-head { animation: drawer-rise .32s .03s both; }
+#drawer.open #pinnedSystemGrid,
+.drawer.open #pinnedSystemGrid { animation: drawer-rise .34s .06s both; }
+#drawer.open .drawer-history-head,
+.drawer.open .drawer-history-head { animation: drawer-rise .34s .09s both; }
+#drawer.open .conversation-row:nth-child(1),
+.drawer.open .conversation-row:nth-child(1) { animation: drawer-rise .36s .12s both; }
+#drawer.open .conversation-row:nth-child(2),
+.drawer.open .conversation-row:nth-child(2) { animation: drawer-rise .36s .16s both; }
+#drawer.open .conversation-row:nth-child(3),
+.drawer.open .conversation-row:nth-child(3) { animation: drawer-rise .36s .20s both; }
+#drawer.open .conversation-row:nth-child(n+4),
+.drawer.open .conversation-row:nth-child(n+4) { animation: drawer-rise .36s .24s both; }
+#drawer.open .drawer-dock,
+.drawer.open .drawer-dock { animation: drawer-rise .38s .16s both; }
+#drawer.open .drawer-footer,
+.drawer.open .drawer-footer { animation: drawer-rise .38s .22s both; }
+
 /* Composer: Light warm translucent frosted glass capsule matching design baseline */
 :root body.web-browser.chloe-autumn-workspace .composer-wrap {
   width: min(calc(100% - 64px), var(--chloe-composer-width)) !important;
@@ -558,14 +714,43 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.6) !important;
   box-sizing: border-box;
 }
-:root body.web-browser.chloe-autumn-workspace .composer:focus-within {
-  border-color: rgba(255, 255, 255, 0.75) !important;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.16), 0 0 0 3px rgba(255, 255, 255, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.75) !important;
-}
-:root body.web-browser.chloe-autumn-workspace .composer::before,
+:root body.web-browser.chloe-autumn-workspace .composer:not(.has-active-turn)::before,
 :root body.web-browser.chloe-autumn-workspace .composer::after {
   display: none !important;
   content: none !important;
+}
+
+/* Composer: Autumn Aurora Reactor on Active Turn */
+:root body.web-browser.chloe-autumn-workspace .composer.has-active-turn {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  background: linear-gradient(120deg, rgba(255, 250, 242, 0.46) 0%, rgba(255, 236, 216, 0.54) 35%, rgba(255, 246, 232, 0.48) 70%, rgba(255, 240, 226, 0.46) 100%) !important;
+  background-size: 250% 250% !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(245, 185, 80, 0.35), 0 0 20px rgba(245, 180, 60, 0.22), 0 0 34px rgba(255, 205, 110, 0.16) !important;
+  animation: chloe-aurora 3.8s ease-in-out infinite !important;
+}
+
+/* Flowing spectrum sweep overlay */
+:root body.web-browser.chloe-autumn-workspace .composer.has-active-turn::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 0.9 !important;
+  background: linear-gradient(102deg, transparent 4%, rgba(255, 200, 100, 0.22) 22%, rgba(240, 140, 60, 0.28) 45%, rgba(255, 180, 80, 0.22) 66%, transparent 88%) !important;
+  background-size: 220% 100% !important;
+  animation: chloe-spectrum-sweep 2.8s linear infinite !important;
+}
+
+/* Keep input contents above the sweep */
+:root body.web-browser.chloe-autumn-workspace .composer > * {
+  position: relative !important;
+  z-index: 1 !important;
 }
 :root body.web-browser.chloe-autumn-workspace .composer textarea,
 :root body.web-browser.chloe-autumn-workspace .composer textarea:focus,
@@ -766,6 +951,38 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   background: #5A9E64 !important;
   transform: scale(1.04) !important;
 }
+
+/* Working send button with amber gold gradient & breathing pulse */
+:root body.web-browser.chloe-autumn-workspace .send-button.working,
+:root body.web-browser.chloe-autumn-workspace .composer.has-active-turn .send-button.working {
+  position: static !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #F5A623 0%, #E2711D 42%, #D9480F 67%, #F8BA38 100%) !important;
+  background-size: 300% 300% !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6), 0 0 16px rgba(245, 166, 35, 0.65), 0 0 28px rgba(226, 113, 29, 0.4) !important;
+  animation: chloe-button-spectrum 1.9s ease infinite !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  flex: none !important;
+}
+:root body.web-browser.chloe-autumn-workspace .send-button.working svg,
+:root body.web-browser.chloe-autumn-workspace .composer.has-active-turn .send-button.working svg {
+  stroke: #FFFFFF !important;
+  color: #FFFFFF !important;
+  fill: none !important;
+  width: 17px !important;
+  height: 17px !important;
+  stroke-width: 2.4 !important;
+  display: block !important;
+  filter: drop-shadow(0 1px 2px rgba(45, 25, 10, 0.45));
+  animation: chloe-arrow-pulse 1.15s ease-in-out infinite !important;
+}
+
 :root body.web-browser.chloe-autumn-workspace .composer-hint {
   margin: 10px 0 0 !important;
   font-size: 11.5px !important;
@@ -783,6 +1000,69 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
   height: 12px;
   flex: none;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* Composer meta / hint breathing glow */
+:root body.web-browser.chloe-autumn-workspace .composer-wrap:has(.composer.has-active-turn) .composer-hint {
+  animation: chloe-meta-glow 2.6s ease-in-out infinite !important;
+}
+
+/* Keyframe animations for Composer Dynamic Motion */
+@keyframes chloe-aurora {
+  0%, 100% {
+    background-position: 0% 40%;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(245, 185, 80, 0.35), 0 0 18px rgba(245, 180, 60, 0.18), 0 0 28px rgba(255, 205, 110, 0.12);
+  }
+  50% {
+    background-position: 100% 60%;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(250, 195, 90, 0.5), 0 0 26px rgba(245, 180, 60, 0.32), 0 0 40px rgba(255, 215, 120, 0.24);
+  }
+}
+
+@keyframes chloe-spectrum-sweep {
+  from { background-position: 180% 0; }
+  to { background-position: -50% 0; }
+}
+
+@keyframes chloe-button-spectrum {
+  0%, 100% {
+    background-position: 0% 35%;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    background-position: 100% 70%;
+    transform: translateY(-1px) scale(1.035);
+  }
+}
+
+@keyframes chloe-arrow-pulse {
+  50% {
+    transform: translateY(-2px);
+    opacity: 0.75;
+  }
+}
+
+@keyframes chloe-meta-glow {
+  50% {
+    text-shadow: 0 0 12px rgba(245, 180, 60, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root body.web-browser.chloe-autumn-workspace .composer.has-active-turn,
+  :root body.web-browser.chloe-autumn-workspace .composer.has-active-turn::before,
+  :root body.web-browser.chloe-autumn-workspace .send-button.working,
+  :root body.web-browser.chloe-autumn-workspace .send-button.working svg,
+  :root body.web-browser.chloe-autumn-workspace .composer-wrap:has(.composer.has-active-turn) .composer-hint,
+  #drawer.open .drawer-head,
+  #drawer.open #pinnedSystemGrid,
+  #drawer.open .drawer-history-head,
+  #drawer.open .conversation-row,
+  #drawer.open .drawer-dock,
+  #drawer.open .drawer-footer,
+  #drawer.open #drawerNewChat::after {
+    animation: none !important;
+  }
 }
 
 :root body.web-browser.chloe-autumn-workspace .quick-model-menu:not(.open) { display: none !important; }
@@ -890,9 +1170,9 @@ body:not(.web-browser) :is(.chloe-bg-layer,.chloe-bg-mask) { display: none; }
 }
 @media (max-height: 820px) {
   :root body.web-browser.chloe-autumn-workspace .drawer-panel { padding-top: 14px !important; }
-  :root body.web-browser.chloe-autumn-workspace .sidebar-brand { margin-bottom: 12px; }
-  :root body.web-browser.chloe-autumn-workspace #drawerNewChat { margin-bottom: 16px !important; min-height: 48px !important; }
-  :root body.web-browser.chloe-autumn-workspace .drawer-tools { gap: 8px !important; }
+  :root body.web-browser.chloe-autumn-workspace .sidebar-brand { margin-bottom: 8px; }
+  :root body.web-browser.chloe-autumn-workspace #drawerNewChat { min-height: 44px !important; }
+  :root body.web-browser.chloe-autumn-workspace .drawer-tools { gap: 6px !important; }
   :root body.web-browser.chloe-autumn-workspace .drawer-tools .drawer-profile { min-height: 78px !important; padding: 8px 4px !important; }
   :root body.web-browser.chloe-autumn-workspace .drawer-entry-card { min-height: 60px !important; }
   :root body.web-browser.chloe-autumn-workspace .workspace-entry { min-height: 42px; padding-block: 9px !important; }
