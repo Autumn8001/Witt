@@ -18,13 +18,22 @@
       document.documentElement.dataset.themePreference = preference;
     })();
   </script>
-  <title>Witt · 私人服务器助手</title>
-  <link rel="icon" href="/vault/icon.svg">
+  <title>Chloe · 私人服务器助手</title>
+  <link rel="icon" href="/vault/assets/icons/chloe/brand-mark.svg">
   <link rel="stylesheet" href="/vault/witt-base-20261008.css?v=1">
   <style id="workspace-critical-style">
 /* Semantic workspace layer. Legacy terminal/artifact/theme styles stay intact. */
 :root { --ws-ink: #243839; --ws-muted: #718181; --ws-line: rgba(42,68,68,.12); --ws-surface: rgba(255,255,255,.94); --ws-accent: #227b70; --ws-radius: 16px; }
 [data-theme="dark"] { --ws-ink: #e1edeb; --ws-muted: #a3b8b3; --ws-line: rgba(183,215,208,.18); --ws-surface: #17201f; --ws-accent: #79cabc; }
+.sidebar-brand-lockup { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.chloe-logo-icon { width: 26px; height: 26px; flex: none; border-radius: 7px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.08)); }
+.welcome-chloe-mark { width: 28px; height: 28px; flex: none; vertical-align: middle; margin-right: 6px; }
+.boot-logo-icon { width: 48px; height: 48px; margin: 0 auto 12px; display: block; filter: drop-shadow(0 4px 12px rgba(60,80,60,0.18)); }
+.boot-wordmark { display: block; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; color: var(--ws-ink, #243839); }
+.boot-submark { margin-top: 6px; font-size: 13px; color: var(--ws-muted, #718181); letter-spacing: 0.5px; }
+.user-identity-c { background: linear-gradient(135deg, #3A5239, #233423) !important; color: #FFFDF7 !important; font-weight: 700 !important; }
+.drawer-avatar { background: linear-gradient(135deg, #3A5239, #233423) !important; color: #FFFDF7 !important; border: 1px solid rgba(246, 199, 67, 0.4) !important; font-weight: 700 !important; }
+.assistant-monogram { width: 24px; height: 24px; border-radius: 50% !important; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #3A5239, #233423) !important; color: #FFFDF7 !important; font-weight: 700 !important; font-size: 11px !important; border: 1px solid rgba(246, 199, 67, 0.4) !important; }
 .workspace-chat-title { flex: 1; min-width: 0; margin: 0 8px; font-size: 15px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ws-ink); }
 .task-status-strip { display: flex; align-items: center; gap: 9px; max-width: 900px; margin: calc(92px + env(safe-area-inset-top)) auto 22px; padding: 11px 14px; border: 1px solid var(--ws-line); border-radius: var(--ws-radius); color: var(--ws-ink); background: var(--ws-surface); font-size: 12px; }
 .task-status-strip:not([hidden]) ~ .messages { padding-top: 12px !important; }
@@ -82,34 +91,20 @@
 </head>
 <body>
   <div class="app-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
-  <div class="boot-screen" id="bootScreen" aria-label="Witt 正在启动">
-    <div class="boot-stage"><div class="halo" aria-hidden="true"></div><svg viewBox="0 0 280 150" aria-hidden="true">
-<defs>
-<path id="wittLaunch-w" pathLength="1" d="M24 30 L49 112 Q52 124 57 112 L80 54 L103 112 Q108 124 111 112 L136 30"/>
-<path id="wittLaunch-i" pathLength="1" d="M158 40 L158 40.2 M158 66 L158 109 Q158 124 169 114"/>
-<path id="wittLaunch-t1" pathLength="1" d="M198 36 L198 107 Q198 127 213 114 M184 67 L212 67"/>
-<path id="wittLaunch-t2" pathLength="1" d="M244 36 L244 107 Q244 127 259 114 M230 67 L258 67"/>
-<linearGradient id="wittLaunch-ink" x1="0" y1="0" x2=".85" y2="1"><stop stop-color="var(--ink)"/><stop offset=".46" stop-color="var(--edge)"/><stop offset="1" stop-color="var(--ink)"/></linearGradient>
-<linearGradient id="wittLaunch-sheen" gradientUnits="userSpaceOnUse" x1="-65" y1="0" x2="65" y2="20"><stop stop-color="var(--shine)" stop-opacity="0"/><stop offset=".5" stop-color="var(--shine)"/><stop offset="1" stop-color="var(--shine)" stop-opacity="0"/></linearGradient>
-<filter id="wittLaunch-soft" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter>
-<filter id="wittLaunch-shadow" x="-50%" y="-300%" width="200%" height="700%"><feGaussianBlur stdDeviation="6"/></filter>
-</defs>
-<ellipse class="shadow" cx="140" cy="143" rx="85" ry="3"/>
-<g id="wittLaunch-word">
-<g class="glow"><use class="letter light" href="#wittLaunch-w"/><use class="letter light" href="#wittLaunch-i"/><use class="letter light" href="#wittLaunch-t1"/><use class="letter light" href="#wittLaunch-t2"/></g>
-<g class="strokes"><use class="letter ink" href="#wittLaunch-w"/><use class="letter ink" href="#wittLaunch-i"/><use class="letter ink" href="#wittLaunch-t1"/><use class="letter ink" href="#wittLaunch-t2"/></g>
-<g class="finish"><use href="#wittLaunch-w"/><use href="#wittLaunch-i"/><use href="#wittLaunch-t1"/><use href="#wittLaunch-t2"/></g>
-<g id="wittLaunch-pen" opacity="0"><circle class="nib" r="8"/><circle class="nib-core" r="2.4"/></g>
-<g id="wittLaunch-sparks"></g>
-</g>
-</svg></div>
+  <div class="boot-screen" id="bootScreen" aria-label="Chloe 正在启动">
+    <div class="boot-stage">
+      <div class="halo" aria-hidden="true"></div>
+      <img class="boot-logo-icon" src="/vault/assets/icons/chloe/brand-mark.svg" alt="" aria-hidden="true">
+      <span class="boot-wordmark">Chloe</span>
+      <div class="boot-submark">私人服务器助手</div>
+    </div>
   </div>
   <script src="/vault/boot-w.js?v=20261007-3"></script>
   <script>window.wittBootStartedAt = performance.now(); window.WittNative?.postMessage('{"method":"launchSurfaceReady","args":[]}');</script>
   <section class="auth-gate" id="authGate" aria-hidden="true" aria-labelledby="authGateTitle">
     <div class="auth-gate-halo" aria-hidden="true"></div>
     <div class="auth-gate-card">
-      <span class="auth-gate-mark">W</span>
+      <span class="auth-gate-mark user-identity-c">C</span>
       <span class="eyebrow">PRIVATE DEVICE ACCESS</span>
       <h1 id="authGateTitle">激活这台设备</h1>
       <p>输入管理员提供的邀请码。激活后，这台设备只会访问所属账号的数据。</p>
@@ -124,7 +119,7 @@
       <button class="compact-nav-button compact-menu-button" id="menuButton" aria-label="打开对话列表">
         <svg viewBox="0 0 24 24"><path d="M4.5 9h15M4.5 15h10.5"/></svg>
       </button>
-      <h1 id="chatTitle" class="visually-hidden">Witt</h1>
+      <h1 id="chatTitle" class="visually-hidden">Chloe</h1>
       <div class="compact-nav-actions">
         <button class="compact-nav-button night-mode-toggle" id="nightModeButton" aria-label="开启夜间模式" aria-pressed="false">
           <svg class="night-icon-moon" viewBox="0 0 24 24"><path d="M20 15.2A8.2 8.2 0 0 1 8.8 4a8.3 8.3 0 1 0 11.2 11.2Z"/></svg>
@@ -177,8 +172,8 @@
 
     <main class="chat-stage" id="chatStage">
       <section class="welcome" id="welcome">
-        <div class="welcome-mark animate-blur-fade-up" style="animation-delay:100ms" aria-hidden="true"><span>W</span><i></i><b>SERVER NATIVE</b></div>
-        <span class="lumora-badge liquid-glass animate-blur-fade-up" style="animation-delay:160ms"><i></i>你的私人 Codex 已就绪</span>
+        <div class="welcome-mark animate-blur-fade-up" style="animation-delay:100ms" aria-hidden="true"><img class="welcome-chloe-mark" src="/vault/assets/icons/chloe/brand-mark.svg" alt="" aria-hidden="true"><b>Chloe 开发工作台</b></div>
+        <span class="lumora-badge liquid-glass animate-blur-fade-up" style="animation-delay:160ms"><i></i>你的私人 AI 工作空间已就绪</span>
         <h1 class="animate-blur-fade-up" style="animation-delay:220ms">有什么可以帮忙的？</h1>
         <p class="animate-blur-fade-up" style="animation-delay:280ms">在你的服务器上持续工作、调用工具、整理结果。上下文、文件和执行过程始终归你所有。</p>
         <div class="suggestions">
@@ -200,7 +195,7 @@
     <section class="composer-wrap" id="composerWrap">
       <div class="attachment-strip" id="attachmentStrip"></div>
       <div class="composer liquid-glass" id="composer">
-        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="回复 Witt"></textarea>
+        <textarea id="messageInput" rows="1" maxlength="48000" placeholder="回复 Chloe"></textarea>
         <div class="composer-toolbar">
           <button class="attach-button" id="attachButton" aria-label="添加内容" aria-expanded="false">
             <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -229,7 +224,7 @@
         <span class="quick-reasoning-heading">智能程度</span>
         <div class="quick-reasoning-options" id="quickReasoningOptions" role="radiogroup" aria-label="选择智能程度"></div>
       </section>
-      <p id="composerHint" class="composer-hint">重要操作会先确认</p>
+      <p id="composerHint" class="composer-hint">由 Chloe 处理 · 重要操作会先确认</p>
     </section>
   </div>
 
@@ -266,7 +261,7 @@
       <pre class="artifact-code" id="artifactCode" tabindex="0"><code></code></pre>
       <section class="artifact-runtime-error" id="artifactRuntimeError" hidden>
         <span>!</span><div><strong>Artifact 运行时出错</strong><p id="artifactErrorMessage">页面脚本发生错误。</p></div>
-        <button type="button" id="artifactFixError">让 Witt 修复</button>
+        <button type="button" id="artifactFixError">让 Chloe 修复</button>
       </section>
     </main>
   </aside>
@@ -275,7 +270,10 @@
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <div class="drawer-panel">
       <div class="drawer-head">
-        <h2>Witt</h2>
+        <div class="sidebar-brand-lockup">
+          <img class="chloe-logo-icon" src="/vault/assets/icons/chloe/brand-mark.svg" alt="" aria-hidden="true">
+          <h2>Chloe</h2>
+        </div>
         <button class="icon-button drawer-search-toggle" id="drawerSearchToggle" type="button" aria-label="搜索对话" aria-expanded="false" aria-controls="drawerSearchControls"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
         <button class="icon-button" id="closeDrawer" aria-label="关闭边栏"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
@@ -296,7 +294,7 @@
         <svg viewBox="0 0 24 24"><path d="M5 19h4l10-10a2.8 2.8 0 0 0-4-4L5 15v4Z M13.5 6.5l4 4"/></svg>
         <span><strong>新建对话</strong><small>开启一个独立上下文</small></span>
       </button>
-        <button class="drawer-avatar" id="drawerAvatar" type="button" aria-label="我的与设置" aria-expanded="false" aria-controls="drawerAccountMenu"><span aria-hidden="true">W</span></button>
+        <button class="drawer-avatar" id="drawerAvatar" type="button" aria-label="我的与设置" aria-expanded="false" aria-controls="drawerAccountMenu"><span aria-hidden="true">C</span></button>
       </div>
 
     </div>
@@ -306,7 +304,7 @@
     <button type="button" class="upgrade-backdrop" id="userSettingsBackdrop" aria-label="关闭设置"></button>
       <div class="drawer-tools user-settings-panel" role="dialog" aria-modal="true" aria-labelledby="userSettingsTitle">
         <div class="drawer-account-head"><strong id="userSettingsTitle">设置</strong><button id="closeDrawerAccount" type="button" aria-label="关闭头像菜单">×</button></div>
-        <div class="settings-user-identity"><span>W</span><div><strong>Witt</strong><small>你的私人助手</small></div></div>
+        <div class="settings-user-identity"><span class="user-identity-c">C</span><div><strong>Chloe</strong><small>Chloe 客户端与服务</small></div></div>
         <section class="settings-block"><div class="settings-section-label">工作区</div>        <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>›</span></button>
         <button class="feature-entry" id="featureProjects">项目工作区</button><button class="feature-entry" id="featureSchedules">定时任务</button><button class="feature-entry" id="featureNotifications" data-enabled="false">任务通知：开启</button>
 </section>
@@ -314,7 +312,7 @@
         <div class="settings-section-label">账号与连接</div>
         <div class="drawer-utilities">
           <button class="drawer-profile" id="profileButton">
-            <span class="profile-monogram">W</span>
+            <span class="profile-monogram user-identity-c">C</span>
             <span><strong>我的</strong><small>用量记录</small></span>
             <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
           </button>
@@ -348,7 +346,7 @@
         </section>
         </section>
         <div class="drawer-footer">
-          <span>Witt <b id="appVersion">v—</b></span>
+          <span>Chloe <b id="appVersion">v—</b></span>
           <button id="updateButton">检查更新</button>
         </div>
       </div>
@@ -364,7 +362,7 @@
       <p class="project-intro">项目仅决定当前对话的工作目录；选择“空白”时从服务器主目录开始。</p>
       <div class="project-options">
         <button data-project-path=""><span class="project-code">—</span><span><strong>空白</strong><small>不绑定项目</small></span><i></i></button>
-        <button data-project-path="/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app"><span class="project-code">WI</span><span><strong>维特</strong><small>Witt 客户端与服务</small></span><i></i></button>
+        <button data-project-path="/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app"><span class="project-code">CH</span><span><strong>Chloe</strong><small>Chloe 客户端与服务</small></span><i></i></button>
         <button data-project-path="/home/ubuntu/Documents/Codex/2026-07-26-xlsb"><span class="project-code">年</span><span><strong>年报</strong><small>道路桥梁协同工作台</small></span><i></i></button>
         <button data-project-path="/data/xuanyu-build-console/repo"><span class="project-code">玄</span><span><strong>玄遇</strong><small>玄遇项目工作区</small></span><i></i></button>
       </div>
@@ -380,8 +378,8 @@
         <button class="icon-button" id="closeProfile" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
       <section class="profile-hero">
-        <div class="profile-letter">W</div>
-        <div><strong>Witt on your server</strong><small>你的 Codex 使用概览</small></div>
+        <div class="profile-letter">C</div>
+        <div><strong>Chloe on your server</strong><small>你的 AI 助手使用概览</small></div>
         <span>在线</span>
       </section>
       <div id="usageContent">
@@ -485,7 +483,7 @@
       <section class="codex-login-flow" id="codexLoginFlow" hidden>
         <span class="codex-login-kicker" id="codexLoginKicker">子账号登录</span>
         <strong>在浏览器中登录新 Codex 账号</strong>
-        <p>打开登录页面后输入下面的一次性代码。Witt 默认账号不会退出。</p>
+        <p>打开登录页面后输入下面的一次性代码。Chloe 默认账号不会退出。</p>
         <button class="codex-device-code" id="copyCodexDeviceCode" type="button"><code id="codexDeviceCode"></code><small>点击复制</small></button>
         <div><button id="openCodexLogin" class="codex-login-primary">打开登录页面</button><button id="cancelCodexLogin">取消</button></div>
         <small id="codexLoginHint">等待你完成授权…</small>
@@ -586,7 +584,7 @@
     <div class="image-viewer-panel">
       <img id="imageViewerImage" alt="">
       <footer>
-        <strong id="imageViewerName">Witt 图片</strong>
+        <strong id="imageViewerName">Chloe 图片</strong>
         <button class="icon-button" id="downloadImageViewer" aria-label="下载图片">
           <svg viewBox="0 0 24 24"><path d="M12 4v10m0 0-4-4m4 4 4-4M5 19h14"/></svg>
         </button>

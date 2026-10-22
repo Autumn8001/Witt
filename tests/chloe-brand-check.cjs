@@ -7,22 +7,22 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const read = (file) => readFileSync(path.join(root, file), "utf8");
 
-test("web shell and chat defaults display Chloe or Witt", () => {
+test("web shell and chat defaults display Chloe", () => {
   const html = read("web/index.html");
   const app = read("web/app-workspace-20260916-r3.js");
   const legacyApp = read("web/app.js");
   const bridge = read("web/browser-bridge.js");
 
-  assert.match(html, /<title>(Chloe|Witt) · 私人服务器助手<\/title>/);
-  assert.match(html, /(class="boot-wordmark">Chloe|id="bootScreen" aria-label="Witt 正在启动")/);
-  assert.match(html, /(Chloe 开发工作台|Witt 客户端与服务|你的私人 Codex 已就绪)/);
-  assert.match(html, /placeholder="回复 (Chloe|Witt)"/);
-  assert.match(html, /(<strong>Chloe<\/strong><small>Chloe 客户端与服务<\/small>|<strong>Witt<\/strong><small>你的私人助手<\/small>)/);
-  assert.match(app, /state\.active\?\.title \|\| "(Chloe|Witt)"/);
-  assert.match(app, /(Chloe|Witt) 正在处理/);
-  assert.match(legacyApp, /state\.active\?\.title \|\| "(Chloe|Witt)"/);
-  assert.match(bridge, /drawerTitle\.textContent = "(Chloe|Witt)"/);
-  assert.match(bridge, /placeholder = "向 (Chloe|Witt) 发送消息"/);
+  assert.match(html, /<title>Chloe · 私人服务器助手<\/title>/);
+  assert.match(html, /class="boot-wordmark">Chloe/);
+  assert.match(html, /Chloe 开发工作台/);
+  assert.match(html, /placeholder="回复 Chloe"/);
+  assert.match(html, /<strong>Chloe<\/strong><small>Chloe 客户端与服务<\/small>/);
+  assert.match(app, /state\.active\?\.title \|\| "Chloe"/);
+  assert.match(app, /Chloe 正在处理/);
+  assert.match(legacyApp, /state\.active\?\.title \|\| "Chloe"/);
+  assert.match(bridge, /drawerTitle\.textContent = "Chloe"/);
+  assert.match(bridge, /placeholder = "向 Chloe 发送消息"/);
 });
 
 test("homepage branding fits mobile and desktop browsers", async () => {
@@ -85,8 +85,8 @@ test("homepage branding fits mobile and desktop browsers", async () => {
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: window.innerWidth,
       }));
-      assert.match(branding.title, /(Chloe|Witt) · 私人服务器助手/);
-      assert.match(branding.placeholder, /向 (Chloe|Witt) 发送消息/);
+      assert.equal(branding.title, "Chloe · 私人服务器助手");
+      assert.equal(branding.placeholder, "向 Chloe 发送消息");
       assert.ok(
         branding.documentWidth <= branding.viewportWidth,
         `${viewport.width}px homepage overflows horizontally: ${branding.documentWidth}px`,

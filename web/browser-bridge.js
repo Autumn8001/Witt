@@ -294,9 +294,9 @@
     if (!window.DropVault?.nativeReady) { setTimeout(ready, 10); return; }
     document.getElementById("localSshButton")?.setAttribute("hidden", "");
     const drawerTitle = document.querySelector(".drawer-head h2");
-    if (drawerTitle) drawerTitle.textContent = "Witt";
+    if (drawerTitle) drawerTitle.textContent = "Chloe";
     const input = document.getElementById("messageInput");
-    if (input) input.placeholder = "向 Witt 发送消息";
+    if (input) input.placeholder = "向 Chloe 发送消息";
     window.DropVault.nativeReady({
       version: "3.0.0",
       cacheScope: bridge.getCacheScope(),
