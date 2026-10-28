@@ -25,6 +25,7 @@ const { RemoteWorkspaceService } = require("./remote-workspace-service");
 const { createRemoteWorkspaceRoutes } = require("./routes/remote-workspaces");
 const { createRemoteAssist } = require("./remote-assist");
 const { WorkerClient } = require("./worker-client");
+const { antigravityIsolation, ensureWorkspace } = require("./runtime/antigravity-isolation");
 
 const host = "127.0.0.1";
 const port = Number(process.env.DROP_VAULT_PORT || 3003);
@@ -393,16 +394,20 @@ function chatFor(principal) {
   if (principal.legacy) return chatService;
   if (userChatServices.has(principal.userId)) return userChatServices.get(principal.userId);
   const directory = userDirectory(principal.userId);
+  const isolation = antigravityIsolation(principal.userId);
+  const privateWorkspace = principal.admin ? null : ensureWorkspace(isolation);
   const service = new ChatService({
     sub2api,
     chatDir: path.join(directory, "chat"),
     imageDir: path.join(directory, "chat-images"),
     dataDir: path.join(directory, "files"),
     codexBin,
-    codexWorkDir,
+    codexWorkDir: privateWorkspace || codexWorkDir,
+    ...(privateWorkspace ? { workDirRoots: [privateWorkspace], privateWorkspace } : {}),
     sendJson,
     readJsonBody,
-    allowedModels: principal.admin || principal.unrestrictedModels ? null : NON_ADMIN_MODELS,
+    allowedModels: principal.admin ? null : new Set([...NON_ADMIN_MODELS].filter(model =>
+      model === "grok-4.7-high" || model === "gemini-3.8-flash-high")),
     allowedAccessModes: principal.admin
       ? [...ALLOWED_ACCESS]
       : ["read-only", "workspace-write"],
@@ -414,13 +419,16 @@ function chatFor(principal) {
     // Invitation status is not a quota measurement. Let the model provider
     // enforce its real limits; the allowlist above still controls model access.
     quotaExhausted: false,
-    codexProfiles,
+    codexProfiles: privateWorkspace ? Object.fromEntries(Object.entries(codexProfiles)
+      .map(([key, profile]) => [key, { ...profile, workDir: privateWorkspace }])) : codexProfiles,
     harnessOptions: { ...harnessOptions, grok: {
       ...harnessOptions.grok,
+      ...(privateWorkspace ? { bin: "/usr/local/bin/chloe-grok-isolated", originalBin: harnessOptions.grok.bin,
+        isolation } : {}),
       remoteDeviceMcpEnabled: principal.admin && process.env.WITT_REMOTE_DEVICE_MCP_ENABLED === "1",
       remoteDeviceTokenFile: principal.admin ? (process.env.DROP_VAULT_TOKEN_FILE || "") : "",
       browserMcpEnabled: principal.admin && process.env.WITT_BROWSER_MCP_ENABLED === "1",
-    }, antigravity: { ...harnessOptions.antigravity, runAsAdmin: Boolean(principal.admin) } },
+    }, antigravity: { ...harnessOptions.antigravity, runAsAdmin: Boolean(principal.admin), isolation } },
     remoteWorkspaceService,
     workerClient,
     ownerUserId: principal.userId,

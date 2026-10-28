@@ -77,6 +77,7 @@ test("remote model PATCH accepts unchanged permissions and renews only runtime c
   let updated;
   service.remoteWorkspaceService = {
     bindingForConversation: () => binding,
+    fullAccessFor: () => false,
     workspaceStore: { setRuntime(id, runtime) { updated = { id, ...runtime }; } },
   };
   service.updateConversationSettings({}, {}, conversation.id);

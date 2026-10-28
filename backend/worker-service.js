@@ -425,7 +425,9 @@ class TurnInstance {
       baseUrl: options.baseUrl || "",
       printTimeoutMs: options.timeoutMs || 300000,
       skipPermissions,
-      runAsAdmin: options.runAsAdmin === true && skipPermissions,
+      runAsAdmin: options.runAsAdmin === true,
+      isolation: options.isolation,
+      workspaceWrite: this.accessMode !== "read-only",
       logger: this.worker.logger,
     });
 
@@ -616,7 +618,7 @@ class TurnInstance {
   async _runGrok() {
     const options = this.harnessOptions?.grok || {};
     this.adapter = new GrokBuildAdapter({
-      bin: options.bin,
+      bin: this.remoteWorkspace && options.isolation ? options.originalBin : options.bin,
       model: this.model,
       cwd: this.workDir,
       envKey: options.envKey || "WITT_CPA_KEY",
@@ -624,6 +626,8 @@ class TurnInstance {
       remoteDeviceMcpEnabled: options.remoteDeviceMcpEnabled === true,
       remoteDeviceTokenFile: options.remoteDeviceTokenFile || "",
       remoteWorkspace: this.remoteWorkspace,
+      isolation: options.isolation,
+      workspaceWrite: this.accessMode !== "read-only",
       browserMcpEnabled: options.browserMcpEnabled === true,
       permissionMode: options.permissionMode || grokPermissionMode(this.accessMode),
       reasoningEffort: options.reasoningEffort || null,

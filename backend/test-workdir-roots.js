@@ -65,28 +65,28 @@ test("T-WORKDIR-03 the parent of the configured root is rejected", () => {
   delete process.env.WITT_WORKDIR_ROOTS;
   const { workspace, service } = withWorkspace();
   assert.throws(() => service.normalizeWorkDir(path.dirname(workspace)),
-    /不在 Witt 允许的工作目录范围内/);
+    /不在 Chloe 允许的工作目录范围内/);
 });
 
 test("T-WORKDIR-04 path traversal out of the root is rejected", () => {
   delete process.env.WITT_WORKDIR_ROOTS;
   const { workspace, service } = withWorkspace();
   assert.throws(() => service.normalizeWorkDir(path.join(workspace, "..")),
-    /不在 Witt 允许的工作目录范围内/);
+    /不在 Chloe 允许的工作目录范围内/);
   assert.throws(() => service.normalizeWorkDir(path.join(workspace, "..", "..")),
-    /不在 Witt 允许的工作目录范围内/);
+    /不在 Chloe 允许的工作目录范围内/);
   assert.throws(() => service.normalizeWorkDir(`${workspace}${path.sep}..${path.sep}elsewhere`),
-    /不在 Witt 允许的工作目录范围内/);
+    /不在 Chloe 允许的工作目录范围内/);
 });
 
 test("T-WORKDIR-05 an unrelated absolute path is rejected", () => {
   delete process.env.WITT_WORKDIR_ROOTS;
   const { service } = withWorkspace();
   const unrelated = fs.mkdtempSync(path.join(os.tmpdir(), "witt-outside-"));
-  assert.throws(() => service.normalizeWorkDir(unrelated), /不在 Witt 允许的工作目录范围内/);
+  assert.throws(() => service.normalizeWorkDir(unrelated), /不在 Chloe 允许的工作目录范围内/);
   // Sensitive locations that must never become a workspace.
   for (const candidate of ["/etc", "/root/.ssh", "/var/lib", "/"]) {
-    assert.throws(() => service.normalizeWorkDir(candidate), /不在 Witt 允许的工作目录范围内/);
+    assert.throws(() => service.normalizeWorkDir(candidate), /不在 Chloe 允许的工作目录范围内/);
   }
 });
 
@@ -117,7 +117,7 @@ test("T-WORKDIR-07 a symlink escaping the root cannot bypass the restriction", (
     t.skip(`symlink unavailable on this host: ${error.code}`);
     return;
   }
-  assert.throws(() => service.normalizeWorkDir(link), /不在 Witt 允许的工作目录范围内/);
+  assert.throws(() => service.normalizeWorkDir(link), /不在 Chloe 允许的工作目录范围内/);
 });
 
 test("T-WORKDIR-08 relative and missing paths are rejected", () => {
@@ -138,6 +138,6 @@ test("T-WORKDIR-09 a prefix-similar sibling directory is not treated as inside",
   const service = makeService(workspace);
   // "project-ab" shares a prefix with "project-a" but is outside the workspace.
   const sibling = fs.mkdtempSync(path.join(path.dirname(workspace), "witt-ws-evil-"));
-  assert.throws(() => service.normalizeWorkDir(sibling), /不在 Witt 允许的工作目录范围内/);
+  assert.throws(() => service.normalizeWorkDir(sibling), /不在 Chloe 允许的工作目录范围内/);
   assert.equal(service.normalizeWorkDir(project), fs.realpathSync(project));
 });

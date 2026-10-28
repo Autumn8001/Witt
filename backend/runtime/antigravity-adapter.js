@@ -83,7 +83,9 @@ class AntigravityAdapter {
     this.remoteCli = this.remoteWorkspace?.remoteCli || null;
     if (this.remoteCli && this.remoteCli.isolated !== true) throw Error("ISOLATED_REMOTE_CLI_REQUIRED");
     this.skipPermissions = options.skipPermissions === true && !this.remoteCli;
-    this.runAsAdmin = options.runAsAdmin === true && this.skipPermissions;
+    this.runAsAdmin = options.runAsAdmin === true && !this.remoteWorkspace;
+    this.isolation = options.isolation || null;
+    this.workspaceWrite = options.workspaceWrite !== false;
     this.logger = options.logger || new RuntimeLogger({ enabled: false });
     this.children = new Set();
     this.sessions = new Map();
@@ -105,6 +107,8 @@ class AntigravityAdapter {
     // Never inherit an admin marker from the parent process. The launcher only
     // honors this marker when the trusted caller selected full-access mode.
     env.CHLOE_AGY_ADMIN_EXECUTION = this.runAsAdmin ? "1" : "0";
+    if (this.isolation && !this.remoteWorkspace) env.CHLOE_AGY_USER_SCOPE = this.isolation.scope;
+    env.CHLOE_AGY_WORKSPACE_WRITE = this.workspaceWrite ? "1" : "0";
     return env;
   }
 
@@ -141,6 +145,8 @@ class AntigravityAdapter {
     const args = [];
     for (const directory of params.addDirs || []) args.push("--add-dir", directory);
     if (params.prompt !== undefined) args.push("-p", String(params.prompt));
+    if (this.isolation && !this.remoteWorkspace && !this.runAsAdmin)
+      args.push("--mode", this.workspaceWrite ? "accept-edits" : "plan");
     args.push("--output-format", "stream-json");
     if (this.stdinSessions) args.push("--input-format", "stream-json");
     let model = params.model || this.model;
