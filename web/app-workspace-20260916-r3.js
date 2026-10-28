@@ -76,7 +76,11 @@
     codexLoginTimer: null,
     appVisible: !document.hidden,
     supportsSse: false,
+    expandedProcess: new Set(),
+    inlineDetails: new Map(),
+    inlineDetailQueue: [],
     capabilities: null,
+    capabilitiesByProfile: null,
     harness: "auto",
     runtimeProfiles: [],
     runtimeProfilesError: "",
@@ -103,7 +107,29 @@
     attachmentDrafts: new Map(),
     sendRequest: null,
   };
+  let mathLoading = false;
+  let terminalLoad = null;
+  let terminalBuffer = "";
   let historySearchTimer;
+  let summaryTimer;
+  let summaryRefreshPending = false;
+  let summaryRefreshAt = 0;
+  let maxConcurrentTasks = 3;
+  function scheduleSummaryRefresh() {
+    clearTimeout(summaryTimer);
+    if (!state.authenticated || !state.appVisible) return;
+    const hasTasks = state.conversations.some((item) => item.busy);
+    const browsing = $("#drawer").classList.contains("open") || !$("#taskOverviewSheet")?.hidden;
+    if (!hasTasks && !browsing) return;
+    summaryTimer = setTimeout(() => {
+      if (summaryRefreshPending && Date.now() - summaryRefreshAt < 15000) { scheduleSummaryRefresh(); return; }
+      summaryRefreshPending = true;
+      summaryRefreshAt = Date.now();
+      bridge()?.requestConversations?.();
+      scheduleSummaryRefresh();
+    }, hasTasks ? 5000 : 15000);
+  }
+
   let draftSaveTimer;
   let completionReminder = false;
   try { completionReminder = localStorage.getItem("witt_completion_reminder") === "1"; } catch {}
@@ -138,18 +164,8 @@
     return item.project || "未分组";
   }
 
-  const autumnHistoryIcons = ["leaf", "acorn", "sprout", "document-leaf"];
-  function autumnHistoryIcon(item) {
-    const seed = String(item?.id || item?.title || "history");
-    let hash = 0;
-    for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-    const icon = autumnHistoryIcons[hash % autumnHistoryIcons.length];
-    return `<svg class="autumn-history-icon autumn-history-${icon}" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-${icon}"></use></svg>`;
-  }
-
-  function autumnPinnedIcon() {
-    return '<svg class="autumn-history-icon autumn-history-leaf" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-leaf"></use></svg>';
-  }
+  function autumnHistoryIcon() { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H9l-4 4V5Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'; }
+  function autumnPinnedIcon() { return autumnHistoryIcon(); }
 
   function refreshHistorySearch() {
     clearTimeout(historySearchTimer);
@@ -177,9 +193,7 @@
     // Running tasks and approvals can precede the first assistant message.
     strip.hidden = !state.activeId || (!state.busy && !approval && !state.active?.messages?.length && (!state.active?.taskStatus || state.active.taskStatus.state === "idle"));
     strip.dataset.state = status.state;
-    const isIdle = status.state === "idle" || status.label === "准备就绪";
-    const displayLabel = isIdle ? "尚未开始" : status.label;
-    strip.innerHTML = `<span class="task-state-tree"><svg class="task-state-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#autumn-icon-tree-mini"></use></svg></span><strong>${escapeHtml(displayLabel)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "不同任务请使用独立对话")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : '<svg class="task-strip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>'}`;
+    strip.innerHTML = `<span class="task-state-dot"></span><strong>${escapeHtml(status.label)}</strong><span class="task-origin">${escapeHtml(state.active?.activeDeviceLabel ? `${state.active.activeDeviceLabel} 发起 · 同一会话会同步` : "新建对话可同时执行其他任务")}</span>${approval ? '<button id="jumpToApproval" type="button">查看并确认 ↓</button>' : ""}`;
     strip.querySelector("#jumpToApproval")?.addEventListener("click", () => $("#approvalDock")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
     const older = $("#loadOlderMessages");
     older.hidden = !state.workspaceFeatures || !state.active?.hasMore;
@@ -189,10 +203,19 @@
 
   function requestWorkspaceOverview() {
     $("#workspaceOverviewContent").textContent = state.workspaceFeatures ? "正在检查连接…" : "此功能需要支持工作区的新客户端，当前安装版本暂不支持。";
-    if (state.workspaceFeatures) bridge()?.requestWorkspaceOverview?.();
+    if (!state.workspaceFeatures) return;
+    // Current Osaka APKs use workspaceRequest rather than a dedicated native method.
+    if (state.workspaceOperations && typeof window.WittFeatures?.request === "function") {
+      window.WittFeatures.request("chat/workspace-overview")
+        .then((payload) => window.DropVault.onWorkspaceOverview(JSON.stringify(payload)))
+        .catch((error) => window.DropVault.onWorkspaceOverviewError(error.message || "检查失败，请重试"));
+      return;
+    }
+    bridge()?.requestWorkspaceOverview?.();
   }
 
   function openWorkspaceOverview() {
+    if (!$("#drawerAccountMenu")?.hidden) $("#closeDrawerAccount")?.click();
     closeDrawer();
     $("#workspaceOverview").classList.add("open");
     $("#workspaceOverview").setAttribute("aria-hidden", "false");
@@ -236,15 +259,15 @@
     composerResizeObserver.observe($(".composer-wrap"));
   }
   function applyTheme(mode, persist = false) {
-    const preference = ["system", "light", "colorful", "dark"].includes(mode) ? mode : "system";
-    const selected = preference === "system"
-      ? (systemThemeQuery.matches ? "dark" : "light")
-      : preference;
+    const preference = mode === "dark" ? "dark"
+      : mode === "light" || mode === "colorful" ? "light"
+      : systemThemeQuery.matches ? "dark" : "light";
+    const selected = preference;
     const commit = () => {
       document.documentElement.dataset.themeMode = selected;
       document.documentElement.dataset.theme = selected;
       document.documentElement.dataset.themePreference = preference;
-      if (persist) localStorage.setItem("wit_theme", preference);
+      if (persist || localStorage.getItem("wit_theme") !== preference) localStorage.setItem("wit_theme", preference);
       $("#themeColor")?.setAttribute("content",
         selected === "dark" ? "#1f1f1c" : "#ffffff");
       document.querySelectorAll("[data-theme-choice]").forEach((button) => {
@@ -270,14 +293,6 @@
 
   applyTheme(localStorage.getItem("wit_theme") ||
     document.documentElement.dataset.themePreference || "system");
-  const syncSystemTheme = () => {
-    if (document.documentElement.dataset.themePreference === "system") applyTheme("system");
-  };
-  if (typeof systemThemeQuery.addEventListener === "function") {
-    systemThemeQuery.addEventListener("change", syncSystemTheme);
-  } else {
-    systemThemeQuery.addListener(syncSystemTheme);
-  }
   requestAnimationFrame(watchComposerInset);
   function escapeHtml(value) {
     const node = document.createElement("span");
@@ -452,6 +467,10 @@
     const formula = String(source || "").trim();
     if (!formula) return "";
     if (!window.katex?.renderToString) {
+      if (!mathLoading && window.WittModules) {
+        mathLoading = true;
+        window.WittModules.math().then(() => window.WittUI?.refreshMath()).catch(() => {}).finally(() => { mathLoading = false; });
+      }
       return `<code class="math-fallback">${escapeHtml(formula)}</code>`;
     }
     try {
@@ -823,98 +842,23 @@
   function renderQuickModelPicker() {
     const menu = $("#quickModelMenu");
     if (!menu) return;
-    const capabilityModels = Array.isArray(state.capabilities?.models) && state.capabilities.models.length
+    const models = Array.isArray(state.capabilities?.models)
       ? state.capabilities.models
       : [{ id: MVP_DEFAULT_MODEL, displayName: modelNames[MVP_DEFAULT_MODEL] }];
     const selectedModel = state.draftModel || state.model;
     const selectedReasoning = state.draftReasoning || state.reasoning;
-    const remote = activeRemoteWorkspace(state.active);
-    const models = remote && state.runtimeProfiles.length
-      ? state.runtimeProfiles.map((profile) => ({ id: profile.model, displayName: runtimeProfileDisplayName(profile) }))
-      : capabilityModels;
-    const remoteLocked = false;
-
-    // 远程工作区环境锁定横幅
-    let lockedBanner = menu.querySelector(".quick-locked-banner");
-    if (remote) {
-      if (!lockedBanner) {
-        lockedBanner = document.createElement("div");
-        lockedBanner.className = "quick-locked-banner";
-        menu.prepend(lockedBanner);
-      }
-      lockedBanner.hidden = false;
-      const devLabel = remote.deviceLabel || remote.deviceId || "远程电脑";
-      const pathLabel = remote.displayPath || remote.rootAlias || "工作区目录";
-      lockedBanner.innerHTML = `
-        <div class="quick-locked-head">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <strong>远程工作区 · 环境已锁定</strong>
-        </div>
-        <p class="quick-locked-desc">${remote.fullAccess ? "当前设备已开启完整访问，可访问项目外文件。" : "当前会话已绑定设备与项目范围。"}模型可以切换。</p>
-        <div class="quick-locked-tags">
-          <span>设备：<b>${escapeHtml(devLabel)}</b></span>
-          <span>范围：<b>${escapeHtml(pathLabel)}</b></span>
-          <span>Harness：<b>Grok Build</b></span>
-        </div>
-      `;
-    } else if (lockedBanner) {
-      lockedBanner.hidden = true;
-    }
-
-    const expandBtn = $("#quickModelExpand");
-    if (expandBtn) {
-      expandBtn.disabled = remoteLocked;
-      expandBtn.classList.toggle("locked", remoteLocked);
-      expandBtn.title = remoteLocked ? "远程工作区已固定模型" : "展开选择模型";
-    }
-
-    $("#quickModelCurrent").textContent = remoteLocked
-      ? `${modelDisplayName(selectedModel)}（已锁定）`
-      : modelDisplayName(selectedModel);
-
+    $("#quickModelCurrent").textContent = modelDisplayName(selectedModel);
     $("#quickModelOptions").innerHTML = models.map((model) => {
       const selected = model.id === selectedModel;
-      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="quick-model-option-btn ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}" ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
-        <span class="quick-option-dot" aria-hidden="true"></span>
-        <span class="quick-option-label">${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span>
-        <i class="quick-option-check">${selected ? "✓" : ""}</i>
-      </button>`;
+      return `<button type="button" data-quick-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(model.displayName || modelNames[model.id] || model.id)}</span><i>✓</i></button>`;
     }).join("");
-
     const efforts = availableReasoningEfforts().slice().reverse();
-    const reasoningOptions = $("#quickReasoningOptions");
-    if (reasoningOptions) {
-      if (efforts.length === 0) {
-        reasoningOptions.innerHTML = `
-          <div class="quick-reasoning-empty" role="note">
-            <span>当前模型不支持自定义推理强度</span>
-          </div>`;
-      } else {
-        reasoningOptions.innerHTML = efforts.map((effort) => {
-          const selected = effort === selectedReasoning;
-          const meta = reasoningMeta[effort] || { label: effort, code: effort.toUpperCase(), description: "" };
-          const shortLabel = quickReasoningNames[effort] || meta.label || effort;
-          return `
-            <button type="button"
-              class="quick-reasoning-card ${selected ? "selected" : ""}${remoteLocked ? " locked" : ""}"
-              data-quick-reasoning="${escapeHtml(effort)}"
-              role="radio"
-              aria-checked="${selected}"
-              ${remoteLocked ? 'disabled aria-disabled="true"' : ""}>
-              <span class="reasoning-radio-dot" aria-hidden="true"></span>
-              <div class="reasoning-card-content">
-                <div class="reasoning-card-title-row">
-                  <strong class="reasoning-card-name">${escapeHtml(shortLabel)} · ${escapeHtml(meta.label)}推理</strong>
-                  <code class="reasoning-card-code">${escapeHtml(meta.code)}</code>
-                </div>
-                <small class="reasoning-card-desc">${escapeHtml(meta.description)}</small>
-              </div>
-            </button>
-          `;
-        }).join("");
-      }
-    }
+    $("#quickReasoningOptions").innerHTML = efforts.map((effort) => {
+      const selected = effort === selectedReasoning;
+      return `<button type="button" data-quick-reasoning="${escapeHtml(effort)}" role="radio" aria-checked="${selected}" class="${selected ? "selected" : ""}"><span>${escapeHtml(quickReasoningNames[effort] || reasoningMeta[effort]?.label || effort)}</span><i>✓</i></button>`;
+    }).join("");
   }
+
 
   function renderRuntimeControls() {
     const runtime = state.capabilities?.runtime || {};
@@ -1240,7 +1184,15 @@
 
   function dismissBoot() {
     const boot = $("#bootScreen");
-    if (!boot || boot.classList.contains("leaving")) return;
+    if (!boot || boot.classList.contains("leaving") || boot.dataset.dismissPending) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const remaining = reduced || window.wittNativeLaunch ? 0 : Math.max(0,
+      250 - (performance.now() - (window.wittBootStartedAt ?? 0)));
+    if (remaining > 0) {
+      boot.dataset.dismissPending = "true";
+      setTimeout(() => { delete boot.dataset.dismissPending; dismissBoot(); }, remaining);
+      return;
+    }
     bridge()?.contentReady?.(document.documentElement.dataset.themeMode || "light");
     boot.classList.add("leaving");
     setTimeout(() => boot.remove(), 520);
@@ -1264,6 +1216,14 @@
     if (title) title.textContent = xuanyuOnly ? "新建玄遇对话" : "新建对话";
     if (subtitle) subtitle.textContent =
       xuanyuOnly ? "使用玄遇专用 Codex 账号" : "开启一个独立上下文";
+  }
+
+  function selectAccountCapabilities() {
+    if (!state.capabilitiesByProfile) return;
+    state.capabilities = state.capabilitiesByProfile[state.codexProfile] || {
+      codexProfile: state.codexProfile, models: [], skills: [], mcpServers: [], features: [],
+      error: "这个账号的模型列表暂时不可用",
+    };
   }
 
   function updateModelControls() {
@@ -1509,6 +1469,7 @@
   }
 
   function renderAdminDevices(devices = []) {
+    devices = devices.filter((device) => !device.hiddenFromList);
     $("#deviceList").innerHTML = devices.length ? devices.map((device) => `
       <article class="device-row"><span>⌁</span><div><strong>${escapeHtml(device.label || "未命名设备")}</strong><small>${device.disabled ? "已停止访问" : `最近活跃：${formatDate(device.lastSeenAt || device.createdAt)}`}</small></div>${device.disabled ? "" : `<button data-disable-device="${escapeHtml(device.id)}">停止</button>`}</article>`).join("")
       : `<small>还没有已激活的设备。</small>`;
@@ -1940,13 +1901,14 @@
     return localTerminal;
   }
 
-  function openLocalSsh() {
+  async function openLocalSsh() {
     closeDrawer();
     if (versionLessThan(state.nativeVersion, "2.2.16")) {
       toast("请先更新 Chloe 后使用本地终端");
       bridge()?.checkForUpdates?.();
       return;
     }
+    try { await window.WittModules?.terminal(); } catch { toast("终端组件加载失败，请重试"); return; }
     $("#localSshSheet").classList.add("open");
     $("#localSshSheet").setAttribute("aria-hidden", "false");
     localSshViewportBaseline = window.innerHeight;
@@ -1966,7 +1928,13 @@
   }
 
   function appendLocalTerminal(text) {
-    ensureLocalTerminal()?.write(String(text || ""));
+    if (window.Terminal) { ensureLocalTerminal()?.write(String(text || "")); return; }
+    terminalBuffer = (terminalBuffer + String(text || "")).slice(-1024 * 1024);
+    if (!terminalLoad && window.WittModules) {
+      terminalLoad = window.WittModules.terminal().then(() => {
+        ensureLocalTerminal()?.write(terminalBuffer); terminalBuffer = "";
+      }).catch(() => toast("终端组件加载失败，请重新打开服务器")).finally(() => { terminalLoad = null; });
+    }
   }
 
   function openAdminSettings() {
@@ -1996,6 +1964,10 @@
   function renderCodexAccounts(accounts = []) {
     state.codexAccounts = accounts;
     $("#codexAccountList").innerHTML = accounts.map((account) => {
+      if (account.provider === "claude") {
+        const detail = account.authenticated ? `${account.account?.email || "已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}` : "通过官方 Claude Code 登录";
+        return `<article class="codex-account-card additional"><span class="codex-account-avatar">C</span><div class="codex-account-identity"><strong>Claude</strong><small>${escapeHtml(detail)}</small></div><div class="codex-account-actions"><button class="login" data-login-claude>${account.authenticated ? "管理登录" : "登录账号"}</button></div></article>`;
+      }
       const signedIn = Boolean(account.authenticated);
       const canLogin = state.admin && account.id !== "default";
       const detail = signedIn
@@ -2166,6 +2138,7 @@
     }
     $("#drawer").classList.add("open");
     $("#drawer").setAttribute("aria-hidden", "false");
+    scheduleSummaryRefresh();
   }
 
   function closeDrawer() {
@@ -2182,6 +2155,8 @@
 
   function renderDeliveries() {
     const artifacts = allArtifacts();
+    const versions=new Map();artifacts.forEach(a=>versions.set(a.name,(versions.get(a.name)||0)+1));
+    const versionIndex=a=>artifacts.filter(b=>b.name===a.name).findIndex(b=>b.id===a.id&&b.messageId===a.messageId)+1;
     $("#deliveryBadge").textContent = artifacts.length;
     $("#deliverySummary").textContent = artifacts.length ? `${artifacts.length} 个可下载文件` : "当前对话暂无文件";
     $("#deliveryButton").classList.toggle("has-files", artifacts.length > 0);
@@ -2190,7 +2165,7 @@
       ? artifacts.slice().reverse().map((artifact) => `
         <button class="delivery-file" data-artifact="${artifact.id}" data-message="${artifact.messageId}">
           <span class="delivery-type">${extension(artifact.name)}</span>
-          <span class="delivery-file-copy"><strong>${escapeHtml(artifact.name)}</strong><small>${formatBytes(artifact.size)}<i></i>来自当前对话</small></span>
+          <span class="delivery-file-copy"><strong>${escapeHtml(artifact.name)}</strong><small>${formatBytes(artifact.size)}<i></i>${versions.get(artifact.name)>1?`版本 ${versionIndex(artifact)} / ${versions.get(artifact.name)} · `:""}点击预览</small></span>
           <span class="delivery-download"><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg></span>
         </button>`).join("")
       : `<div class="delivery-empty"><span>↓</span><strong>暂无交付文件</strong><p>需要文件时直接告诉我“把它放到交付区”。</p></div>`;
@@ -2479,6 +2454,8 @@
       </article>`;
   }
 
+  function conversationTask(item) { return item.taskStatus || { state: item.busy ? "running" : "idle", label: item.busy ? "正在执行" : "" }; }
+
   function renderConversations() {
     $("#conversationCount").textContent = String(state.conversations.length);
     const pinned = pinnedIds();
@@ -2492,49 +2469,28 @@
       if (state.historyResults) return true;
       return (!selectedProject || historyProjectName(item) === selectedProject) &&
         (!q || `${item.title} ${item.lastMessage || ""}`.toLocaleLowerCase().includes(q)) &&
-        (!attachments || item.hasAttachments || (item.id === state.activeId && state.active?.messages?.some((message) => message.attachments?.length || message.artifacts?.length)));
-    }).slice().sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) ||
-      historyProjectName(a).localeCompare(historyProjectName(b)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
-
-    if (!conversations.length) {
-      $("#conversationList").innerHTML = `<div class="drawer-empty">${q || selectedProject || attachments ? "没有匹配的对话" : "还没有历史对话"}</div>`;
-      return;
-    }
-
-    if (q || selectedProject) {
-      $("#conversationList").innerHTML = conversations.map((conversation) => renderConversationRow(conversation, pinned.has(conversation.id))).join("");
-      return;
-    }
-
-    const groupOrder = ["Pinned", "Today", "Yesterday", "Previous 7 Days", "Previous 30 Days", "Earlier"];
-    const groups = new Map();
-    groupOrder.forEach((name) => groups.set(name, []));
-
-    conversations.forEach((conversation) => {
-      if (pinned.has(conversation.id)) {
-        groups.get("Pinned").push(conversation);
-      } else {
-        const group = conversationTimeGroup(conversation.updatedAt);
-        if (!groups.has(group)) groups.set(group, []);
-        groups.get(group).push(conversation);
-      }
-    });
-
-    let html = "";
-    for (const name of groupOrder) {
-      const items = groups.get(name);
-      if (items && items.length > 0) {
-        html += `
-          <div class="history-time-group">
-            <div class="history-group-title">${escapeHtml(name)}</div>
-            <div class="history-group-items">
-              ${items.map((item) => renderConversationRow(item, pinned.has(item.id))).join("")}
-            </div>
-          </div>`;
-      }
-    }
-
-    $("#conversationList").innerHTML = html || conversations.map((conversation) => renderConversationRow(conversation, pinned.has(conversation.id))).join("");
+        (!attachments || item.hasAttachments);
+    }).slice().sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    let previousGroup = '';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate()-1);
+    $("#conversationList").classList.toggle("searching", Boolean(q));
+    $("#conversationList").innerHTML = conversations.length ? conversations.map((item) => {
+      const stamp = new Date(item.updatedAt);
+      const group = q ? "搜索结果" : pinned.has(item.id) ? "置顶" : stamp >= today ? "今天" : stamp >= yesterday ? "昨天" : "更早";
+      const heading = group !== previousGroup ? `<div class="history-date-group">${group}</div>` : '';
+      previousGroup = group;
+      const task = conversationTask(item);
+      const showStatus = ["running", "queued", "awaiting_confirmation", "waiting_confirmation", "failed"].includes(task.state);
+      return `${heading}<article class="conversation-row ${item.id === state.activeId ? "active" : ""}" data-id="${item.id}" data-task-state="${escapeHtml(task.state)}">
+        <button class="conversation-open" data-open="${item.id}" title="${escapeHtml(item.title)}">
+          <span><strong>${escapeHtml(item.title)}</strong>${q ? `<small class="history-search-snippet">${escapeHtml(item.searchSnippet || item.lastMessage || "标题匹配")}</small>` : ''}${showStatus ? `<span class="conversation-task"><i></i>${escapeHtml(task.label)}</span>` : ''}</span>
+        </button>
+        <button class="conversation-more" data-conversation-menu="${item.id}" aria-label="${escapeHtml(item.title)}的更多操作" aria-haspopup="dialog">•••</button>
+      </article>`;
+    }).join('') : `<div class="drawer-empty">${q || selectedProject || attachments ? "没有匹配的对话" : "还没有历史对话"}</div>`;
+    window.WittUpgrades?.renderTasks(state.conversations, maxConcurrentTasks);
+    scheduleSummaryRefresh();
   }
 
   function attachmentHtml(file) {
@@ -2757,6 +2713,14 @@
   function showActivation(message = "") {
     dismissBoot();
     const gate = $("#authGate");
+    if (state.openAccess) {
+      $("#authGateTitle").textContent = "连接 Chloe";
+      $("#authGateTitle + p").textContent = "本版本自动登录，无需输入激活码。";
+      $("label[for=inviteCode]").hidden = true;
+      $("#inviteCode").hidden = true;
+      $("#activateInviteButton span").textContent = "重新连接";
+      $("#activateInviteButton").disabled = false;
+    }
     gate.classList.add("open");
     gate.setAttribute("aria-hidden", "false");
     if (message) $("#authGateHint").textContent = message;
@@ -2812,12 +2776,82 @@
   function activityHtml(message) {
     const activities = visibleActivities(message);
     if (!activities.length) return "";
-    const latest = activities.at(-1);
-    const icon = latest.type === "command" ? "⌘" : latest.type === "file" ? "◇" : latest.type === "web" ? "◎" : "✦";
-    return `<details class="activity" ${message.status === "running" ? "open" : ""}>
-      <summary><span class="${message.status}">${icon}</span><b>${escapeHtml(latest.label)}</b><i></i></summary>
-      <div>${activities.map((item) => `<p><span class="${item.status}"></span>${escapeHtml(item.label)}</p>`).join("")}</div>
-    </details>`;
+    return processDisclosure(activities.at(-1).label,
+      activities.map((item) => `<p class="process-line ${escapeHtml(item.status || "")}">${escapeHtml(item.label)}</p>`).join(""),
+      processKey(message, "activity"), "activity");
+  }
+
+  function processKey(message, suffix) {
+    return `${state.activeId || "draft"}:${message.sourceMessageId || message.id}:${suffix}`;
+  }
+
+  function processDisclosure(label, body, key, classes = "", attributes = "") {
+    const open = state.expandedProcess.has(key) ? " open" : "";
+    return `<details class="process-node ${classes}" data-process-key="${escapeHtml(key)}"${open} ${attributes}>
+      <summary><span class="process-label">${escapeHtml(label)}</span><svg class="process-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+      <div class="process-body">${body}</div></details>`;
+  }
+
+  function processValueHtml(label, value, key) {
+    if (value === undefined || value === null || value === "") return "";
+    const body = typeof value === "object"
+      ? Object.entries(value).map(([name, child]) => processValueHtml(name, child, `${key}:${name}`)).join("")
+      : `<pre class="process-output">${escapeHtml(String(value))}</pre>`;
+    return processDisclosure(label, body, key);
+  }
+
+  function inlineActionBody(entry, key) {
+    const details = entry.details || {};
+    if (entry.kind === "command") {
+      const meta = [Number.isInteger(details.exitCode) ? `退出码 ${details.exitCode}` : "",
+        Number.isInteger(details.durationMs) ? `${(details.durationMs / 1000).toFixed(2)} 秒` : ""].filter(Boolean).join(" · ");
+      return `${meta ? `<p class="process-meta">${escapeHtml(meta)}</p>` : ""}
+        ${processValueHtml("工作目录", details.cwd, `${key}:cwd`)}
+        ${processValueHtml("完整命令", details.command, `${key}:command`)}
+        ${processValueHtml("执行输出", details.output || "该命令没有输出", `${key}:output`)}`;
+    }
+    if (entry.kind === "file") {
+      const changes = Array.isArray(details.changes) ? details.changes : [];
+      const kinds = { add: "新增", update: "修改", delete: "删除" };
+      return changes.length ? changes.map((change, index) => processDisclosure(
+        `${kinds[change.kind] || "修改"} ${change.path || "文件"}`,
+        processValueHtml("移动到", change.movePath, `${key}:${index}:move`) +
+          processValueHtml("文件差异", change.diff || "没有可显示的差异内容", `${key}:${index}:diff`),
+        `${key}:file:${index}`)).join("") : '<p class="process-meta">暂时没有可显示的文件差异。</p>';
+    }
+    return processValueHtml("详情", details, `${key}:details`);
+  }
+
+  function cachedActionBody(key) {
+    const cached = state.inlineDetails.get(key);
+    if (cached?.entry) return inlineActionBody(cached.entry, key);
+    if (cached?.error) return `<p class="process-meta">${escapeHtml(cached.error)}<button class="process-retry" type="button" data-process-retry="${escapeHtml(key)}">重试</button></p>`;
+    return '<p class="process-meta" role="status">正在读取详情…</p>';
+  }
+
+  function refreshInlineDetail(key) {
+    document.querySelectorAll("details[data-inline-detail]").forEach((node) => {
+      if (node.dataset.processKey === key) node.querySelector(":scope > .process-body").innerHTML = cachedActionBody(key);
+    });
+  }
+
+  function pumpInlineDetails() {
+    if (state.detailRequest || !state.inlineDetailQueue.length) return;
+    const request = state.inlineDetailQueue.shift();
+    state.detailRequest = request;
+    if (typeof bridge()?.requestStreamDetail !== "function") {
+      window.DropVault.onStreamDetailError("当前 App 无法读取执行详情，请更新后重试。");
+      return;
+    }
+    bridge().requestStreamDetail(request.conversationId, request.messageId, request.entryId);
+  }
+
+  function loadInlineDetail(node) {
+    const key = node.dataset.processKey;
+    if (state.inlineDetails.has(key) || state.detailRequest?.key === key || state.inlineDetailQueue.some(item => item.key === key)) return;
+    state.inlineDetailQueue.push({key, conversationId: state.activeId,
+      messageId: node.dataset.messageId, entryId: node.dataset.inlineDetail});
+    pumpInlineDetails();
   }
 
   function streamActionHtml(message, entry) {
@@ -3075,14 +3109,9 @@
         const failed = actionBuffer.filter((entry) => entry.status === "failed").length;
         const groupStatus = running ? "running" : failed ? "failed" : "completed";
         const statusText = running ? "正在执行" : failed ? `${failed} 项未完成` : "执行完成";
-        rendered.push(`<details class="stream-action-group ${groupStatus}" ${message.status === "running" ? "open" : ""}>
-          <summary>
-            <span class="stream-group-icon">⌘</span>
-            <span class="stream-group-copy"><strong>${escapeHtml(streamGroupLabel(actionBuffer))}</strong><small>${statusText} · 点击${message.status === "running" ? "收起" : "展开"}详情</small></span>
-            <span class="stream-group-tail"><i></i><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></span>
-          </summary>
-          <div class="stream-action-list">${actionBuffer.map((entry) => streamActionHtml(message, entry)).join("")}</div>
-        </details>`);
+        rendered.push(processDisclosure(`${streamGroupLabel(actionBuffer)} · ${statusText}`,
+          actionBuffer.map((entry) => streamActionHtml(message, entry)).join(""),
+          processKey(message, `group:${actionBuffer[0].id}`), `stream-action-group ${groupStatus} ${actionBuffer.some((entry) => entry.kind === "command" && entry.status === "running") ? "command-running" : ""}`));
       }
       actionBuffer = [];
     };
@@ -3126,14 +3155,10 @@
     const interrupted = message.status === "interrupted";
     const stateLabel = failed ? "执行未完成" : interrupted ? "执行已暂停" : "执行过程";
     const resultText = finalEntry?.text || message.text || (failed ? "任务未完成。" : "任务已完成。");
-    const processSummary = processHtml ? `<details class="completed-process ${message.status || "completed"}">
-      <summary>
-        <span class="completed-process-mark" aria-hidden="true">${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>
-        <span class="completed-process-copy"><strong>${stateLabel}</strong><small>${processCount ? `${processCount} 项 · ` : ""}${duration}</small></span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
-      </summary>
-      <div class="completed-process-body">${processHtml}</div>
-    </details>` : (failed || interrupted) ? `<div class="completed-runtime ${message.status || "completed"}"><span>${failed ? "!" : interrupted ? "Ⅱ" : "✓"}</span>${stateLabel} · ${duration}</div>` : "";
+    const processSummary = processHtml ? processDisclosure(
+      `${stateLabel} · ${processCount ? `${processCount} 项 · ` : ""}${duration}`,
+      processHtml, processKey(message, "process"), `completed-process ${message.status || "completed"}`)
+      : (failed || interrupted) ? `<p class="process-line">${stateLabel} · ${duration}</p>` : "";
     return `${processSummary}<div class="completed-result"><div class="stream-message final ${message.status || "completed"}">${textHtml(resultText)}</div></div>`;
   }
 
@@ -3441,13 +3466,8 @@
       }
       const signature = fingerprint(message);
       if (article.dataset.fingerprint !== signature) {
-        const previousStatus = article.dataset.status;
-        const wasOpen = Boolean(article.querySelector("details[open]"));
         article.className = `message ${message.role} ${message.status || ""} ${message.steeredInto ? "guided" : ""}`;
         article.innerHTML = messageInnerHtml(message);
-        if (wasOpen && previousStatus === message.status) {
-          article.querySelector("details")?.setAttribute("open", "");
-        }
         article.dataset.status = message.status || "";
         article.dataset.fingerprint = signature;
         changed = true;
@@ -3497,11 +3517,13 @@
     state.appVisible = Boolean(visible);
     document.body.classList.toggle("power-paused", !state.appVisible);
     clearTimeout(pollTimer);
+    clearTimeout(summaryTimer);
     if (!state.appVisible) {
       saveDraft();
       if (state.supportsSse) bridge()?.unsubscribeConversationEvents?.();
       return;
     }
+    scheduleSummaryRefresh();
     applyTheme(document.documentElement.dataset.themePreference || "system");
     if (state.supportsSse && state.activeId) {
       bridge()?.subscribeConversationEvents?.(state.activeId);
@@ -3635,6 +3657,8 @@
       summary.lastMessage = conversation.lastMessage ||
         conversation.messages?.at(-1)?.text || summary.lastMessage;
       summary.busy = state.busy;
+      summary.taskStatus = conversation.taskStatus;
+      summary.pinned = conversation.pinned;
       renderConversations();
       persistConversationList();
     }
@@ -3691,14 +3715,29 @@
   }
 
   function sendPreparedMessage(text, uploadedIds) {
-    if (state.workspaceFeatures) bridge()?.sendChatMessageWithRequestId?.(state.activeId, text, JSON.stringify(uploadedIds), state.sendRequest.id);
-    else bridge()?.sendChatMessage?.(state.activeId, text, JSON.stringify(uploadedIds));
+    const transport = bridge();
+    // Workspace support does not imply support for request-ID message transport.
+    const supportsRequestIds = window.WittNative
+      ? state.sendRequestIds
+      : typeof transport?.sendChatMessageWithRequestId === "function";
+    try {
+      if (supportsRequestIds) {
+        transport.sendChatMessageWithRequestId(state.activeId, text, JSON.stringify(uploadedIds), state.sendRequest.id);
+      } else if (typeof transport?.sendChatMessage === "function") {
+        transport.sendChatMessage(state.activeId, text, JSON.stringify(uploadedIds));
+      } else {
+        window.DropVault.onMessageSendError("发送连接不可用，请重新打开 App 后再试");
+      }
+    } catch {
+      window.DropVault.onMessageSendError("消息未能送达，请重新发送");
+    }
   }
 
   function sendMessage(prefill) {
     const text = typeof prefill === "string" ? prefill.trim() : $("#messageInput").value.trim();
     const files = [...state.attachments.values()];
     if (!text && !files.length) return;
+    setQuickModelMenu(false);
     if (state.transmitting) {
       toast("上一条消息正在送达，请稍候");
       return;
@@ -3762,11 +3801,19 @@
     },
     nativeReady(info = {}) {
       if (state.nativeInitialized) return;
+      if (info.nativeLaunch) {
+        window.wittNativeLaunch = true;
+        const boot = $("#bootScreen");
+        if (boot) boot.style.visibility = "hidden";
+      }
       state.nativeInitialized = true;
+      state.openAccess = Boolean(info.openAccess);
       document.body.classList.add("native");
       const version = String(info.version || window.DropVaultAndroid?.getVersion?.() || "");
       state.nativeVersion = version;
       state.workspaceFeatures = Boolean(info.workspaceFeatures);
+      state.sendRequestIds = Boolean(info.sendRequestIds);
+      state.workspaceOperations = Boolean(info.workspaceOperations);
       // Do not expose controls whose native transport is absent in older APKs.
       $("#workspaceOverviewButton").hidden = !state.workspaceFeatures;
       $("#moreGroupButton").hidden = !state.workspaceFeatures;
@@ -3821,7 +3868,7 @@
           claimThisDevice();
           return;
         }
-        showActivation("此设备尚未获授权，请输入邀请码。邀请码不会保存到网页中。");
+        showActivation(state.openAccess ? "本设备暂时无法访问，请重新连接或联系管理员。" : "此设备尚未获授权，请输入邀请码。邀请码不会保存到网页中。");
         return;
       }
       showActivation("管理员正在初始化访问控制，请稍后重新连接。");
@@ -3854,12 +3901,19 @@
     },
     onConversations(json) {
       const payload = JSON.parse(json);
+      const finishedElsewhere = (payload.conversations || []).filter((item) =>
+        item.id !== state.activeId && !item.busy && state.conversations.some((old) => old.id === item.id && old.busy));
       state.conversations = payload.conversations || [];
+      if (completionReminder && state.appVisible && finishedElsewhere.length) toast(finishedElsewhere.slice(0,2).map(item => `${item.title} · ${item.taskStatus?.label || "已结束"}`).join("；"));
       state.currentDeviceLabel = payload.currentDeviceLabel || "";
+      const wasSummaryRefresh = summaryRefreshPending;
+      summaryRefreshPending = false;
+      maxConcurrentTasks = Number(payload.maxConcurrentTasks) || maxConcurrentTasks;
       persistConversationList();
       setConnected(true, "服务器在线");
       dismissBoot();
       renderConversations();
+      if (wasSummaryRefresh) return;
       if (state.activeId && state.conversations.some((item) => item.id === state.activeId)) {
         if (!state.active || state.active.id !== state.activeId) {
           selectConversation(state.activeId);
@@ -4081,7 +4135,7 @@
     onConversationMetadataUpdated(json) {
       const conversation = JSON.parse(json).conversation;
       const item = state.conversations.find((entry) => entry.id === conversation?.id);
-      if (item) Object.assign(item, { pinned: conversation.pinned, project: conversation.project });
+      if (item) Object.assign(item, { title: conversation.title, pinned: conversation.pinned, project: conversation.project });
       if (conversation?.id === state.activeId) applyConversation(conversation);
       renderConversations();
       persistConversationList();
@@ -4339,13 +4393,29 @@
     onStreamDetail(json) {
       const payload = JSON.parse(json);
       if (!state.detailRequest || !payload.entry) return;
+      if (state.detailRequest.key) {
+        const request = state.detailRequest;
+        if (payload.entry.id !== request.entryId) return;
+        state.inlineDetails.set(request.key, { entry: payload.entry });
+        state.detailRequest = null;
+        refreshInlineDetail(request.key);
+        pumpInlineDetails();
+        return;
+      }
       state.detailEntry = payload.entry;
       renderActionDetail(payload.entry);
     },
     onStreamDetailError(message) {
-      if (!state.detailRequest) return;
-      $("#actionDetailContent").innerHTML =
-        `<div class="detail-error">${escapeHtml(message || "暂时无法读取执行详情")}</div>`;
+      const request = state.detailRequest;
+      if (!request) return;
+      if (!request.key) {
+        $("#actionDetailContent").textContent = message || "暂时无法读取执行详情";
+        return;
+      }
+      state.inlineDetails.set(request.key, { error: message || "暂时无法读取执行详情" });
+      state.detailRequest = null;
+      refreshInlineDetail(request.key);
+      pumpInlineDetails();
     },
     onDevelopmentWorkflowError(message) {
       const key = state.pendingDevelopmentWorkflowKey;
@@ -4395,10 +4465,26 @@
     if (state.transmitting) { toast("消息正在送达，完成后即可新建对话"); return; }
     saveDraft();
     const selectedProfile = codexProfile || state.allowedCodexProfiles[0] || "default";
-    state.activeId = null;
-    state.active = null;
+    const previousProfile = state.codexProfile;
     state.codexProfile = state.allowedCodexProfiles.includes(selectedProfile)
       ? selectedProfile : state.allowedCodexProfiles[0];
+    selectAccountCapabilities();
+    const models = state.capabilities?.models;
+    if (Array.isArray(models) && !models.some((model) => model.id === state.model)) {
+      const fallback = models.find((model) => model.isDefault) || models[0];
+      if (!fallback) {
+        state.codexProfile = previousProfile;
+        selectAccountCapabilities();
+        toast("这个账号的模型列表暂时不可用，请稍后重试");
+        return;
+      }
+      state.model = fallback.id;
+      state.reasoning = fallback.defaultReasoningEffort || "medium";
+      state.draftModel = state.model;
+      state.draftReasoning = state.reasoning;
+    }
+    state.activeId = null;
+    state.active = null;
     state.workDir = state.codexProfile === "xuanyu" ? "/data/xuanyu-build-console" : "";
     localStorage.setItem("wit_codex_profile", state.codexProfile);
     localStorage.removeItem("wit_active_conversation");
@@ -4630,6 +4716,13 @@
   $("#closeCodexAccounts").addEventListener("click", closeCodexAccounts);
   $("#codexAccountBackdrop").addEventListener("click", closeCodexAccounts);
   $("#codexAccountList").addEventListener("click", (event) => {
+    if (event.target.closest("[data-login-claude]")) {
+      const url = state.codexAccounts.find((account) => account.provider === "claude")?.loginUrl;
+      if (typeof url === "string" && /^\/vault-api\/claude\/login#[A-Za-z0-9_-]{43}$/.test(url)) {
+        window.location.href = url;
+      } else toast("登录入口已失效，请重新打开账号列表");
+      return;
+    }
     const login = event.target.closest("[data-login-codex]")?.dataset.loginCodex;
     if (login) {
       state.codexLoginProfile = login;
@@ -4908,6 +5001,7 @@
     const artifact = allArtifacts().find((item) =>
       item.id === button.dataset.artifact && item.messageId === button.dataset.message);
     if (!artifact) return;
+    if (window.WittFeatures) { window.WittFeatures.preview(state.activeId,artifact); return; }
     if (typeof bridge()?.downloadArtifact === "function") {
       bridge().downloadArtifact(
         state.activeId, artifact.messageId, artifact.id, artifact.name, artifact.mimeType || "");
@@ -5073,6 +5167,7 @@
     bridge()?.pickFiles?.();
   });
   $("#activateInviteButton").addEventListener("click", () => {
+    if (state.openAccess) { bridge()?.requestAuthStatus?.(); return; }
     const code = $("#inviteCode").value.trim();
     if (!code) { $("#authGateHint").textContent = "请先输入邀请码。"; return; }
     const button = $("#activateInviteButton");
@@ -5199,11 +5294,22 @@
       openImageViewer(image.dataset.inlineImage, image.dataset.imageName, image.dataset.imageMime);
       return;
     }
-    const action = event.target.closest("[data-stream-detail]");
-    if (!action) return;
-    openActionDetail(action.dataset.messageId, action.dataset.streamDetail,
-      action.querySelector("p")?.textContent || "执行详情");
+    const retry = event.target.closest("[data-process-retry]");
+    if (retry) {
+      const node = retry.closest("details[data-inline-detail]");
+      state.inlineDetails.delete(retry.dataset.processRetry);
+      refreshInlineDetail(node.dataset.processKey);
+      loadInlineDetail(node);
+    }
   });
+  document.addEventListener("toggle", (event) => {
+    const node = event.target;
+    if (!node.matches?.("details[data-process-key]")) return;
+    if (!node.isConnected) return;
+    if (node.open) state.expandedProcess.add(node.dataset.processKey);
+    else state.expandedProcess.delete(node.dataset.processKey);
+    if (node.open && node.hasAttribute("data-inline-detail")) loadInlineDetail(node);
+  }, true);
   document.addEventListener("submit", (event) => {
     const inputForm = event.target.closest("[data-approval-input-form]");
     const mcpForm = event.target.closest("[data-approval-mcp-form]");
@@ -5263,9 +5369,9 @@
   });
   $("#conversationList").addEventListener("click", (event) => {
     const openId = event.target.closest("[data-open]")?.dataset.open;
-    const archiveId = event.target.closest("[data-archive]")?.dataset.archive;
+    const menuId = event.target.closest("[data-conversation-menu]")?.dataset.conversationMenu;
     if (openId) selectConversation(openId);
-    if (archiveId) openArchiveDialog(archiveId);
+    if (menuId) window.WittUpgrades?.openConversationMenu(menuId);
   });
   $("#cancelArchive").addEventListener("click", closeArchiveDialog);
   $(".dialog-backdrop").addEventListener("click", closeArchiveDialog);
@@ -5410,6 +5516,30 @@
     if (state.activeId) bridge()?.reviewConversation?.(state.activeId);
   });
 
+  window.WittUI = {
+    settings: () => ({model:state.model,codexProfile:state.codexProfile,reasoning:state.reasoning,accessMode:state.accessMode}),
+    workspaceOperations: () => Boolean(state.workspaceOperations),
+    draft: text => { $("#messageInput").value=text; $("#messageInput").dispatchEvent(new Event("input")); $("#messageInput").focus(); },
+    download: (id,a) => { if(typeof bridge()?.downloadArtifact==='function')bridge().downloadArtifact(id,a.messageId,a.id,a.name,a.mimeType||'');else downloadArtifactUrl(artifactUrl(a.messageId,a),a.name);toast('正在下载文件'); },
+    conversations: () => state.conversations,
+    task: conversationTask,
+    select: selectConversation,
+    archive: openArchiveDialog,
+    toast,
+    refresh: renderConversations,
+    refreshSummaries: () => { summaryRefreshPending = true; summaryRefreshAt = Date.now(); bridge()?.requestConversations?.(); },
+    updateMetadata: (id, changes) => {
+      if (!state.workspaceFeatures) { toast("此操作需要新版客户端，请先检查更新"); return false; }
+      bridge()?.updateConversationMetadata?.(id, JSON.stringify(changes));
+      return true;
+    },
+    togglePin: (id) => {
+      const pins = pinnedIds(); const added = !pins.has(id);
+      if (state.workspaceFeatures) bridge()?.updateConversationMetadata?.(id, JSON.stringify({ pinned: added }));
+      else { if (added) pins.add(id); else pins.delete(id); localStorage.setItem("wit_pinned_conversations", JSON.stringify([...pins])); renderConversations(); }
+    },
+    refreshMath: () => { document.querySelectorAll(".message").forEach((node) => delete node.dataset.fingerprint); renderMessages(true); },
+  };
   updateModelControls();
   renderDeliveries();
   document.addEventListener("visibilitychange", () => setAppVisible(!document.hidden));

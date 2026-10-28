@@ -1,0 +1,59 @@
+/* Chloe-only feature surfaces on the unmodified Witt base/interface styles. */
+body[data-product="chloe"] { --surface-solid: var(--surface, #fff); }
+.chloe-boot-word { font: 600 40px/1.2 ui-sans-serif, system-ui, sans-serif; letter-spacing: -2px; color: var(--ink, #243839); }
+#drawerAvatar { color: var(--web-text, #0d0d0d) !important; font: 600 18px/1 ui-sans-serif, system-ui, sans-serif; }
+[data-theme="dark"] .conversation-row.active .conversation-open { background: #303030 !important; color: #eee !important; }
+[data-theme="dark"] .conversation-row.active strong { color: #eee !important; }
+.composer-env-btn { display: inline-flex; align-items: center; gap: 5px; max-width: 38%; min-width: 0; padding: 7px 9px; border: 1px solid var(--line, #ddd); border-radius: 10px; background: transparent; color: var(--muted, #666); font: inherit; font-size: 12px; cursor: pointer; }
+.composer-env-btn .pill-prefix { display: none; }
+.composer-env-btn svg { width: 16px; height: 16px; flex: none; }
+.composer-env-btn .composer-env-pill { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.composer-env-btn:focus-visible { outline: 2px solid var(--accent, #227b70); outline-offset: 3px; }
+#runtimeProfileOptions:empty { display: none; }
+#settingsSheet { display: block !important; }
+#settingsSheet:not(.open) { visibility: hidden; pointer-events: none; }
+#settingsSheet .model-options { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; }
+#settingsSheet .model-options > button { width: 100% !important; display: grid !important; min-width: 0; text-align: left; }
+#settingsSheet .model-options > button > span:nth-child(2) { min-width: 0; }
+#settingsSheet .model-options :is(strong,small,em) { display: block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+#customerDevicesSheet {
+  --chloe-ink: var(--web-text, #0d0d0d);
+  --chloe-body: var(--web-text, #0d0d0d);
+  --chloe-muted: var(--web-muted, #676767);
+  --chloe-canvas: var(--web-canvas, #fff);
+  --chloe-surface: var(--web-canvas, #fff);
+  --chloe-soft: var(--web-sidebar, #f9f9f9);
+  --chloe-line: var(--web-line, #e5e5e5);
+  --chloe-olive: var(--web-text, #0d0d0d);
+  --ui-error: #b23838;
+  --ui-warning: #946323;
+  --border: var(--web-line, #e5e5e5);
+  --panel: var(--web-canvas, #fff);
+}
+#customerDevices { background: var(--chloe-surface); color: var(--chloe-ink); }
+#customerDevicesSheet .assist-panel button.customer-start-workspace { background: var(--chloe-ink); border-color: var(--chloe-ink); color: var(--chloe-surface); }
+#customerDevicesSheet .assist-panel button:not(:disabled):hover { background: var(--chloe-soft); color: var(--chloe-ink); }
+#customerDevicesSheet .assist-panel :focus-visible { outline-color: var(--chloe-ink); }
+#customerDevicesSheet :is(input,select,pre) { background: var(--chloe-soft); color: var(--chloe-ink); border-color: var(--chloe-line); }
+#runtimeProfileOptions { display: grid; gap: 6px; margin-bottom: 18px; }
+#runtimeProfileOptions button { display: grid; gap: 3px; text-align: left; }
+#runtimeProfileOptions small { color: var(--muted); font-size: 11px; }
+#modelQuotaOverview { margin-top: 24px; }
+#customerDevicesButton svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.conversation-row .autumn-history-icon { width: 16px; height: 16px; color: var(--muted); }
+.stream-action { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 4px; color: inherit; border: 0; background: transparent; text-align: left; font: inherit; }
+.stream-action-copy { min-width: 0; flex: 1; }
+.stream-action-copy p { margin: 0; overflow-wrap: anywhere; }
+.stream-action-copy small { color: var(--muted); }
+.stream-tail svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.action-detail-sheet { position: fixed; inset: 0; z-index: 110; visibility: hidden; pointer-events: none; }
+.action-detail-sheet.open { visibility: visible; pointer-events: auto; }
+.action-detail-panel { overflow: auto; max-height: 90dvh; }
+.detail-block pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.detail-block h3 { font-size: 13px; }
+.development-workflow button { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: inherit; cursor: pointer; }
+@media (max-width: 600px) {
+  .composer-env-btn { font-size: 11px; max-width: 32%; padding: 6px; }
+  .composer-env-btn svg { width: 14px; height: 14px; }
+  #modelQuotaOverview .model-quota-cards { grid-template-columns: 1fr; }
+}

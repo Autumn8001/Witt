@@ -1,0 +1,15 @@
+#bootScreen{--bg:#f9faf8;--ink:#253b37;--edge:#7faaa0;--shine:#d5eee6;--bloom:rgba(129,178,157,.18);background:var(--bg)!important;color:var(--ink);gap:0}
+#bootScreen .boot-stage{position:relative;width:min(300px,76vw,95dvh);aspect-ratio:280/150;isolation:isolate}
+#bootScreen .halo{position:absolute;inset:-60% -35%;background:radial-gradient(ellipse,var(--bloom),transparent 66%);filter:blur(18px);opacity:0;pointer-events:none;z-index:-1}
+#bootScreen svg{width:100%;height:100%;overflow:visible}
+#bootScreen .letter{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+#bootScreen .ink{stroke:url(#wittLaunch-ink);stroke-width:8.5}
+#bootScreen .light{stroke:var(--edge);stroke-width:4;filter:url(#wittLaunch-soft);opacity:.7}
+#bootScreen .nib{fill:var(--shine);filter:url(#wittLaunch-soft)}
+#bootScreen .nib-core{fill:var(--shine)}
+#bootScreen .spark{fill:var(--edge)}
+#bootScreen .shadow{fill:var(--ink);filter:url(#wittLaunch-shadow);opacity:0}
+#bootScreen .finish{stroke:url(#wittLaunch-sheen);stroke-width:8.5;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+#bootScreen>small{margin-top:24px;color:#888;font-size:10px}
+:root[data-theme="dark"] #bootScreen{--bg:#111917;--ink:#d5e5df;--edge:#83afa2;--shine:#f0fff8;--bloom:rgba(105,183,156,.16)}
+@media(prefers-reduced-motion:reduce){#bootScreen .letter{stroke-dashoffset:0}#bootScreen .light,#bootScreen .halo,#bootScreen .nib,#bootScreen .nib-core,#bootScreen .spark,#bootScreen .finish,#bootScreen .shadow{display:none}#bootScreen{transition:opacity .15s}}

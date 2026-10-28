@@ -147,6 +147,14 @@
   transition: color 700ms ease;
 }
 
+:root[data-theme-mode="colorful"] .suggestions {
+  margin-top: 18px;
+}
+
+:root[data-theme-mode="colorful"] .suggestions button {
+  font-family: system-ui, sans-serif;
+}
+
 :root[data-theme-mode="colorful"][data-scene-tone="dark"] .welcome,
 :root[data-theme-mode="colorful"][data-scene-tone="dark"] .lumora-badge {
   color: var(--lumora-deep-ink);
@@ -278,6 +286,9 @@
     font-size: 7px;
   }
 
+  :root[data-theme-mode="colorful"] .suggestions {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

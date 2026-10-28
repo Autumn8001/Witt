@@ -122,7 +122,7 @@
       run("chat/capabilities", {}, "onCapabilities", "onCapabilitiesError", "无法读取服务能力");
     },
     requestConversation(id) {
-      if (validId(id)) run(`chat/conversations/${id}`, {}, "onConversation", "onChatError", "无法读取对话");
+      if (validId(id)) run(`chat/conversations/${id}?limit=40`, {}, "onConversation", "onChatError", "无法读取对话");
     },
     requestConversationDelta(id) {
       if (validId(id)) run(`chat/conversations/${id}/sync`, {}, "onConversationDelta", "onChatError", "同步失败");
@@ -135,7 +135,7 @@
     subscribeConversationEvents(id) {
       if (!validId(id)) return;
       this.unsubscribeConversationEvents();
-      events = new EventSource(`${API}chat/conversations/${id}/events`);
+      events = new EventSource(`${API}chat/conversations/${id}/events?limit=40`);
       events.addEventListener("snapshot", (event) => callback("onConversation", event.data));
       events.addEventListener("delta", (event) => callback("onConversationDelta", event.data));
     },

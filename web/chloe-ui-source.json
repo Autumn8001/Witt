@@ -1,0 +1,22 @@
+{
+  "upstream": "https://github.com/LeoWilson-Ben/witt",
+  "commit": "74a48ca9ec068e3687a85df6538f56bb9d356b12",
+  "chloeBase": "4f7b580e4d69fe103ba7bf4aa3d444176931ca55",
+  "backendChanged": false,
+  "adapters": [
+    "Harness selection",
+    "CPA quota",
+    "Remote Assist",
+    "execution detail/workflow"
+  ],
+  "styles": "Witt upstream base and interface; Chloe feature compatibility only",
+  "disabledUpstreamFeatures": [
+    "Project CRUD and schedules: unsupported by retained Chloe backend"
+  ],
+  "adaptations": [
+    "System font stack: referenced OpenAI Sans font files absent from upstream Git tree",
+    "Startup minimum hold reduced from 2800ms to 250ms",
+    "Optional math and terminal modules load on demand",
+    "Chloe settings sheet remains available for Harness selection"
+  ]
+}

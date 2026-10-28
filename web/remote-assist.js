@@ -28,7 +28,7 @@
       <h4>${escape(s.customer_label)}</h4><p>${states[s.state] || escape(s.state)}${s.connected ? " · 已连接" : " · 未连接"}</p>
       <p>到期：${escape(new Date(s.expires_at).toLocaleString())}</p><p>${s.access_mode === "full" ? "默认工作目录" : "授权目录"}：${escape(s.workspace_root || "等待客户选择")}</p>
       <p>${s.access_mode === "full" ? "本次完整访问 · 所有本地目录及命令 · 无逐条审批" : "原有受限会话 · 权限以原授权为准"}</p>
-      <button type="button" data-assist-open ${s.state === "active" && s.connected ? "" : "disabled"}>打开 Grok 工作窗口</button>
+      <button type="button" data-assist-open ${s.state === "active" && s.connected ? "" : "disabled"}>打开 AI 工作窗口</button>
       <button type="button" data-assist-audit>查看操作记录与差异</button>
       <button type="button" data-assist-revoke ${["revoked","expired"].includes(s.state) ? "disabled" : ""}>结束协助</button>
       <div data-assist-records></div></article>`).join("") || "<p>暂无临时协助会话。</p>";
