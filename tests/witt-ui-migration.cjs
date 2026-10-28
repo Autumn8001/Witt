@@ -125,6 +125,3 @@ const models = [{ id: 'grok-4.7-high', displayName: 'Grok 4.7 High', isDefault: 
   assert.ok(results.every(r=>!r.errors.length&&!r.missing.length&&r.diagnostics.ready&&!r.diagnostics.overflow&&!r.diagnostics.dup.length),'Browser migration checks failed');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
-
-
-
