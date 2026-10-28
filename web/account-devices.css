@@ -1,0 +1,13 @@
+#adminPairingResult { margin: 12px 0 24px; padding: 14px; background: var(--sd-canvas, #f7f7f8); border: 1px solid var(--sd-line, #e4e4e7); border-radius: 14px; }
+#adminPairingResult:empty { display: none; }
+#adminPairingResult code { display: block; margin: 10px 0; padding: 10px; border-radius: 8px; background: var(--sd-surface, #fff); color: var(--sd-ink, #171717); font: 13px/1.6 ui-monospace, monospace; overflow-wrap: anywhere; user-select: all; }
+#createAdminPairingButton, #adminPairingResult button, #cancelAccountSwitch { min-height: 44px; padding: 10px 16px; border: 1px solid var(--sd-line, #ddd); border-radius: 12px; background: var(--sd-surface, #fff); color: var(--sd-ink, #171717); font: inherit; cursor: pointer; }
+#createAdminPairingButton { width: 100%; }
+#createAdminPairingButton:disabled { opacity: .55; cursor: wait; }
+#cancelAccountSwitch[hidden] { display: none; }
+#cancelAccountSwitch { margin-top: 10px; }
+#deviceAdmin h3 { margin-top: 18px; }
+#deviceAdmin .device-invite { min-width: 0; }
+#deviceAdmin .device-invite input { width: 0; min-width: 0; flex: 1; }
+#deviceList .device-row > div { min-width: 0; }
+#deviceList .device-row strong { overflow-wrap: anywhere; }

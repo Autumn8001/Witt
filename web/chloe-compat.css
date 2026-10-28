@@ -57,3 +57,58 @@ body[data-product="chloe"] { --surface-solid: var(--surface, #fff); }
   .composer-env-btn svg { width: 14px; height: 14px; }
   #modelQuotaOverview .model-quota-cards { grid-template-columns: 1fr; }
 }
+/* Keep retained Chloe panels aligned with Witt's current settings system. */
+#customerDevicesSheet, #actionDetailSheet {
+  --chloe-ink: var(--sd-ink); --chloe-body: var(--sd-ink); --chloe-muted: var(--sd-muted);
+  --chloe-canvas: var(--sd-surface); --chloe-surface: var(--sd-surface); --chloe-soft: var(--sd-canvas);
+  --chloe-line: var(--sd-line); --chloe-olive: var(--sd-accent);
+  --border: var(--sd-line); --panel: var(--sd-surface);
+  color: var(--sd-ink); font: 14px/1.55 ui-sans-serif, system-ui, sans-serif;
+}
+:is(#customerDevicesSheet,#actionDetailSheet) .sheet-panel {
+  box-sizing: border-box; position: fixed; top: auto; left: 50%; bottom: 16px;
+  width: min(720px, calc(100% - 32px)); max-height: calc(100dvh - 32px);
+  padding: 20px 24px max(20px, env(safe-area-inset-bottom));
+  border: 1px solid var(--sd-line); border-radius: 16px;
+  background: var(--sd-surface); color: var(--sd-ink); box-shadow: var(--sd-shadow);
+  transform: translate(-50%, calc(100% + 32px));
+}
+:is(#customerDevicesSheet,#actionDetailSheet).open .sheet-panel { transform: translate(-50%, 0); }
+:is(#customerDevicesSheet,#actionDetailSheet) :is(h2,h3,h4) { font-family: inherit; color: var(--sd-ink); }
+:is(#customerDevicesSheet,#actionDetailSheet) .eyebrow { color: var(--sd-muted); }
+:is(#customerDevicesSheet,#actionDetailSheet) .icon-button { flex: none; width: 44px; height: 44px; background: var(--sd-canvas); color: var(--sd-ink); border: 1px solid var(--sd-line); border-radius: 10px; }
+:is(#customerDevicesSheet,#actionDetailSheet) .sheet-head { gap: 12px; }
+#customerDevices { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+#customerDevices .assist-panel { margin-block: 12px; padding: 16px; border: 1px solid var(--sd-line); border-radius: 12px; background: var(--sd-canvas); }
+#customerDevices .assist-panel :is(p,label,small) { font-size: 13px; line-height: 1.65; }
+#customerDevices .assist-panel h3 { font-size: 16px; }
+#customerDevices a { color: var(--sd-accent); overflow-wrap: anywhere; }
+#customerDevices .assist-panel button { min-height: 44px; }
+#customerDevices .assist-panel input, #customerDevices .assist-panel select { width: 100%; min-width: 0; box-sizing: border-box; }
+#customerDevices .assist-panel form { min-width: 0; }
+.action-detail-content { min-width: 0; overflow-wrap: anywhere; }
+.action-detail-content pre { max-width: 100%; overflow: auto; }
+.sheet-panel { overscroll-behavior: contain; }
+.sheet-panel input, .sheet-panel select { max-width: 100%; box-sizing: border-box; }
+#quickModelMenu { max-width: min(420px, calc(100vw - 24px)); max-height: calc(100dvh - 160px); overflow-y: auto; overscroll-behavior: contain; }
+.messages :is(pre,table) { max-width: 100%; overflow-x: auto; }
+@media (max-width: 600px) {
+  :is(#customerDevicesSheet,#actionDetailSheet) .sheet-panel { bottom: 0; width: calc(100% - 12px); max-height: calc(100dvh - 12px); padding: 16px 16px max(18px, env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; }
+  #customerDevicesSheet .customer-devices-head h2 { font-size: 18px; }
+  .sheet-panel :is(input,select,textarea), #inviteCode { font-size: 16px; }
+  #harnessOptions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  #harnessOptions button { min-width: 0; white-space: normal; min-height: 44px; overflow-wrap: anywhere; }
+  #messageInput { font-size: 16px; }
+  .composer-tools > button { flex-shrink: 0; }
+}
+@media (max-height: 500px) {
+  :is(#customerDevicesSheet,#actionDetailSheet) .sheet-panel { max-height: calc(100dvh - 12px); bottom: 0; }
+}
+/* Older bundled rules used negative margins wider than the new panel padding. */
+#settingsSheet .settings-apply-bar { margin-inline: 0 !important; width: auto !important; max-width: 100%; box-sizing: border-box; padding-inline: 0; }
+#actionDetailSheet .sheet-head { margin-inline: 0 !important; width: auto !important; max-width: 100%; padding-inline: 0 !important; }
+:is(#customerDevicesSheet,#actionDetailSheet) .sheet-panel { background: var(--sd-surface) !important; color: var(--sd-ink) !important; }
+:is(#customerDevicesSheet,#actionDetailSheet) .sheet-head { background: var(--sd-surface) !important; }
+:is(#customerDevicesSheet,#actionDetailSheet) :is(h2,h3,h4) { font-family: "Microsoft YaHei", "PingFang SC", ui-sans-serif, system-ui, sans-serif !important; color: var(--sd-ink) !important; }
+:is(#customerDevicesSheet,#actionDetailSheet) .eyebrow { color: var(--sd-muted) !important; }
+:is(#customerDevicesSheet,#actionDetailSheet) .icon-button { background: var(--sd-canvas) !important; color: var(--sd-ink) !important; }

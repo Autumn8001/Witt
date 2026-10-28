@@ -80,7 +80,7 @@
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
 <link href="/vault/witt-interface-20261008.css?v=4-usage-restored" rel="stylesheet"/>
-<link href="/vault/customer-devices.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261028-witt1" rel="stylesheet"/></head>
+<link href="/vault/customer-devices.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/account-devices.css?v=20261028-account1" rel="stylesheet"/></head>
 <body data-product="chloe">
 <div aria-hidden="true" class="app-atmosphere"><i></i><i></i><i></i></div>
 <div aria-label="Chloe 正在启动" class="boot-screen" id="bootScreen"><strong class="chloe-boot-word">Chloe</strong></div>
@@ -118,13 +118,14 @@
 <section aria-hidden="true" aria-labelledby="authGateTitle" class="auth-gate" id="authGate">
 <div aria-hidden="true" class="auth-gate-halo"></div>
 <div class="auth-gate-card">
-<span class="auth-gate-mark">W</span>
+<span class="auth-gate-mark">C</span>
 <span class="eyebrow">PRIVATE DEVICE ACCESS</span>
-<h1 id="authGateTitle">激活这台设备</h1>
-<p>输入管理员提供的邀请码。激活后，这台设备只会访问所属账号的数据。</p>
+<h1 id="authGateTitle">登录 Chloe</h1>
+<p>输入管理员配对码可登录同一管理员账号；客户邀请码会进入独立账号。</p>
 <label for="inviteCode">邀请码</label>
 <input autocapitalize="off" autocomplete="off" id="inviteCode" placeholder="粘贴邀请码" spellcheck="false"/>
 <button id="activateInviteButton" type="button"><span>激活设备</span><i>→</i></button>
+<button id="cancelAccountSwitch" type="button" hidden>取消，返回当前账号</button>
 <small id="authGateHint">邀请码不会保存到网页中。</small>
 </div>
 </section>
@@ -317,6 +318,7 @@
 <section class="settings-block">
 <div class="settings-section-label">账号与连接</div>
 <div class="drawer-utilities">
+<button class="drawer-profile" id="switchAccountButton" type="button"><span class="profile-monogram">C</span><span><strong>切换账号</strong><small id="currentAccountLabel">输入邀请码或管理员配对码</small></span></button>
 <button class="drawer-profile" id="profileButton">
 <span class="profile-monogram">W</span>
 <span><strong>我的</strong><small>用量记录</small></span>
@@ -463,9 +465,13 @@
 <div class="sheet-backdrop" id="adminSettingsBackdrop"></div>
 <div class="sheet-panel admin-settings-panel">
 <div class="sheet-handle"></div>
-<div class="sheet-head"><div><span class="eyebrow">ACCESS CONTROL</span><h2>设备管理</h2></div><button aria-label="关闭" class="icon-button" id="closeAdminSettings"><svg viewbox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div>
+<div class="sheet-head"><div><span class="eyebrow">ACCESS CONTROL</span><h2>账号与设备</h2></div><button aria-label="关闭" class="icon-button" id="closeAdminSettings"><svg viewbox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div>
 <section class="device-admin" id="deviceAdmin">
-<header><span class="eyebrow">ADMINISTRATOR</span><h3>授权新设备</h3><i>●</i></header>
+<header><span class="eyebrow">ADMINISTRATOR</span><h3>我的管理员账号</h3></header>
+<p>手机和电脑可登录同一管理员账号，共享会话与完整管理权限，每台设备可单独撤销。</p>
+<button id="createAdminPairingButton" type="button">关联我的手机 / 电脑</button>
+<div id="adminPairingResult" aria-live="polite"></div>
+<h3>邀请其他用户</h3>
 <p>每个邀请码只会创建一个独立账号。停止设备后，它将立刻失去访问权限。</p>
 <div class="device-invite"><input id="inviteLabel" maxlength="24" placeholder="设备名称，例如：李明的手机"/><button id="createInviteButton">生成邀请码</button></div>
 <div id="latestInvite"></div>

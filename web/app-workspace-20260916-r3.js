@@ -1471,7 +1471,7 @@
   function renderAdminDevices(devices = []) {
     devices = devices.filter((device) => !device.hiddenFromList);
     $("#deviceList").innerHTML = devices.length ? devices.map((device) => `
-      <article class="device-row"><span>⌁</span><div><strong>${escapeHtml(device.label || "未命名设备")}</strong><small>${device.disabled ? "已停止访问" : `最近活跃：${formatDate(device.lastSeenAt || device.createdAt)}`}</small></div>${device.disabled ? "" : `<button data-disable-device="${escapeHtml(device.id)}">停止</button>`}</article>`).join("")
+      <article class="device-row"><span>⌁</span><div><strong>${escapeHtml(device.label || "未命名设备")}</strong><small>${device.admin ? "管理员" : "用户"} · ${device.id === state.authDeviceId ? "当前设备 · " : ""}${device.disabled ? "已停止访问" : `最近活跃：${formatDate(device.lastSeenAt || device.createdAt)}`}</small></div>${device.disabled ? "" : `<button data-disable-device="${escapeHtml(device.id)}">停止</button>`}</article>`).join("")
       : `<small>还没有已激活的设备。</small>`;
   }
 
@@ -3853,7 +3853,9 @@
       if (payload.authenticated) {
         state.authenticated = true;
         state.admin = Boolean(payload.principal?.admin);
+        state.authDeviceId = payload.principal?.deviceId;
         applyPrincipalPolicy(payload.principal);
+        $("#currentAccountLabel").textContent = state.admin ? "管理员 · 跨设备登录" : "用户账号 · 切换登录";
         $("#adminSettingsButton").hidden = !state.admin;
         $("#customerDevicesButton").hidden = !state.admin;
         $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
@@ -4283,6 +4285,19 @@
       renderUsage();
       bridge()?.requestUsage?.(state.activeId || "");
     },
+    onAdminPairingCode(json) {
+      const data = JSON.parse(json);
+      $("#createAdminPairingButton").disabled = false;
+      const result = $("#adminPairingResult");
+      result.replaceChildren();
+      const info = document.createElement("p");
+      info.textContent = `仅用于你自己的设备 · 单次有效 · ${new Date(data.expiresAt).toLocaleTimeString()} 到期`;
+      const code = document.createElement("code"); code.textContent = data.pairingCode;
+      const copy = document.createElement("button"); copy.type = "button"; copy.textContent = "复制配对码";
+      copy.addEventListener("click", () => navigator.clipboard.writeText(data.pairingCode).then(() => toast("已复制")).catch(() => toast("请长按配对码复制")));
+      result.append(info, code, copy);
+    },
+    onAdminPairingError(message) { $("#createAdminPairingButton").disabled = false; toast(message || "无法生成配对码"); },
     onAdminDevices(json) { renderAdminDevices(JSON.parse(json).devices || []); },
     onInviteCreated(json) {
       const invite = JSON.parse(json).invite;
@@ -4754,6 +4769,18 @@
   });
   $("#cancelCodexLogin").addEventListener("click", () =>
     codexLoginAction("cancel"));
+  $("#createAdminPairingButton").addEventListener("click", () => {
+    if (typeof bridge()?.createAdminPairingCode !== "function") { toast("请在新版 Chloe 网页中关联设备"); return; }
+    $("#createAdminPairingButton").disabled = true;
+    bridge().createAdminPairingCode();
+  });
+  $("#switchAccountButton").addEventListener("click", () => {
+    $("#closeDrawerAccount")?.click();
+    $("#cancelAccountSwitch").hidden = false;
+    showActivation("输入电脑管理员生成的配对码，可切换至你的管理员账号。切换不会合并原账号数据。");
+    $("#inviteCode").focus();
+  });
+  $("#cancelAccountSwitch").addEventListener("click", () => { $("#cancelAccountSwitch").hidden = true; $("#inviteCode").value = ""; hideActivation(); });
   $("#createInviteButton").addEventListener("click", () => {
     const label = $("#inviteLabel").value.trim() || "新设备";
     bridge()?.createInvite?.(label, 1);

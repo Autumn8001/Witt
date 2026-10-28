@@ -53,25 +53,54 @@ class AuthService {
 
   initialized() { return Boolean(this.read().admin); }
 
+  resolveAdminUserId(store) {
+    return store.devices?.find((d) => d.admin && !d.disabled)?.userId ||
+      store.invites?.find((i) => i.admin && !i.disabled)?.userId || store.admin.id;
+  }
+
+  createAdminPairingCode(input = {}, principal = null) {
+    const store = this.read();
+    if (!store.admin) throw new Error("请先初始化管理员");
+    if (!principal?.admin) throw new Error("仅管理员可生成配对码");
+    if (principal.legacy || !ID.test(principal.userId)) throw new Error("请先完成管理员账号初始化，再关联新设备");
+    const ttlMinutes = Math.max(1, Math.min(60, Number(input.ttlMinutes || 15)));
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+    return this.createInvite({
+      label: String(input.label || "管理员移动端").slice(0, 48),
+      maxDevices: 1,
+      admin: true,
+      expiresAt,
+      singleUse: true,
+    }, principal);
+  }
+
   initialize(password, label = "管理员") {
     if (this.initialized()) throw new Error("管理员已初始化；如需重设请使用恢复流程");
     if (typeof password !== "string" || password.length < 12) throw new Error("管理员密码至少需要 12 个字符");
     const store = this.read();
     const credentials = passwordHash(password);
     store.initializedAt = now();
-    store.admin = { id: crypto.randomUUID(), label: String(label || "管理员").slice(0, 48), password: credentials };
+    const adminId = crypto.randomUUID();
+    store.admin = { id: adminId, label: String(label || "管理员").slice(0, 48), password: credentials };
     this.write(store);
     return this.createInvite({ label: "管理员设备", maxDevices: 1, admin: true });
   }
 
-  createInvite(input = {}) {
+  createInvite(input = {}, principal = null) {
     const store = this.read();
     if (!store.admin) throw new Error("请先初始化管理员");
     const maxDevices = Math.max(1, Math.min(20, Number(input.maxDevices || 1)));
+    const isAdmin = Boolean(input.admin);
+    let userId;
+    if (isAdmin) {
+      userId = principal?.admin ? principal.userId : this.resolveAdminUserId(store);
+    } else {
+      userId = crypto.randomUUID();
+    }
     const invite = {
-      id: crypto.randomUUID(), code: randomToken(), label: String(input.label || "新用户").slice(0, 48),
-      userId: crypto.randomUUID(), admin: Boolean(input.admin), maxDevices, usedDevices: 0,
-      expiresAt: input.expiresAt || null, disabled: false, createdAt: now(),
+      id: crypto.randomUUID(), code: randomToken(), label: String(input.label || (isAdmin ? "管理员设备" : "新用户")).slice(0, 48),
+      userId, admin: isAdmin, maxDevices, usedDevices: 0,
+      expiresAt: input.expiresAt || null, singleUse: Boolean(input.singleUse), disabled: false, createdAt: now(),
     };
     store.invites.push(invite);
     this.write(store);
@@ -137,7 +166,9 @@ class AuthService {
       throw new Error("邀请码无效或已过期");
     }
     const existing = store.devices.find((item) => item.id === deviceId);
+    if (invite.singleUse && invite.usedDevices >= invite.maxDevices) throw new Error("配对码已使用，请重新生成");
     if (existing && !existing.disabled && existing.inviteId === invite.id) {
+      if (currentDeviceId !== deviceId) throw new Error("此设备已绑定，请使用现有凭据登录或申请新配对码");
       const token = randomToken();
       existing.tokenHash = hash(token); existing.lastSeenAt = now(); this.write(store);
       return { token, device: existing };
@@ -154,7 +185,7 @@ class AuthService {
       userId: invite.userId,
       inviteId: invite.id,
       label: String(input.deviceName || existing?.label || "未命名设备").slice(0, 48),
-      admin: invite.admin,
+      admin: Boolean(invite.admin),
       disabled: false,
       tokenHash: hash(token),
       createdAt: existing?.createdAt || now(),
@@ -195,6 +226,20 @@ class AuthService {
       this.sendJson(res, 200, { initialized: this.initialized(), authenticated: Boolean(principal), principal: principal || null,
         bootstrapEligible: this.bootstrapEligible(legacyAuthorized) }); return true;
     }
+    if (req.method === "POST" && url.pathname === "/admin/pairing-code") {
+      if (!principal?.admin) { this.sendJson(res, 403, { error: "admin_required" }); return true; }
+      this.readJsonBody(req, 8 * 1024, (error, body) => {
+        try {
+          if (error) throw error;
+          const invite = this.createAdminPairingCode(body, principal);
+          this.sendJson(res, 201, {
+            pairingCode: invite.code,
+            expiresAt: invite.expiresAt,
+            label: invite.label,
+          });
+        } catch (err) { this.sendJson(res, 400, { error: err.message }); }
+      }); return true;
+    }
     if (req.method === "POST" && url.pathname === "/auth/activate") {
       this.readJsonBody(req, 8 * 1024, (error, body) => {
         try {
@@ -221,7 +266,7 @@ class AuthService {
     if (req.method === "GET" && url.pathname === "/admin/invites") { this.sendJson(res, 200, { invites: this.read().invites.map((item) => this.publicInvite(item)) }); return true; }
     if (req.method === "GET" && url.pathname === "/admin/devices") { this.sendJson(res, 200, { devices: this.read().devices.map((item) => this.publicDevice(item)) }); return true; }
     if (req.method === "POST" && url.pathname === "/admin/invites") {
-      this.readJsonBody(req, 8 * 1024, (error, body) => { try { if (error) throw error; this.sendJson(res, 201, { invite: this.createInvite(body) }); } catch (err) { this.sendJson(res, 400, { error: err.message }); } }); return true;
+      this.readJsonBody(req, 8 * 1024, (error, body) => { try { if (error) throw error; this.sendJson(res, 201, { invite: this.createInvite(body, principal) }); } catch (err) { this.sendJson(res, 400, { error: err.message }); } }); return true;
     }
     const deviceMatch = url.pathname.match(/^\/admin\/devices\/([a-f0-9-]{36})\/disable$/);
     if (req.method === "POST" && deviceMatch) {

@@ -102,7 +102,12 @@
           deviceId: browserDeviceId(),
           deviceName: `${navigator.platform || "浏览器"} · Web`,
         },
-      }).then((text) => callback("onActivation", text))
+      }).then((text) => {
+        localStorage.removeItem("witt_web_cache_scope");
+        localStorage.removeItem("wit_active_conversation");
+        // Reload closes the old account's event stream and in-memory caches.
+        window.location.reload();
+      })
         .catch((error) => callback("onActivationError", error.message || "邀请码激活失败"));
     },
     requestConversations() {
@@ -237,6 +242,7 @@
       run("chat/workspace-overview", {}, "onWorkspaceOverview", "onWorkspaceOverviewError", "检查失败");
     },
 
+    createAdminPairingCode() { run("admin/pairing-code", { method: "POST", json: {} }, "onAdminPairingCode", "onAdminPairingError", "无法生成配对码"); },
     requestAdminDevices() { run("admin/devices", {}, "onAdminDevices", "onAdminError", "无法读取设备"); },
     createInvite(label, maxDevices) {
       run("admin/invites", { method: "POST", json: { label, maxDevices } },

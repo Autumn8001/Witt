@@ -11,7 +11,7 @@ const models = [{ id: 'grok-4.7-high', displayName: 'Grok 4.7 High', isDefault: 
  const browser = await chromium.launch({ headless: true });
  const results=[];
  try {
-  for (const width of [390,1440]) {
+  for (const width of [360,390,768,1440]) {
    const page = await browser.newPage({viewport:{width,height:width===390?844:900}});
    const errors=[], missing=[], calls=[], writes=[];
    const id='10000000-0000-4000-8000-000000000001';
