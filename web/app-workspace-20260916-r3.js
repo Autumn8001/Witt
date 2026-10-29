@@ -1132,12 +1132,7 @@
     "workspace-write": "项目读写",
     "read-only": "只读",
   };
-  const projects = {
-    "": "空白",
-    "/home/ubuntu/Documents/Codex/2026-07-20-skill/upload-app": "Chloe",
-    "/home/ubuntu/Documents/Codex/2026-07-26-xlsb": "年报",
-    "/data/xuanyu-build-console/repo": "玄遇",
-  };
+  const projects = { "": "空白", "/opt/witt": "Chloe 服务" };
 
   function projectName(workDir) {
     const remote = activeRemoteWorkspace(state.active);
@@ -3715,7 +3710,7 @@
       const lockSvg = '<svg class="hint-lock-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
       hint.innerHTML = busy
         ? `${lockSvg} <span>处理中 · 你可以继续补充要求</span>`
-        : `${lockSvg} <span>Protected execution • Critical actions require explicit approval</span>`;
+        : `${lockSvg} <span>${state.accessMode === "danger-full-access" ? "完全访问 · 管理员权限" : "受保护执行 · 高风险操作需确认"}</span>`;
     }
   }
 
@@ -4334,9 +4329,10 @@
     onConversationMetadataError(message) { toast(message || "同步失败，请重试"); },
     onWorkspaceOverview(json) {
       const payload = JSON.parse(json);
-      const labels = { active: "运行中", inactive: "未运行", available: "可用", configured: "已配置", missing: "未配置", unknown: "待检查", connected: "已连接", error: "检查失败", running: "运行中" };
+      const labels = { active: "运行中", inactive: "未运行", available: "可用", configured: "已配置", missing: "未安装", unknown: "待检查", connected: "已连接", error: "检查失败", running: "运行中", healthy: "正常", degraded: "需关注", down: "已停止", failed: "失败" };
       const section = (title, rows) => `<section class="workspace-section"><h3>${escapeHtml(title)}</h3>${(rows || []).map((row) => `<article><div><strong>${escapeHtml(row.name || row.id)}</strong><small>${escapeHtml(row.description || row.role || row.detail || "")}</small>${row.workDir ? `<code>${escapeHtml(row.workDir)}</code>` : ""}</div>${row.status ? `<span>${escapeHtml(labels[row.status] || row.status)}</span>` : ""}</article>`).join("") || '<p>暂无信息</p>'}</section>`;
-      $("#workspaceOverviewContent").innerHTML = section("项目", payload.projects) + section("服务器用途", payload.servers) + section("服务", payload.services) + section("服务连接", payload.connections) + `<p class="workspace-checked">核实时间：${escapeHtml(payload.checkedAt ? new Date(payload.checkedAt).toLocaleString() : "未知")}<br>${escapeHtml(payload.notice || "")}</p>`;
+      const resources = payload.resources ? [{ name: "服务器资源", detail: `CPU ${payload.resources.cpuCount || "—"} 核 · 内存 ${payload.resources.memoryUsedPercent ?? "—"}% · 磁盘 ${payload.resources.diskUsedPercent ?? "—"}%` }] : [];
+      $("#workspaceOverviewContent").innerHTML = section("当前 Chloe 工作区", payload.projects) + section("服务器状态", resources.concat(payload.services || [])) + section("终端与外部服务", payload.connections) + `<p class="workspace-checked">核实时间：${escapeHtml(payload.checkedAt ? new Date(payload.checkedAt).toLocaleString() : "未知")}<br>${escapeHtml(payload.notice || "")}</p>`;
     },
     onWorkspaceOverviewError(message) { $("#workspaceOverviewContent").textContent = message || "检查失败，请重试"; },
     onAppVisibility(visible) {
