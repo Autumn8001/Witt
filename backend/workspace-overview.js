@@ -22,7 +22,8 @@ async function workspaceOverview({ workDir = "", projects = [], admin = false } 
   let previous = cache.get("host");
   if (!previous || Date.now() - previous.at >= 15000) { previous = { at: Date.now(), promise: Promise.all([overview(), terminalState()]) }; cache.set("host", previous); }
   const [server, terminal] = await previous.promise;
-  const services = [...server.http.map(row => ({ name: row.name, status: row.status, detail: "HTTP 健康检查" })), ...server.units.map(row => ({ name: row.name, status: row.status, detail: "系统服务进程状态" })), ...server.containers.map(row => ({ name: row.name, status: row.status, detail: "容器状态" }))];
+  const label = (name) => ({ witt: "Chloe API", "open-webui": "Open WebUI（已卸载）", cpa: "CPA 模型路由", sub2api: "Sub2API 模型路由", nginx: "网页入口" }[name] || name);
+  const services = [...server.http.map(row => ({ name: label(row.name), status: row.status, detail: "HTTP 健康检查" })), ...server.units.map(row => ({ name: label(row.name), status: row.status, detail: "系统服务进程状态" })), ...server.containers.map(row => ({ name: label(row.name), status: row.status, detail: "容器状态" }))];
   return { checkedAt: server.checkedAt, workDir, projects, resources: { cpuCount: server.cpu.count, load: server.cpu.load[0], memoryUsedPercent: server.memory.usedPercent, diskUsedPercent: server.disk?.usedPercent ?? null }, services, connections: [terminal], notice: "打开面板时检查，结果最多缓存 15 秒。Open WebUI 已卸载；Open Terminal 为独立服务，此处不提供终端执行入口。" };
 }
 

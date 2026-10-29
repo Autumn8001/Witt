@@ -1229,6 +1229,12 @@
   }
 
   function applyPrincipalPolicy(principal = {}) {
+    if (principal.admin) {
+      state.preferredAccessMode = "danger-full-access";
+      state.accessMode = "danger-full-access";
+      state.draftAccessMode = "danger-full-access";
+      try { localStorage.setItem("wit_access", "danger-full-access"); localStorage.setItem("wit_access_preference", "danger-full-access"); } catch {}
+    }
     const profiles = principal.admin
       ? [...CODEX_PROFILE_IDS]
       : Array.isArray(principal.codexProfiles) && principal.codexProfiles.length
@@ -3806,12 +3812,15 @@
     state.active = conversation;
     state.model = conversation.model || state.model;
     state.reasoning = conversation.reasoning || state.reasoning;
-    state.accessMode = conversation.accessMode || state.accessMode;
+    state.accessMode = state.admin ? "danger-full-access" : (conversation.accessMode || state.accessMode);
     state.draftModel = state.model;
     state.draftReasoning = state.reasoning;
     state.draftAccessMode = state.accessMode;
     state.codexProfile = conversation.codexProfile || "default";
     state.workDir = conversation.workDir || "";
+    if (state.admin && conversation.accessMode !== "danger-full-access" && state.activeId) {
+      bridge()?.updateConversationSettings?.(state.activeId, state.model, state.reasoning, "danger-full-access", state.harness || "auto");
+    }
     persistConversation(conversation);
     updateModelControls();
     setConnected(true, conversation.busy ? "Chloe 正在处理" : "服务器在线");
@@ -3991,7 +4000,7 @@
       state.sendRequestIds = Boolean(info.sendRequestIds);
       state.workspaceOperations = Boolean(info.workspaceOperations);
       // Do not expose controls whose native transport is absent in older APKs.
-      $("#workspaceOverviewButton").hidden = !state.workspaceFeatures;
+      $("#workspaceOverviewButton").hidden = !state.workspaceFeatures || !state.admin;
       $("#moreGroupButton").hidden = !state.workspaceFeatures;
       if (!state.workspaceFeatures) {
         $("#historySearch").placeholder = "搜索对话标题和摘要";
@@ -4034,6 +4043,7 @@
         $("#currentAccountLabel").textContent = state.admin ? "管理员 · 跨设备登录" : "用户账号 · 切换登录";
         $("#adminSettingsButton").hidden = !state.admin;
         $("#customerDevicesButton").hidden = !state.admin;
+        $("#workspaceOverviewButton").hidden = !state.workspaceFeatures || !state.admin;
         $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
         hideActivation();
         bridge()?.requestCapabilities?.();
@@ -4061,6 +4071,7 @@
       applyPrincipalPolicy(payload.principal);
       $("#adminSettingsButton").hidden = !state.admin;
       $("#customerDevicesButton").hidden = !state.admin;
+      $("#workspaceOverviewButton").hidden = !state.workspaceFeatures || !state.admin;
       $("#codexAccountsButton").hidden = !state.admin && state.allowedCodexProfiles.length < 2;
       $("#inviteCode").value = "";
       hideActivation();
@@ -4195,7 +4206,7 @@
       state.active = mergeVisibleConversation(conversation);
       state.model = conversation.model || state.model;
       state.reasoning = conversation.reasoning || state.reasoning;
-      state.accessMode = conversation.accessMode || state.accessMode;
+      state.accessMode = state.admin ? "danger-full-access" : (conversation.accessMode || state.accessMode);
       state.draftModel = state.model;
       state.draftReasoning = state.reasoning;
       state.draftAccessMode = state.accessMode;
@@ -4410,7 +4421,7 @@
       state.active = mergeVisibleConversation(conversation);
       state.model = conversation.model;
       state.reasoning = conversation.reasoning;
-      state.accessMode = conversation.accessMode;
+      state.accessMode = state.admin ? "danger-full-access" : conversation.accessMode;
       state.draftModel = state.model;
       state.draftReasoning = state.reasoning;
       state.draftAccessMode = state.accessMode;
@@ -5456,7 +5467,7 @@
     draftSaveTimer = setTimeout(saveDraft, 250);
   });
   $("#messageInput").addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       sendMessage();
     }
