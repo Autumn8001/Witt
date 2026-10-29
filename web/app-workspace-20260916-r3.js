@@ -2084,10 +2084,21 @@
     $("#settingsSheet").setAttribute("aria-hidden", "false");
   }
 
+  function updateQuickModelMenuBounds() {
+    const menu = $("#quickModelMenu");
+    if (!menu?.classList.contains("open")) return;
+    const anchor = menu.offsetParent?.getBoundingClientRect();
+    const viewportTop = window.visualViewport?.offsetTop || 0;
+    if (anchor) menu.style.setProperty("--quick-menu-space", `${Math.max(80, Math.floor(anchor.top - viewportTop - 12))}px`);
+  }
+  window.addEventListener("resize", updateQuickModelMenuBounds);
+  window.visualViewport?.addEventListener("resize", updateQuickModelMenuBounds);
+
   function setQuickModelMenu(open) {
     const menu = $("#quickModelMenu");
     const expanded = Boolean(open);
     menu.classList.toggle("open", expanded);
+    if (expanded) updateQuickModelMenuBounds();
     menu.classList.remove("models-open");
     menu.setAttribute("aria-hidden", String(!expanded));
     $("#modelButton").setAttribute("aria-expanded", String(expanded));
@@ -3580,6 +3591,7 @@
     const menu = $("#attachmentMenu");
     const expanded = Boolean(open);
     menu.classList.toggle("open", expanded);
+    if (expanded) updateQuickModelMenuBounds();
     menu.setAttribute("aria-hidden", String(!expanded));
     $(".composer-wrap").classList.toggle("menu-open", expanded);
     $("#attachButton").setAttribute("aria-expanded", String(expanded));

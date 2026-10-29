@@ -129,3 +129,45 @@ body[data-product="chloe"] { --surface-solid: var(--surface, #fff); }
 #drawerAccountMenu :is(#customerDevicesButton,#runtimeSettingsButton)::before { display: none !important; content: none !important; }
 #drawerAccountMenu :is(#customerDevicesButton,#runtimeSettingsButton) { justify-content: flex-start !important; font-family: ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif !important; color: var(--sd-ink) !important; }
 #drawerAccountMenu :is(#customerDevicesButton,#runtimeSettingsButton) span { text-align: left; }
+/* A compact picker: model names and reasoning share the same type scale. */
+#quickModelMenu {
+  box-sizing: border-box; width: min(328px, calc(100vw - 24px));
+  max-height: min(480px, var(--quick-menu-space, calc(100dvh - 190px)));
+  padding: 10px; border-radius: 14px !important;
+  display: flex; flex-direction: column; gap: 0; overflow: hidden;
+  color: var(--sd-ink) !important; background: var(--sd-surface) !important;
+  border-color: var(--sd-line) !important; box-shadow: var(--sd-shadow) !important;
+  font: 400 14px/1.4 ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif;
+}
+#quickModelMenu button { box-sizing: border-box; font-family: inherit !important; font-size: 14px !important; line-height: 1.4; letter-spacing: 0; color: var(--sd-ink); }
+#quickModelExpand {
+  display: grid; grid-template-columns: minmax(0,1fr) 16px; gap: 3px 10px;
+  flex: none; padding: 8px 10px 10px; margin: 0; min-height: 52px;
+  border: 0; border-radius: 8px; background: transparent; text-align: left;
+}
+#quickModelExpand > span { color: var(--sd-muted); font-family: inherit !important; font-size: 12px !important; font-weight: 500 !important; letter-spacing: 0; }
+#quickModelCurrent { grid-column: 1; font-size: 14px; font-weight: 600; color: var(--sd-ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#quickModelExpand svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; color: var(--sd-muted); }
+#quickModelOptions, #quickModelMenu.models-open #quickModelOptions {
+  display: grid; flex: 1 1 auto; min-height: 40px; overflow-y: auto;
+  overscroll-behavior: contain; scrollbar-width: thin; margin: 0; gap: 2px;
+  padding: 2px; border-block: 1px solid var(--sd-line);
+}
+#quickModelOptions button, #quickReasoningOptions button {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; min-height: 38px; padding: 8px 10px; margin: 0;
+  font-weight: 400; text-align: left; border: 0; border-radius: 7px;
+  background: transparent; cursor: pointer;
+}
+#quickModelOptions button > span { min-width: 0; overflow-wrap: anywhere; }
+#quickModelOptions button.selected, #quickReasoningOptions button.selected { background: var(--sd-tint); color: var(--sd-accent); font-weight: 500; }
+#quickModelMenu button:hover { background: var(--sd-hover); }
+#quickModelMenu button:focus-visible { outline: 2px solid var(--sd-accent); outline-offset: -2px; }
+#quickModelMenu :is(.quick-model-options,.quick-reasoning-options) i { flex: 0 0 16px; font-size: 16px !important; font-style: normal; line-height: 1; font-weight: 500; color: currentColor; }
+#quickModelMenu .quick-picker-divider { display: none; }
+#quickModelMenu .quick-reasoning-heading { flex: none; margin: 10px 10px 4px; font-size: 12px; line-height: 1.4; font-weight: 500; color: var(--sd-muted); }
+#quickReasoningOptions { flex: none; display: grid; grid-template-columns: repeat(auto-fit,minmax(56px,1fr)); gap: 4px; }
+#quickReasoningOptions button { min-height: 36px; padding: 8px; justify-content: center; font-size: 13px !important; }
+#quickReasoningOptions button > span { font: inherit; }
+#quickReasoningOptions button i { display: none; }
+@media(max-width:600px) { #quickModelOptions button { min-height: 44px; } #quickReasoningOptions button { min-height: 44px; } }
