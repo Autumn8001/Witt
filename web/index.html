@@ -80,7 +80,7 @@
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
 <link href="/vault/witt-interface-20261008.css?v=4-usage-restored" rel="stylesheet"/>
-<link href="/vault/customer-devices.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261028-witt1" rel="stylesheet"/><link href="/vault/account-devices.css?v=20261028-account1" rel="stylesheet"/></head>
+<link href="/vault/customer-devices.css?v=20261029-sidebar1" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261029-sidebar1" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261029-sidebar1" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261029-sidebar1" rel="stylesheet"/><link href="/vault/account-devices.css?v=20261028-account1" rel="stylesheet"/></head>
 <body data-product="chloe">
 <div aria-hidden="true" class="app-atmosphere"><i></i><i></i><i></i></div>
 <div aria-label="Chloe 正在启动" class="boot-screen" id="bootScreen"><strong class="chloe-boot-word">Chloe</strong></div>
@@ -312,15 +312,16 @@
 <button aria-label="关闭设置" class="upgrade-backdrop" id="userSettingsBackdrop" type="button"></button>
 <div aria-labelledby="userSettingsTitle" aria-modal="true" class="drawer-tools user-settings-panel" role="dialog">
 <div class="drawer-account-head"><strong id="userSettingsTitle">设置</strong><button aria-label="关闭头像菜单" id="closeDrawerAccount" type="button">×</button></div>
-<div class="settings-user-identity"><span>W</span><div><strong>Chloe</strong><small>你的私人助手</small></div></div>
+<div class="settings-user-identity"><span>C</span><div><strong>Chloe</strong><small>你的私人助手</small></div></div>
 <section class="settings-block"><div class="settings-section-label">工作区</div> <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>›</span></button>
+<button aria-controls="customerDevicesSheet" class="workspace-entry drawer-admin-entry" id="customerDevicesButton" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><rect height="13" rx="2" width="18" x="3" y="4"></rect><path d="M8 21h8m-4-4v4"></path></svg><span><strong>远程协助</strong><small>连接客户授权的 Windows 工作区</small></span></button><button class="workspace-entry" id="runtimeSettingsButton" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"></path><circle cx="9" cy="7" r="3"></circle><circle cx="15" cy="17" r="3"></circle></svg><span><strong>模型与 Harness 设置</strong><small>模型、额度与运行方式</small></span></button>
 </section>
 <section class="settings-block">
 <div class="settings-section-label">账号与连接</div>
 <div class="drawer-utilities">
 <button class="drawer-profile" id="switchAccountButton" type="button"><span class="profile-monogram">C</span><span><strong>切换账号</strong><small id="currentAccountLabel">输入邀请码或管理员配对码</small></span></button>
 <button class="drawer-profile" id="profileButton">
-<span class="profile-monogram">W</span>
+<span class="profile-monogram">C</span>
 <span><strong>我的</strong><small>用量记录</small></span>
 <svg viewbox="0 0 24 24"><path d="m9 6 6 6-6 6"></path></svg>
 </button>
@@ -358,7 +359,7 @@
 <button id="updateButton">检查更新</button>
 </div>
 </div>
-<button aria-controls="customerDevicesSheet" class="workspace-entry drawer-admin-entry" id="customerDevicesButton" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><rect height="13" rx="2" width="18" x="3" y="4"></rect><path d="M8 21h8m-4-4v4"></path></svg><span><strong>远程协助</strong><small>连接客户授权的 Windows 工作区</small></span></button><button class="workspace-entry" id="runtimeSettingsButton" type="button">模型与 Harness 设置</button></aside>
+</aside>
 <aside aria-hidden="true" class="project-sheet" id="projectSheet">
 <div class="sheet-backdrop" id="projectBackdrop"></div>
 <div class="sheet-panel project-panel">
@@ -652,8 +653,8 @@
 <button class="workspace-refresh" id="refreshWorkspace">刷新状态</button>
 </section>
 </aside>
-<script src="/vault/browser-bridge.js?v=20261028-witt1"></script>
-<script src="/vault/profile-overview.js?v=20261028-witt1"></script><script src="/vault/customer-devices.js?v=20261028-witt1"></script><script src="/vault/remote-assist.js?v=20261028-witt1"></script><script src="/vault/app-workspace-20260916-r3.js?v=20261028-witt1"></script>
+<script src="/vault/browser-bridge.js?v=20261029-sidebar1"></script>
+<script src="/vault/profile-overview.js?v=20261029-sidebar1"></script><script src="/vault/customer-devices.js?v=20261029-sidebar1"></script><script src="/vault/remote-assist.js?v=20261029-sidebar1"></script><script src="/vault/app-workspace-20260916-r3.js?v=20261029-sidebar1"></script>
 <script src="/vault/sidebar-layout.js?v=20261008-2"></script>
 <script src="/vault/ui-upgrades.js?v=20261008-2"></script>
 </body>

@@ -112,3 +112,20 @@ body[data-product="chloe"] { --surface-solid: var(--surface, #fff); }
 :is(#customerDevicesSheet,#actionDetailSheet) :is(h2,h3,h4) { font-family: "Microsoft YaHei", "PingFang SC", ui-sans-serif, system-ui, sans-serif !important; color: var(--sd-ink) !important; }
 :is(#customerDevicesSheet,#actionDetailSheet) .eyebrow { color: var(--sd-muted) !important; }
 :is(#customerDevicesSheet,#actionDetailSheet) .icon-button { background: var(--sd-canvas) !important; color: var(--sd-ink) !important; }
+/* Settings is an overlay with one bounded panel, never a row of loose buttons. */
+#drawerAccountMenu { align-items: stretch; justify-content: flex-end; }
+#drawerAccountMenu .user-settings-panel { flex: 0 0 auto; width: min(420px, calc(100% - 24px)); min-width: 0; max-width: calc(100% - 24px); }
+#drawerAccountMenu .workspace-entry { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 48px; text-align: left; box-sizing: border-box; white-space: normal; }
+#drawerAccountMenu .workspace-entry > svg { width: 22px; height: 22px; flex: 0 0 22px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+#drawerAccountMenu .workspace-entry > span:has(strong) { flex: 1; min-width: 0; }
+#drawerAccountMenu .workspace-entry :is(strong,small) { display: block; white-space: normal; overflow-wrap: anywhere; }
+#drawerAccountMenu .workspace-entry small { font-size: 12px; color: var(--sd-muted); }
+#drawerAccountMenu .workspace-entry[hidden] { display: none !important; }
+#drawerAccountMenu #switchAccountButton { grid-template-columns: 34px minmax(0,1fr); }
+#drawerAccountMenu #currentAccountLabel { white-space: normal; }
+@media(max-width:699px) {
+  #drawerAccountMenu .user-settings-panel { margin: 12px; height: calc(100dvh - 24px); max-height: calc(100dvh - 24px); border-radius: 12px !important; padding-bottom: max(24px, env(safe-area-inset-bottom)) !important; }
+}
+#drawerAccountMenu :is(#customerDevicesButton,#runtimeSettingsButton)::before { display: none !important; content: none !important; }
+#drawerAccountMenu :is(#customerDevicesButton,#runtimeSettingsButton) { justify-content: flex-start !important; font-family: ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif !important; color: var(--sd-ink) !important; }
+#drawerAccountMenu :is(#customerDevicesButton,#runtimeSettingsButton) span { text-align: left; }
