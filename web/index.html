@@ -3,7 +3,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
-<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content" name="viewport"/>
 <meta content="#ffffff" id="themeColor" name="theme-color"/>
 <script>
     (() => {
@@ -79,8 +79,8 @@
 }
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
-<link href="/vault/witt-interface-20261008.css?v=4-usage-restored" rel="stylesheet"/>
-<link href="/vault/customer-devices.css?v=20261029-home1" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261029-home1" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261029-home1" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261029-home1" rel="stylesheet"/><link href="/vault/account-devices.css?v=20261028-account1" rel="stylesheet"/></head>
+<link href="/vault/witt-interface-20261008.css?v=ce690a3" rel="stylesheet"/>
+<link href="/vault/customer-devices.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/account-devices.css?v=20261028-account1" rel="stylesheet"/><link rel="stylesheet" href="/vault/conversation-entry.css?v=ce690a3"><link rel="stylesheet" href="/vault/provider-accounts.css?v=ce690a3"></head>
 <body data-product="chloe">
 <div aria-hidden="true" class="app-atmosphere"><i></i><i></i><i></i></div>
 <div aria-label="Chloe 正在启动" class="boot-screen" id="bootScreen"><strong class="chloe-boot-word">Chloe</strong></div>
@@ -185,18 +185,34 @@
 </section>
 </header>
 <main class="chat-stage" id="chatStage">
-<section class="welcome" id="welcome">
-<div aria-hidden="true" class="welcome-mark animate-blur-fade-up" style="animation-delay:100ms"><span>C</span><i></i><b>SERVER NATIVE</b></div>
-<span class="lumora-badge liquid-glass animate-blur-fade-up" style="animation-delay:160ms"><i></i>你的私人 Codex 已就绪</span>
-<h1 class="animate-blur-fade-up" style="animation-delay:220ms">有什么可以帮忙的？</h1>
-<p class="animate-blur-fade-up" style="animation-delay:280ms">在你的服务器上持续工作、调用工具、整理结果。上下文、文件和执行过程始终归你所有。</p>
-<div class="suggestions">
-<button data-prompt="我有一个新任务，先帮我梳理目标和下一步。"><span>01</span><b>开始新任务</b><small>从目标到交付，完整推进</small><i>↗</i></button>
-<button data-prompt="查看我接下来发送的文件，先分析内容，不要修改任何数据。"><span>02</span><b>分析文件</b><small>表格、图片与文档</small><i>↗</i></button>
-<button data-prompt="检查服务器当前状态，先告诉我是否有异常。"><span>03</span><b>检查服务器</b><small>服务、资源与异常</small><i>↗</i></button>
-</div>
-</section>
-<section aria-live="polite" class="task-status-strip" hidden="" id="taskStatusStrip"></section>
+<section class="welcome" id="welcome" aria-labelledby="entryTitle">
+        <div class="entry-sculpture" aria-hidden="true">
+          <svg viewBox="0 0 216 164" fill="none">
+            <defs>
+              <linearGradient id="chloeFoldA" x1="56" y1="35" x2="102" y2="128" gradientUnits="userSpaceOnUse"><stop stop-color="#f2dcff"/><stop offset=".5" stop-color="#ad82e8"/><stop offset="1" stop-color="#8156bd"/></linearGradient>
+              <linearGradient id="chloeFoldB" x1="102" y1="50" x2="140" y2="127" gradientUnits="userSpaceOnUse"><stop stop-color="#fff2df"/><stop offset=".6" stop-color="#f2b9bd"/><stop offset="1" stop-color="#d68ca9"/></linearGradient>
+              <linearGradient id="chloeFoldC" x1="170" y1="42" x2="119" y2="122" gradientUnits="userSpaceOnUse"><stop stop-color="#b5e3df"/><stop offset=".48" stop-color="#80b8cf"/><stop offset="1" stop-color="#5173b1"/></linearGradient>
+              <radialGradient id="chloeShadow"><stop stop-color="#6686bf" stop-opacity=".22"/><stop offset="1" stop-color="#6686bf" stop-opacity="0"/></radialGradient>
+            </defs>
+            <ellipse cx="108" cy="139" rx="72" ry="17" fill="url(#chloeShadow)"/>
+            <ellipse class="entry-orbit" cx="108" cy="85" rx="100" ry="57" transform="rotate(-18 108 85)" stroke="#bccbdf" stroke-opacity=".55" stroke-dasharray="2 6"/>
+            <path d="M151 48C129 28 88 31 70 53S52 105 74 123s57 16 78-3l-16-20c-13 11-33 13-45 2s-12-28-2-39 30-11 45 3Z" fill="url(#chloeFoldA)"/>
+            <path d="M91 63c11-10 29-10 43 3l17-18c-14-13-34-18-53-14Z" fill="url(#chloeFoldC)"/>
+            <circle cx="22" cy="99" r="3" fill="#90b8d9"/><circle cx="192" cy="63" r="4" fill="#9acdc7"/>
+            <path d="M159 17v10m-5-5h10" stroke="#98aecf" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="entry-hello">你的私人工作空间</div>
+        <h1 id="entryTitle">Hello, I&#39;m Chloe.</h1>
+        <p>今天，想把什么变成现实？<br>从一个想法开始，我们一起把它完成。</p>
+        <div class="suggestions" aria-label="选择一个起点">
+          <button type="button" data-prompt="我想做一个新作品，先和我一起梳理想法，再把它实现。"><span><svg viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg></span><b>做点新东西</b><small>把灵感写成代码，做成作品</small><i aria-hidden="true">↗</i></button>
+          <button type="button" data-prompt="帮我读懂接下来添加的文件，提炼重点，并整理成清晰的结论。"><span><svg viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8Z M14 3v5h5M8 12h8m-8 4h5"/></svg></span><b>读懂一份文件</b><small>理清内容，找到有用的答案</small><i aria-hidden="true">↗</i></button>
+          <button type="button" data-prompt="帮我排查一个问题。先根据我提供的现象定位原因，再给出解决办法。"><span><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M7.5 10.5h6m-3-3v6"/></svg></span><b>解决一个问题</b><small>一起排查，让事情顺利运转</small><i aria-hidden="true">↗</i></button>
+        </div>
+        <small class="entry-footnote">也可以直接输入，或添加文件开始</small>
+      </section>
+      <section aria-live="polite" class="task-status-strip" hidden="" id="taskStatusStrip"></section>
 <button class="history-load" hidden="" id="loadOlderMessages" type="button">加载更早消息</button>
 <section aria-live="polite" class="messages" id="messageList"></section>
 <div class="bottom-spacer"></div>
@@ -485,10 +501,10 @@
 <div class="sheet-panel codex-account-panel">
 <div class="sheet-handle"></div>
 <div class="sheet-head">
-<div><span class="eyebrow">CODEX ACCOUNTS</span><h2>账号与项目</h2></div>
+<div><span class="eyebrow">CODEX ACCOUNTS</span><h2>模型账号</h2></div>
 <button aria-label="关闭" class="icon-button" id="closeCodexAccounts"><svg viewbox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
 </div>
-<p class="codex-account-intro">每个账号的登录状态、会话与额度相互独立。</p>
+<p class="codex-account-intro">按当前可用的提供方管理模型账号；Chloe 的 Harness 和额度设置独立保留。</p>
 <div class="codex-account-list" id="codexAccountList">
 <article class="codex-account-card loading"><span class="codex-account-avatar"></span><div class="codex-account-identity"><strong>正在读取账号</strong><small>请稍候…</small></div></article>
 </div>
@@ -653,8 +669,8 @@
 <button class="workspace-refresh" id="refreshWorkspace">刷新状态</button>
 </section>
 </aside>
-<script src="/vault/browser-bridge.js?v=20261029-home1"></script>
-<script src="/vault/profile-overview.js?v=20261029-home1"></script><script src="/vault/customer-devices.js?v=20261029-home1"></script><script src="/vault/remote-assist.js?v=20261029-home1"></script><script src="/vault/app-workspace-20260916-r3.js?v=20261029-home1"></script>
+<script src="/vault/browser-bridge.js?v=20261029-ce690a3"></script>
+<script src="/vault/profile-overview.js?v=20261029-ce690a3"></script><script src="/vault/customer-devices.js?v=20261029-ce690a3"></script><script src="/vault/remote-assist.js?v=20261029-ce690a3"></script><script src="/vault/app-workspace-20260916-r3.js?v=20261029-ce690a3"></script>
 <script src="/vault/sidebar-layout.js?v=20261008-2"></script>
 <script src="/vault/ui-upgrades.js?v=20261008-2"></script>
 </body>

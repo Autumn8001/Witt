@@ -1,0 +1,29 @@
+#codexAccountList{display:block!important}
+.account-provider-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:5px;margin:0 0 22px;border:1px solid var(--line,#e0dde6);border-radius:16px;background:color-mix(in srgb,var(--surface,#f4f2f8) 85%,transparent)}
+.account-provider-tabs button{min-width:0;min-height:58px;padding:10px 7px;display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--muted,#857d91);font:inherit;cursor:pointer}
+.account-provider-tabs button.selected{border-color:#c7bbdf;background:var(--bg,#fff);color:var(--ink,#3b3050);box-shadow:0 3px 10px #32233e0c}
+.account-provider-tabs b{font-size:13px;font-weight:600}.account-provider-tabs small{font-size:10px;opacity:.65}
+.provider-icon{display:inline-grid;place-items:center;flex:none}.provider-icon svg{display:block;width:23px;height:23px}
+.provider-icon.gpt{color:#438475}.provider-icon.claude{color:#c67b55}.provider-icon.gemini{color:#577dd3}
+.account-provider-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 2px 12px}.account-provider-heading strong{font-size:14px}.account-provider-heading>span{font-size:11px;color:var(--muted,#8b8393)}
+.account-provider-panel{display:flex;flex-direction:column;gap:10px;min-height:112px}.account-provider-empty{font-size:13px;line-height:1.8;color:var(--muted,#8b8393)}
+#codexAccountSheet .provider-account-card{display:grid!important;grid-template-columns:40px minmax(0,1fr);gap:12px!important;padding:17px!important;border:1px solid var(--line,#e2dce9)!important;border-radius:16px!important;background:var(--surface,#fbfaff)!important}
+#codexAccountSheet .provider-account-card .codex-account-avatar{width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,currentColor 10%,transparent)!important;box-shadow:none!important;font-size:0}
+#codexAccountSheet .provider-account-card .codex-account-identity{min-width:0;align-self:center}#codexAccountSheet .provider-account-card strong{font-size:14px}#codexAccountSheet .provider-account-card small{overflow-wrap:anywhere;font-size:11px;line-height:1.6}
+#codexAccountSheet .provider-account-card .codex-account-actions{grid-column:2;justify-content:flex-start;flex-wrap:wrap;gap:8px}
+#codexAccountSheet .provider-account-card .codex-account-actions:empty{display:none}
+#codexAccountSheet .provider-account-card .codex-account-actions button{min-height:36px;padding:8px 12px!important;font-size:12px!important;border-radius:9px!important}
+.model-spark svg{display:block;width:16px;height:16px}.composer-model #modelLabel{max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-provider-tabs button:focus-visible{outline:2px solid #9276bb;outline-offset:2px}
+:root[data-theme="dark"] .provider-icon.gpt{color:#91cebb}:root[data-theme="dark"] .provider-icon.claude{color:#e2a885}:root[data-theme="dark"] .provider-icon.gemini{color:#9dbaff}
+@media(max-width:350px){.account-provider-tabs{gap:3px;padding:3px}.account-provider-tabs button{gap:4px;padding-inline:4px}.account-provider-tabs b{font-size:12px}.account-provider-tabs .provider-icon svg{width:19px;height:19px}.account-provider-tabs small{display:none}.composer-model #modelLabel{max-width:120px}}
+#codexAccountList[hidden]{display:none!important}
+#codexAccountSheet .codex-account-avatar.provider-icon.gpt{color:#438475!important;background:#e9f3ee!important}
+#codexAccountSheet .codex-account-avatar.provider-icon.claude{color:#c67b55!important;background:#fbede4!important}
+#codexAccountSheet .codex-account-avatar.provider-icon.gemini{color:#577dd3!important;background:#eaf0fc!important}
+:root[data-theme="dark"] #codexAccountSheet .codex-account-avatar.provider-icon.gpt{color:#91cebb!important;background:#284139!important}
+:root[data-theme="dark"] #codexAccountSheet .codex-account-avatar.provider-icon.claude{color:#e2a885!important;background:#49372b!important}
+:root[data-theme="dark"] #codexAccountSheet .codex-account-avatar.provider-icon.gemini{color:#9dbaff!important;background:#2c3957!important}
+
+#codexAccountList[hidden]{display:none!important}
+.account-provider-tabs{grid-template-columns:repeat(auto-fit,minmax(80px,1fr))}

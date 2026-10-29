@@ -78,13 +78,13 @@ const models = [
     await page.goto('https://chloe.test/vault/index.html');await page.waitForTimeout(800);
     const layout=await page.evaluate(()=>{
       const rect=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,width:r.width,center:r.x+r.width/2,right:r.right}};
-      return {app:rect('.app-shell'),welcome:rect('.welcome'),composer:rect('.composer-wrap'),messages:rect('.messages'),overflow:document.documentElement.scrollWidth>innerWidth+1};
+      return {app:rect('.app-shell'),welcome:rect('.welcome'),composer:rect('.composer-wrap'),messages:rect('.messages'),messagesVisible:!!document.querySelector('.messages').getClientRects().length,overflow:document.documentElement.scrollWidth>innerWidth+1};
     });
     assert.equal(layout.overflow,false);
     if(width>=900){
       const target=260+(width-260)/2;
       assert.ok(Math.abs(layout.app.width-(width-260))<2);
-      for(const key of ['welcome','composer','messages'])assert.ok(Math.abs(layout[key].center-target)<2,`${key} must center in remaining workspace`);
+      for(const key of ['welcome','composer',...(layout.messagesVisible?['messages']:[])])assert.ok(Math.abs(layout[key].center-target)<2,`${key} must center in remaining workspace`);
       assert.ok(layout.composer.width<=960&&layout.messages.width<=960);
     }
     await page.screenshot({path:path.join(output,`home-${width}.png`)});

@@ -50,6 +50,7 @@
     "boot-w.css",
     "ui-upgrades.css",
     "witt-features.css",
-    "settings-design.css"
+    "settings-design.css",
+    "message-artifacts.css"
   ]
 }

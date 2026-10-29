@@ -71,6 +71,7 @@
     cacheScope: "",
     cacheHydrated: false,
     codexAccounts: [],
+    accountCategory: ["gpt","claude","gemini"].includes(localStorage.getItem("witt_account_category")) ? localStorage.getItem("witt_account_category") : "gpt",
     codexLoginUrl: "",
     codexLoginProfile: "",
     codexLoginTimer: null,
@@ -94,6 +95,8 @@
     artifactDismissed: "",
     artifactSource: "",
     artifactSourceVersion: "",
+    artifactDownloads: new Map(),
+    supportsArtifactDownloadProgress: false,
     localSsh: { connected: false, connecting: false },
     localSshProfiles: [],
     localSshAdding: false,
@@ -104,6 +107,7 @@
     historyResults: null,
     historyRequest: 0,
     loadingOlder: false,
+    olderRequest: null,
     attachmentDrafts: new Map(),
     sendRequest: null,
   };
@@ -198,7 +202,7 @@
     const older = $("#loadOlderMessages");
     older.hidden = !state.workspaceFeatures || !state.active?.hasMore;
     older.disabled = state.loadingOlder;
-    older.textContent = state.loadingOlder ? "正在加载…" : `加载更早消息${Number.isFinite(state.active?.messageOffset) ? `（还有 ${state.active.messageOffset} 条）` : ""}`;
+    older.textContent = state.loadingOlder ? "正在加载…" : "下拉或点击加载更早消息";
   }
 
   function requestWorkspaceOverview() {
@@ -249,7 +253,48 @@
     if (!shell || !composer) return;
     const height = Math.ceil(composer.getBoundingClientRect().height);
     if (height > 0) shell.style.setProperty("--composer-inset", `${height}px`);
+    const stage = $("#chatStage");
+    const actions = $(".compact-nav-actions");
+    if (stage && actions) {
+      const rect = stage.getBoundingClientRect();
+      shell.style.setProperty("--history-top", `${Math.max(0, actions.getBoundingClientRect().bottom - rect.top)}px`);
+    }
   }
+
+  let composerViewportFrame = 0;
+  let keyboardBaseline = window.innerHeight;
+  let composerViewportWidth = window.innerWidth;
+  function syncConversationViewport() {
+    cancelAnimationFrame(composerViewportFrame);
+    composerViewportFrame = requestAnimationFrame(() => {
+      const viewport = window.visualViewport;
+      // Pinch zoom changes the visual viewport without opening the keyboard.
+      if (viewport && Math.abs(viewport.scale - 1) > 0.05) return;
+      const focused = document.activeElement?.matches("textarea,input,[contenteditable='true']");
+      const height = Math.round(viewport?.height || window.innerHeight);
+      const width = Math.round(viewport?.width || window.innerWidth);
+      const top = Math.round(viewport?.offsetTop || 0);
+      if (!focused || Math.abs(width - composerViewportWidth) > 40) keyboardBaseline = Math.max(height, window.innerHeight);
+      composerViewportWidth = width;
+      const inset = Math.max(window.innerHeight - height, keyboardBaseline - height);
+      const keyboard = Boolean(focused && inset > 100);
+      const shell = $(".app-shell");
+      shell.style.setProperty("--conversation-visible-height", `${height}px`);
+      shell.style.setProperty("--conversation-visible-top", `${top}px`);
+      shell.style.setProperty("--conversation-visible-width", `${width}px`);
+      shell.classList.toggle("conversation-keyboard", keyboard);
+      // A short viewport also needs compact composition in resize-only WebViews.
+      shell.classList.toggle("conversation-compact", keyboard || height < 590);
+      syncComposerInset();
+    });
+  }
+  window.visualViewport?.addEventListener("resize", syncConversationViewport);
+  window.visualViewport?.addEventListener("scroll", syncConversationViewport);
+  window.addEventListener("resize", syncConversationViewport);
+  window.addEventListener("orientationchange", () => { keyboardBaseline = 0; syncConversationViewport(); });
+  document.addEventListener("focusin", syncConversationViewport);
+  document.addEventListener("focusout", () => setTimeout(syncConversationViewport, 100));
+  syncConversationViewport();
 
   function watchComposerInset() {
     syncComposerInset();
@@ -257,6 +302,8 @@
     composerResizeObserver?.disconnect();
     composerResizeObserver = new ResizeObserver(syncComposerInset);
     composerResizeObserver.observe($(".composer-wrap"));
+    composerResizeObserver.observe($(".compact-nav"));
+    composerResizeObserver.observe($(".compact-nav-actions"));
   }
   function applyTheme(mode, persist = false) {
     const preference = mode === "dark" ? "dark"
@@ -401,7 +448,12 @@
   }
 
   function persistConversation(conversation = state.active) {
-    if (conversation?.id) cacheRecord(`conversation:${conversation.id}`, conversation);
+    if (conversation?.id) {
+      const messages = conversation.messages || [];
+      const start = Math.max(0, messages.findLastIndex((m) => m.role === "user" && !m.steeredInto));
+      cacheRecord(`conversation-tail:${conversation.id}`, { ...conversation,
+        messages: messages.slice(start), messageOffset: (conversation.messageOffset || 0) + start });
+    }
   }
 
   async function hydrateConversationCache() {
@@ -418,24 +470,7 @@
       state.conversations.some((item) => item.id === state.activeId)
       ? state.activeId
       : state.conversations[0]?.id;
-    if (preferredId) {
-      const cachedConversation = await readCachedRecord(`conversation:${preferredId}`);
-      if (cachedConversation?.id === preferredId) {
-        state.activeId = preferredId;
-        state.active = cachedConversation;
-        state.model = cachedConversation.model || state.model;
-        state.reasoning = cachedConversation.reasoning || state.reasoning;
-        state.accessMode = cachedConversation.accessMode || state.accessMode;
-        state.codexProfile = cachedConversation.codexProfile || state.codexProfile;
-        state.workDir = cachedConversation.workDir || "";
-        localStorage.setItem("wit_active_conversation", preferredId);
-        restoreDraft();
-        updateModelControls();
-        setConnected(true, "已载入本地记录 · 正在同步");
-        dismissBoot();
-        renderMessages();
-      }
-    }
+    if (preferredId) state.activeId = preferredId;
     state.cacheHydrated = true;
   }
 
@@ -1042,7 +1077,7 @@
     const actions = ["#forkConversationButton", "#compactConversationButton", "#reviewConversationButton"];
     actions.forEach((selector) => {
       const button = $(selector);
-      if (button) button.disabled = !state.activeId || state.busy || !state.active?.hasCodexContext;
+      if (button) button.disabled = !state.activeId || state.busy || !state.active?.hasCodexContext || capabilities?.support?.[selector.includes("fork") ? "fork" : selector.includes("compact") ? "compact" : "review"] === false;
     });
     if (!capabilities) {
       renderReasoningControl();
@@ -1060,7 +1095,7 @@
         const shortName = modelNames[model.id] || name;
         const glyph = shortName.slice(0, 1).toUpperCase() || "✦";
         const efforts = (model.reasoningEfforts || []).length;
-        const description = modelDescriptions[model.id] || "由 App Server 动态提供";
+        const description = model.description || modelDescriptions[model.id] || "由当前账号提供";
         const selectedClass = model.id === (state.draftModel || state.model) ? "selected" : "";
         const selected = Boolean(selectedClass);
         return `<button type="button" class="${selectedClass}" data-model="${escapeHtml(model.id)}" role="radio" aria-checked="${selected}"><span class="model-glyph ${escapeHtml(shortName.toLowerCase())}">${escapeHtml(glyph)}</span><span><strong>${escapeHtml(shortName)}</strong><small>${escapeHtml(description)}</small><em>${efforts || 4} 档智能程度</em></span><i></i></button>`;
@@ -1339,7 +1374,14 @@
     renderCapabilities();
   }
 
+  function accountPreference(id = state.codexProfile) {
+    try { const v=JSON.parse(localStorage.getItem(`witt_account_settings:${state.cacheScope||"device"}:${id}`)||"null");return typeof v?.model==="string" && typeof v?.reasoning==="string" ? v : null; } catch { return null; }
+  }
+  function saveAccountPreference(id = state.codexProfile) {
+    localStorage.setItem(`witt_account_settings:${state.cacheScope||"device"}:${id}`,JSON.stringify({model:state.model,reasoning:state.reasoning,accessMode:state.accessMode}));
+  }
   function persistModelPreference() {
+    saveAccountPreference();
     state.preferredModel = state.model;
     state.preferredReasoning = state.reasoning;
     state.preferredAccessMode = state.accessMode;
@@ -1961,31 +2003,31 @@
     return number || "·";
   }
 
+  const providerIcons = {"openai": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z\"/></svg>", "claude": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z\"/></svg>", "gemini": "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81\"/></svg>"};
+  const profileProvider = (id) => id === "claude" ? "claude" : id === "antigravity" ? "gemini" : "gpt";
   function renderCodexAccounts(accounts = []) {
     state.codexAccounts = accounts;
-    $("#codexAccountList").innerHTML = accounts.map((account) => {
-      if (account.provider === "claude") {
-        const detail = account.authenticated ? `${account.account?.email || "已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}` : "通过官方 Claude Code 登录";
-        return `<article class="codex-account-card additional"><span class="codex-account-avatar">C</span><div class="codex-account-identity"><strong>Claude</strong><small>${escapeHtml(detail)}</small></div><div class="codex-account-actions"><button class="login" data-login-claude>${account.authenticated ? "管理登录" : "登录账号"}</button></div></article>`;
-      }
-      const signedIn = Boolean(account.authenticated);
-      const canLogin = state.admin && account.id !== "default";
-      const detail = signedIn
-        ? `${account.account?.email || "已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}`
-        : "尚未登录";
-      const action = signedIn
-        ? `<div class="codex-account-actions">${canLogin
-          ? `<button class="relogin" data-login-codex="${escapeHtml(account.id)}">重新登录</button>` : ""}
-          <button class="new-chat" data-new-codex-chat="${escapeHtml(account.id)}">新建对话</button></div>`
-        : canLogin
-          ? `<div class="codex-account-actions"><button class="login" data-login-codex="${escapeHtml(account.id)}">登录账号</button></div>`
-          : "";
-      return `<article class="codex-account-card ${account.id === "default" ? "primary" : "additional"}">
-        <span class="codex-account-avatar">${escapeHtml(codexAccountAvatar(account.id))}</span>
-        <div class="codex-account-identity"><strong>${escapeHtml(account.label || account.id)}</strong><small>${escapeHtml(detail)}</small></div>
-        ${action}
-      </article>`;
-    }).join("") || `<article class="codex-account-card"><span class="codex-account-avatar">!</span><div class="codex-account-identity"><strong>暂无账号信息</strong><small>请稍后重试</small></div></article>`;
+    const category = account => account.provider === "claude" ? "claude" : account.provider === "antigravity" ? "gemini" : "gpt";
+    const groups = ["gpt","claude","gemini"].filter(kind => accounts.some(account => category(account) === kind));
+    if (!groups.length) groups.push("gpt");
+    if(!groups.includes(state.accountCategory)) state.accountCategory="gpt";
+    const names={gpt:"GPT",claude:"Claude",gemini:"Gemini"};
+    const icon = name => providerIcons[name === "gpt" ? "openai" : name];
+    const cards = accounts.filter(account => category(account) === state.accountCategory).map(account => {
+      const kind=category(account),signedIn=Boolean(account.authenticated);
+      const detail=signedIn ? `${account.account?.email||"已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}`
+        : kind === "gemini" ? "通过官方 Antigravity CLI 登录" : kind === "claude" ? "通过官方 Claude Code 登录" : "尚未登录";
+      const canLogin=state.admin && account.id!=="default";
+      const loginAttr=kind === "gpt" ? `data-login-codex="${escapeHtml(account.id)}"` : `data-login-provider="${escapeHtml(account.provider)}"`;
+      const actions=`${canLogin ? `<button class="${signedIn ? "relogin":"login"}" ${loginAttr}>${signedIn ? (kind === "gpt" ? "重新登录":"管理登录") : "登录账号"}</button>` : ""}
+        ${signedIn ? `<button class="new-chat" data-new-codex-chat="${escapeHtml(account.id)}">使用此账号</button>` : ""}`;
+      return `<article class="codex-account-card provider-account-card ${account.id === "default" ? "primary":"additional"}" data-account-provider="${kind}">
+        <span class="codex-account-avatar provider-icon ${kind}">${icon(kind)}</span>
+        <div class="codex-account-identity"><strong>${escapeHtml(account.label||account.id)}</strong><small>${escapeHtml(detail)}</small></div>
+        <div class="codex-account-actions">${actions}</div></article>`;
+    }).join("");
+    $("#codexAccountList").innerHTML=`<div class="account-provider-tabs" role="tablist" aria-label="账号类型">${groups.map(kind=>`<button type="button" role="tab" aria-selected="${state.accountCategory===kind}" aria-controls="accountProviderPanel" data-account-category="${kind}" class="${state.accountCategory===kind ? "selected":""}"><span class="provider-icon ${kind}">${icon(kind)}</span><b>${names[kind]}</b><small>${accounts.filter(a=>category(a)===kind).length}</small></button>`).join("")}</div>
+      <section class="account-provider-panel" id="accountProviderPanel" role="tabpanel" aria-label="${names[state.accountCategory]} 账号"><div class="account-provider-heading"><strong>${names[state.accountCategory]} 账号</strong><span>${state.accountCategory === "gpt" ? "Codex CLI" : state.accountCategory === "claude" ? "Claude Code" : "Antigravity CLI"}</span></div>${cards||'<p class="account-provider-empty">暂时无法读取账号信息，请稍后重新打开。</p>'}</section>`;
   }
 
   function setCodexLoginFlow(open) {
@@ -2070,7 +2112,15 @@
     bridge().consumeRateLimitReset(state.activeId || "");
   }
 
+  let providerCapabilitiesRequestedAt = 0;
+  function refreshProviderCapabilities() {
+    if (!["claude", "antigravity"].includes(state.codexProfile) || Date.now() - providerCapabilitiesRequestedAt < 30000) return;
+    providerCapabilitiesRequestedAt = Date.now();
+    bridge()?.requestCapabilities?.();
+  }
+
   function openSettings() {
+    refreshProviderCapabilities();
     if (state.busy) {
       toast("当前任务完成后再切换设置");
       return;
@@ -2514,14 +2564,14 @@
     return new URL(`/vault-api/chat-images/${encodeURIComponent(id)}`, window.location.origin).toString();
   }
 
-  function artifactUrl(messageId, artifact, preview = false) {
+  function artifactUrl(messageId, artifact, preview = false, conversationId = state.activeId) {
     if (preview) {
       const previewToken = String(artifact?.previewToken || "");
       if (!/^[A-Za-z0-9_-]{32,128}$/.test(previewToken)) return "";
       return new URL(`/vault-api/chat/artifact-previews/${encodeURIComponent(previewToken)}`,
         window.location.origin).toString();
     }
-    const conversationId = String(state.activeId || "");
+    conversationId = String(conversationId || "");
     const artifactId = String(artifact?.id || "");
     if (!/^[a-f0-9-]{36}$/.test(conversationId) ||
         !/^[a-f0-9-]{36}$/.test(String(messageId || "")) ||
@@ -2542,7 +2592,7 @@
 
   function isPreviewableArtifact(artifact) {
     const name = String(artifact?.name || "").toLowerCase();
-    return /\.(html?|htm)$/.test(name) && Number(artifact?.size || 0) <= 5 * 1024 * 1024;
+    return /\.(txt|md|markdown|csv|tsv|json|jsonl|js|mjs|cjs|ts|tsx|jsx|py|java|kt|dart|css|scss|html?|xml|svg|yaml|yml|log|sh|bash|sql|c|h|cpp|hpp|rs|go|rb|php|swift|toml|ini|conf|vue|svelte)$/.test(name) && Number(artifact?.size || 0) <= 5 * 1024 * 1024;
   }
 
   function artifactGroups() {
@@ -2566,9 +2616,9 @@
         group.updatedAt = message.completedAt || message.createdAt || group.updatedAt;
         group.running = message.status === "running" && Boolean(message.livePreview?.live);
         groups.set(key, group);
-        continue;
       }
       for (const artifact of (message.artifacts || []).filter(isPreviewableArtifact)) {
+        if (versions.length && versions.some((version) => version.name === artifact.name)) continue;
         const key = `delivery:${message.id}:${artifact.id}`;
         groups.set(key, {
           key, name: artifact.name || "Artifact",
@@ -2590,20 +2640,124 @@
   }
 
   function artifactPreviewHtml(message) {
-    const live = isPreviewableArtifact(message.livePreview) ? message.livePreview : null;
     const versions = (message.previewVersions || []).filter(isPreviewableArtifact);
-    const delivered = (message.artifacts || []).filter(isPreviewableArtifact);
-    const artifact = live || versions.at(-1) || delivered.at(-1);
-    if (!artifact) return "";
-    const name = String(artifact.name || "交互页面");
-    const key = String(artifact.artifactKey ||
-      (versions.length ? message.id : `delivery:${message.id}:${artifact.id}`));
-    const revisions = Math.max(1, versions.length || Number(artifact.revision || 1));
-    return `<button type="button" class="artifact-handoff" data-open-artifact="${escapeHtml(key)}">
-      <span class="artifact-handoff-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5m-5 3h5"/></svg></span>
-      <span class="artifact-handoff-copy"><small>ARTIFACT</small><strong>${escapeHtml(name)}</strong><em>${message.status === "running" ? "正在更新" : `${revisions} 个版本`}</em></span>
-      <span class="artifact-handoff-open">打开<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>
-    </button>`;
+    const live = isPreviewableArtifact(message.livePreview) ? message.livePreview : versions.at(-1);
+    const files = (message.artifacts || []).map((artifact) => ({ artifact, live: false }));
+    if (live && !files.some((file) => file.artifact.name === live.name)) files.push({ artifact: live, live: true });
+    if (!files.length) return "";
+    return `<div class="message-artifacts" aria-label="本轮文件">${files.map((file) => {
+      const artifact = file.artifact;
+      const previewable = isPreviewableArtifact(artifact);
+      const useVersions = previewable && versions.some((version) => version.name === artifact.name);
+      const key = useVersions || file.live
+        ? String(message.livePreview?.artifactKey || versions.at(-1)?.artifactKey || message.id)
+        : `delivery:${message.id}:${artifact.id}`;
+      const name = escapeHtml(artifact.name || "文件");
+      const description = [extension(artifact.name), formatBytes(artifact.size),
+        file.live && message.status === "running" ? "正在更新" : previewable ? "点击预览" : "可下载文件"].join(" · ");
+      const content = `<span class="message-artifact-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6"/></svg></span>
+        <span class="message-artifact-copy"><strong>${name}</strong><small data-download-caption data-file-caption="${escapeHtml(description)}">${escapeHtml(description)}</small></span>
+        ${previewable ? '<svg class="message-artifact-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>' : ""}`;
+      return `<article class="message-artifact${previewable ? " previewable" : ""}" data-download-key="${escapeHtml(artifactDownloadKey(state.activeId, message.id, artifact.id))}">
+        ${previewable ? `<button type="button" class="message-artifact-main" data-open-artifact="${escapeHtml(key)}" aria-label="预览 ${name}">${content}</button>` : `<div class="message-artifact-main">${content}</div>`}
+        <button type="button" class="message-artifact-download" data-download-artifact="${escapeHtml(artifact.id)}" data-message="${escapeHtml(message.id)}" aria-label="下载 ${name}" title="下载文件"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></svg><span>下载</span></button>
+      </article>`;
+    }).join("")}</div>`;
+  }
+
+  function artifactDownloadKey(conversationId, messageId, artifactId) {
+    return [conversationId, messageId, artifactId].join(":");
+  }
+
+  function applyArtifactDownload(key, transfer) {
+    for (const card of document.querySelectorAll(`.message-artifact[data-download-key="${CSS.escape(key)}"]`)) {
+      const busy = ["starting", "downloading", "saving"].includes(transfer.status);
+      const total = Number(transfer.total) || 0;
+      const loaded = Math.max(0, Number(transfer.loaded) || 0);
+      const percent = transfer.status === "completed" ? 100
+        : total ? Math.min(99, Math.floor(loaded * 100 / total)) : 0;
+      card.style.setProperty("--download-progress", `${percent}%`);
+      card.dataset.downloadState = transfer.status;
+      card.classList.toggle("download-indeterminate", busy && !total);
+      card.setAttribute("aria-busy", String(busy));
+      const caption = card.querySelector("[data-download-caption]");
+      const button = card.querySelector(".message-artifact-download");
+      const name = card.querySelector("strong")?.textContent || "文件";
+      let label = "";
+      if (transfer.status === "completed") label = `下载完成 · ${formatBytes(loaded || total)}`;
+      else if (transfer.status === "failed") label = "下载失败 · 点击右侧重试";
+      else if (transfer.status === "external") label = "系统下载中 · 更新客户端可显示进度";
+      else if (transfer.status === "starting") label = "正在准备下载…";
+      else if (transfer.status === "saving") label = "文件已接收，正在保存…";
+      else label = total ? `正在下载 ${percent}% · ${formatBytes(loaded)} / ${formatBytes(total)}`
+        : `正在下载 · 已接收 ${formatBytes(loaded)}`;
+      if (caption) { caption.textContent = label; caption.title = transfer.error || label; }
+      card.setAttribute("aria-label", `${name}，${label}`);
+      if (button) {
+        button.disabled = busy;
+        button.setAttribute("aria-label", busy ? `${name} 正在下载` : `${transfer.status === "failed" ? "重试下载" : "下载"} ${name}`);
+        button.title = busy ? label : transfer.status === "failed" ? "重试下载" : "下载文件";
+        const text = button.querySelector("span");
+        if (text) text.textContent = transfer.status === "failed" ? "重试" : transfer.status === "completed" ? "再次下载" : "下载";
+      }
+    }
+  }
+
+  function onArtifactDownloadProgress(value) {
+    let progress;
+    try { progress = typeof value === "string" ? JSON.parse(value) : value; } catch { return; }
+    if (!progress || ![progress.conversationId, progress.messageId, progress.artifactId]
+      .every((id) => /^[a-f0-9-]{36}$/.test(String(id || "")))) return;
+    if (!["starting", "downloading", "saving", "completed", "failed", "external"].includes(progress.status)) return;
+    const key = artifactDownloadKey(progress.conversationId, progress.messageId, progress.artifactId);
+    const previous = state.artifactDownloads.get(key) || {};
+    const transfer = { ...previous, ...progress,
+      loaded: Math.max(0, Number(progress.loaded) || 0),
+      total: Math.max(0, Number(progress.total) || Number(previous.total) || 0),
+    };
+    state.artifactDownloads.set(key, transfer);
+    applyArtifactDownload(key, transfer);
+  }
+
+  async function downloadMessageArtifact(messageId, artifact, conversationId = state.activeId) {
+    const key = artifactDownloadKey(conversationId, messageId, artifact.id);
+    if (["starting", "downloading", "saving"].includes(state.artifactDownloads.get(key)?.status)) return;
+    const progress = (status, loaded = 0, total = artifact.size, error = "") =>
+      onArtifactDownloadProgress({ conversationId, messageId, artifactId: artifact.id, status, loaded, total, error });
+    progress("starting");
+    try {
+      const delivered = !artifact.artifactKey || (state.active?.messages || [])
+        .find((message) => message.id === messageId)?.artifacts?.some((item) => item.id === artifact.id);
+      if (delivered && typeof bridge()?.downloadArtifact === "function") {
+        bridge().downloadArtifact(conversationId, messageId, artifact.id, artifact.name, artifact.mimeType || "");
+        if (!state.supportsArtifactDownloadProgress) progress("external");
+        return;
+      }
+      const sourceUrl = delivered ? artifactUrl(messageId, artifact, false, conversationId) : artifactSourceUrl(artifact);
+      if (!sourceUrl) throw new Error("文件链接不可用，请刷新对话");
+      const response = await fetch(sourceUrl, { credentials: delivered ? "same-origin" : "omit", cache: "no-store" });
+      if (!response.ok) throw new Error(`下载失败（${response.status}）`);
+      const total = Number(response.headers.get("Content-Length")) || Number(artifact.size) || 0;
+      const chunks = []; let loaded = 0;
+      if (response.body) {
+        const reader = response.body.getReader();
+        for (;;) {
+          const result = await reader.read();
+          if (result.done) break;
+          chunks.push(result.value); loaded += result.value.byteLength;
+          progress("downloading", loaded, total);
+        }
+      } else { const bytes = await response.arrayBuffer(); chunks.push(bytes); loaded = bytes.byteLength; }
+      progress("saving", loaded, total);
+      const url = URL.createObjectURL(new Blob(chunks, { type: artifact.mimeType || "application/octet-stream" }));
+      downloadArtifactUrl(url, artifact.name);
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      progress("completed", loaded, total || loaded);
+    } catch (error) {
+      const previous = state.artifactDownloads.get(key);
+      progress("failed", previous?.loaded || 0, previous?.total || artifact.size, error.message || "下载失败");
+      throw error;
+    }
   }
 
   function setArtifactMode(mode) {
@@ -2663,7 +2817,8 @@
     }
     const version = group.versions[state.artifactVersionIndex];
     if (!version) return;
-    $("#artifactTitle").textContent = group.name.replace(/\.html?$/i, "");
+    $("#artifactTitle").textContent = group.name;
+    $("#artifactCodeTab").textContent = /\.html?$/i.test(group.name) ? "代码" : "原文";
     $("#artifactVersionLabel").textContent = `${state.artifactVersionIndex + 1} / ${group.versions.length}`;
     $("#artifactPreviousVersion").disabled = state.artifactVersionIndex <= 0;
     $("#artifactNextVersion").disabled = state.artifactVersionIndex >= group.versions.length - 1;
@@ -2697,7 +2852,8 @@
     state.artifactVersionIndex = group.versions.length - 1;
     state.artifactFollowLatest = true;
     state.artifactDismissed = "";
-    renderArtifactWorkspace();
+    state.artifactMode = "preview";
+    setArtifactMode("preview");
   }
 
   function closeArtifact() {
@@ -3193,8 +3349,8 @@
     return `<div class="assistant-body">
       ${["completed", "failed", "interrupted"].includes(message.status)
         ? completedMessageHtml(message) : streamHtml(message)}
-      ${artifactPreviewHtml(message)}
       ${deliveredImages ? `<div class="message-image-gallery">${deliveredImages}</div>` : ""}
+      ${artifactPreviewHtml(message)}
       <time>${formatDate(message.createdAt)}</time>
     </div>`;
   }
@@ -3219,7 +3375,7 @@
     const stage = $("#chatStage");
     const previous = stage.style.scrollBehavior;
     stage.style.scrollBehavior = "auto";
-    stage.scrollTop = stage.scrollHeight;
+    stage.scrollTop = $("#welcome").hidden ? stage.scrollHeight : 0;
     requestAnimationFrame(() => { stage.style.scrollBehavior = previous; });
   }
 
@@ -3429,6 +3585,7 @@
   }
 
   function renderMessages(keepPosition = false) {
+    renderDeliveries();
     const list = $("#messageList");
     const scrollAnchor = keepPosition ? captureMessageScrollAnchor() : null;
     const renderEpoch = ++messageRenderEpoch;
@@ -3442,6 +3599,7 @@
     // Split an active assistant turn at each steering boundary so new output appears
     // below the user's guidance instead of making that guidance trail the whole turn.
     const steeringByAssistant = new Map();
+    const loadedAssistantIds = new Set(messages.filter((m) => m.role === "assistant").map((m) => m.id));
     messages.forEach((message) => {
       if (!message.steeredInto) return;
       const steering = steeringByAssistant.get(message.steeredInto) || [];
@@ -3450,7 +3608,7 @@
     });
     const orderedMessages = [];
     messages.forEach((message) => {
-      if (message.steeredInto) return;
+      if (message.steeredInto && loadedAssistantIds.has(message.steeredInto)) return;
       const steers = steeringByAssistant.get(message.id) || [];
       orderedMessages.push(...(
         message.role === "assistant"
@@ -3459,6 +3617,8 @@
       ));
     });
     $("#welcome").hidden = orderedMessages.length > 0;
+    $("#chatStage").classList.toggle("empty-conversation", orderedMessages.length === 0);
+    if (!orderedMessages.length) $("#chatStage").scrollTop = 0;
     $("#chatTitle").textContent = state.active?.title || "Chloe";
     const liveIds = new Set(orderedMessages.map((message) => message.id));
     let changed = false;
@@ -3506,8 +3666,8 @@
     renderApprovalDock();
     setBusy(busy);
     renderTaskStatus();
-    renderDeliveries();
     renderArtifactWorkspace({ autoOpen: true });
+    for (const [key, transfer] of state.artifactDownloads) applyArtifactDownload(key, transfer);
     clearTimeout(pollTimer);
     if (!state.supportsSse && busy && state.activeId && state.appVisible) {
       pollTimer = setTimeout(requestActiveConversationSync, 1200);
@@ -3609,11 +3769,12 @@
       state.artifactDismissed = "";
     }
     state.activeId = id;
-    if (!reopeningCurrent) {
+    {
       state.active = null;
       state.optimisticMessage = null;
       state.loadingOlder = false;
-      restoreDraft();
+      state.olderRequest = null;
+      if (!reopeningCurrent) restoreDraft();
       renderMessages();
     }
     latestPinned = true;
@@ -3623,23 +3784,30 @@
     renderConversations();
     setConnected(true, "读取对话中");
     if (reopeningCurrent) scrollOpenedConversationToLatest(id);
-    bridge()?.requestConversation?.(id);
     if (state.supportsSse && state.appVisible) {
       bridge()?.subscribeConversationEvents?.(id);
+    } else bridge()?.requestConversation?.(id);
+  }
+
+  function mergeVisibleConversation(conversation) {
+    if (!conversation) return conversation;
+    const current = state.active;
+    if (current?.id === conversation.id && Number.isInteger(conversation.messageOffset) &&
+        Number.isInteger(current.messageOffset) && conversation.messageOffset >= current.messageOffset) {
+      const prefixLength = conversation.messageOffset - current.messageOffset;
+      if (prefixLength <= current.messages.length) {
+        return { ...conversation, messages: [...current.messages.slice(0, prefixLength), ...conversation.messages],
+          messageOffset: current.messageOffset, hasMore: current.messageOffset > 0,
+          historyBefore: current.historyBefore || conversation.historyBefore };
+      }
     }
+    return conversation;
   }
 
   function applyConversation(conversation) {
     if (!conversation || conversation.id !== state.activeId) return;
     const wasBusy = state.busy;
-    // Keep explicitly loaded older pages when a fresh SSE tail arrives.
-    if (state.active?.id === conversation.id && Number.isInteger(conversation.messageOffset) &&
-        Number.isInteger(state.active.messageOffset) && conversation.messageOffset > state.active.messageOffset) {
-      const prefixLength = conversation.messageOffset - state.active.messageOffset;
-      if (prefixLength <= state.active.messages.length) {
-        conversation = { ...conversation, messages: [...state.active.messages.slice(0, prefixLength), ...conversation.messages], messageOffset: state.active.messageOffset, hasMore: state.active.messageOffset > 0 };
-      }
-    }
+    conversation = mergeVisibleConversation(conversation);
     state.active = conversation;
     state.model = conversation.model || state.model;
     state.reasoning = conversation.reasoning || state.reasoning;
@@ -3823,6 +3991,7 @@
       document.body.classList.add("native");
       const version = String(info.version || window.DropVaultAndroid?.getVersion?.() || "");
       state.nativeVersion = version;
+      state.supportsArtifactDownloadProgress = Boolean(info.artifactDownloadProgress);
       state.workspaceFeatures = Boolean(info.workspaceFeatures);
       state.sendRequestIds = Boolean(info.sendRequestIds);
       state.workspaceOperations = Boolean(info.workspaceOperations);
@@ -3931,11 +4100,6 @@
       if (state.activeId && state.conversations.some((item) => item.id === state.activeId)) {
         if (!state.active || state.active.id !== state.activeId) {
           selectConversation(state.activeId);
-        } else {
-          bridge()?.requestConversation?.(state.activeId);
-          if (state.supportsSse && state.appVisible) {
-            bridge()?.subscribeConversationEvents?.(state.activeId);
-          }
         }
       } else if (state.conversations.length) {
         selectConversation(state.conversations[0].id);
@@ -4023,6 +4187,8 @@
       toast(operation === "upload" ? "文件已上传" : "文件已保存");
     },
     onConversationCreated(json) {
+      state.loadingOlder = false;
+      state.olderRequest = null;
       const conversation = JSON.parse(json).conversation;
       const previousDraftKey = draftKey();
       state.activeId = conversation.id;
@@ -4031,7 +4197,7 @@
         try { localStorage.removeItem(previousDraftKey); } catch {}
         state.attachmentDrafts.delete(previousDraftKey);
       }
-      state.active = conversation;
+      state.active = mergeVisibleConversation(conversation);
       state.model = conversation.model || state.model;
       state.reasoning = conversation.reasoning || state.reasoning;
       state.accessMode = conversation.accessMode || state.accessMode;
@@ -4042,7 +4208,7 @@
       state.workDir = conversation.workDir || "";
       updateModelControls();
       localStorage.setItem("wit_active_conversation", conversation.id);
-      persistConversation(conversation);
+      persistConversation(state.active);
       if (state.supportsSse && state.appVisible) {
         bridge()?.subscribeConversationEvents?.(conversation.id);
       }
@@ -4059,13 +4225,15 @@
       }
     },
     onConversationForked(json) {
+      state.loadingOlder = false;
+      state.olderRequest = null;
       const conversation = JSON.parse(json).conversation;
       saveDraft();
       state.activeId = conversation.id;
       restoreDraft();
-      state.active = conversation;
+      state.active = mergeVisibleConversation(conversation);
       localStorage.setItem("wit_active_conversation", conversation.id);
-      persistConversation(conversation);
+      persistConversation(state.active);
       if (state.supportsSse && state.appVisible) {
         bridge()?.subscribeConversationEvents?.(conversation.id);
       }
@@ -4077,8 +4245,8 @@
     onConversationCompacted(json) {
       const conversation = JSON.parse(json).conversation;
       if (conversation?.id === state.activeId) {
-        state.active = conversation;
-        persistConversation(conversation);
+        state.active = mergeVisibleConversation(conversation);
+        persistConversation(state.active);
       }
       closeSettings();
       toast("已开始压缩上下文");
@@ -4086,8 +4254,8 @@
     onReviewStarted(json) {
       const conversation = JSON.parse(json).conversation;
       if (conversation?.id === state.activeId) {
-        state.active = conversation;
-        persistConversation(conversation);
+        state.active = mergeVisibleConversation(conversation);
+        persistConversation(state.active);
         renderMessages(true);
       }
       closeSettings();
@@ -4126,16 +4294,24 @@
     },
     onConversationPage(json) {
       const page = JSON.parse(json).conversation;
-      state.loadingOlder = false;
       if (!page || page.id !== state.activeId || !state.active) return;
+      state.loadingOlder = false;
       const currentOffset = Number(state.active.messageOffset || 0);
       const pageOffset = Number(page.messageOffset);
-      if (!Number.isInteger(pageOffset) || pageOffset >= currentOffset) { renderTaskStatus(); return; }
-      const prefix = page.messages.slice(0, currentOffset - pageOffset);
-      if (prefix.length !== currentOffset - pageOffset) { toast("历史消息已变化，请重新打开对话"); renderTaskStatus(); return; }
-      state.active = { ...state.active, messageOffset: pageOffset, hasMore: pageOffset > 0, messages: [...prefix, ...state.active.messages] };
+      if (!Number.isInteger(pageOffset) || pageOffset > currentOffset ||
+          (page.pageEnd ?? pageOffset + page.messages.length) !== currentOffset || page.messages.length !== currentOffset - pageOffset) {
+        toast("历史消息已变化，请重新打开对话"); renderTaskStatus(); return;
+      }
+      const anchor = captureMessageScrollAnchor();
+      anchor.stickToLatest = false;
+      state.active = { ...state.active, messageOffset: pageOffset, hasMore: pageOffset > 0,
+        historyBefore: page.historyBefore, messages: [...page.messages, ...state.active.messages] };
       persistConversation();
       renderMessages(true);
+      const epoch = messageRenderEpoch;
+      requestAnimationFrame(() => requestAnimationFrame(() => restoreMessageScrollAnchor(anchor, epoch)));
+      if (!page.messages.length) toast("没有更多消息");
+      else if (!page.hasMore) toast("已加载全部历史记录");
     },
     onConversationPageError(message) { state.loadingOlder = false; renderTaskStatus(); toast(message || "加载历史失败，请重试"); },
     onHistorySearch(json) {
@@ -4169,8 +4345,8 @@
     onConversationInterruptRequested(json) {
       const conversation = JSON.parse(json).conversation;
       if (conversation?.id === state.activeId) {
-        state.active = conversation;
-        persistConversation(conversation);
+        state.active = mergeVisibleConversation(conversation);
+        persistConversation(state.active);
       }
       state.pausing = true;
       renderMessages(true);
@@ -4186,7 +4362,7 @@
         '[data-approval-card].submitting[data-approval-type="user_input"]'));
       const payload = JSON.parse(json);
       if (payload.conversation?.id === state.activeId) {
-        state.active = payload.conversation;
+        state.active = mergeVisibleConversation(payload.conversation);
         persistConversation();
         renderMessages(true);
       }
@@ -4206,7 +4382,7 @@
       if (payload.clientRequestId && payload.clientRequestId !== state.sendRequest?.id) return;
       const conversation = payload.conversation;
       if (conversation?.id !== state.activeId) { state.transmitting = false; bridge()?.requestConversations?.(); return; }
-      state.active = conversation;
+      state.active = mergeVisibleConversation(conversation);
       persistConversation(state.active);
       state.transmitting = false;
       state.optimisticMessage = null;
@@ -4235,7 +4411,7 @@
     onSettingsUpdated(json) {
       const conversation = JSON.parse(json).conversation;
       if (conversation?.id !== state.activeId) return;
-      state.active = conversation;
+      state.active = mergeVisibleConversation(conversation);
       state.model = conversation.model;
       state.reasoning = conversation.reasoning;
       state.accessMode = conversation.accessMode;
@@ -4244,20 +4420,20 @@
       state.draftAccessMode = state.accessMode;
       state.codexProfile = conversation.codexProfile || "default";
       state.workDir = conversation.workDir || "";
-      persistConversation(conversation);
+      persistConversation(state.active);
       persistModelPreference();
       localStorage.setItem("wit_codex_profile", state.codexProfile);
       updateModelControls();
       closeSettings();
-      toast(`设置已更新 · ${modelNames[state.model]} · ${reasoningNames[state.reasoning]}`);
+      toast(`设置已更新 · ${modelDisplayName(state.model)} · ${reasoningNames[state.reasoning]}`);
       bridge()?.requestConversations?.();
     },
     onConversationProjectUpdated(json) {
       const conversation = JSON.parse(json).conversation;
       if (conversation.id !== state.activeId) return;
-      state.active = conversation;
+      state.active = mergeVisibleConversation(conversation);
       state.workDir = conversation.workDir || "";
-      persistConversation(conversation);
+      persistConversation(state.active);
       updateModelControls();
       closeProject();
       toast(`已切换到${projectName(state.workDir)}`);
@@ -4365,6 +4541,7 @@
       renderMessages(true);
       toast(message || "暂时无法连接服务器");
     },
+    onArtifactDownloadProgress,
     onFilesPicked(json) {
       JSON.parse(json).forEach((file) => state.attachments.set(file.id, { ...file, progress: 0 }));
       renderAttachments();
@@ -4491,27 +4668,26 @@
   function beginNewConversation(codexProfile = null) {
     if (state.transmitting) { toast("消息正在送达，完成后即可新建对话"); return; }
     saveDraft();
-    const selectedProfile = codexProfile || state.allowedCodexProfiles[0] || "default";
+    saveAccountPreference();
+    const selectedProfile = codexProfile || state.codexProfile || state.allowedCodexProfiles[0] || "default";
     const previousProfile = state.codexProfile;
-    state.codexProfile = state.allowedCodexProfiles.includes(selectedProfile)
-      ? selectedProfile : state.allowedCodexProfiles[0];
+    state.codexProfile = state.allowedCodexProfiles.includes(selectedProfile) ? selectedProfile : state.allowedCodexProfiles[0];
     selectAccountCapabilities();
-    const models = state.capabilities?.models;
-    if (Array.isArray(models) && !models.some((model) => model.id === state.model)) {
-      const fallback = models.find((model) => model.isDefault) || models[0];
-      if (!fallback) {
-        state.codexProfile = previousProfile;
-        selectAccountCapabilities();
-        toast("这个账号的模型列表暂时不可用，请稍后重试");
-        return;
-      }
-      state.model = fallback.id;
-      state.reasoning = fallback.defaultReasoningEffort || "medium";
-      state.draftModel = state.model;
-      state.draftReasoning = state.reasoning;
-    }
+    refreshProviderCapabilities();
+    const models=state.capabilities?.models||Object.keys(modelNames).filter(id=>!id.includes(":" )).map(id=>({id,defaultReasoningEffort:"medium"}));
+    const preference=accountPreference(state.codexProfile);
+    const chosen=models.find(m=>m.id===preference?.model)||models.find(m=>m.id===state.model)||models.find(m=>m.isDefault)||models[0];
+    if(!chosen){state.codexProfile=previousProfile;selectAccountCapabilities();toast("请先登录对应账号并刷新模型列表");return;}
+    state.model=chosen.id;
+    const offered=(chosen.reasoningEfforts||[]).map(e=>e.id);
+    state.reasoning=offered.includes(preference?.reasoning)?preference.reasoning:chosen.defaultReasoningEffort||offered[0]||"medium";
+    state.accessMode=preference?.accessMode||state.accessMode;
+    state.draftModel=state.model;state.draftReasoning=state.reasoning;state.usage=null;state.usageLoading=false;
+    persistModelPreference();
     state.activeId = null;
     state.active = null;
+    state.loadingOlder = false;
+    state.olderRequest = null;
     state.workDir = state.codexProfile === "xuanyu" ? "/data/xuanyu-build-console" : "";
     localStorage.setItem("wit_codex_profile", state.codexProfile);
     localStorage.removeItem("wit_active_conversation");
@@ -4589,12 +4765,47 @@
   $("#historySearch").addEventListener("input", () => { clearTimeout(historySearchTimer); historySearchTimer = setTimeout(refreshHistorySearch, 300); });
   $("#historyProject").addEventListener("change", refreshHistorySearch);
   $("#historyAttachments").addEventListener("change", refreshHistorySearch);
-  $("#loadOlderMessages").addEventListener("click", () => {
+  function loadOlderDay() {
     if (state.loadingOlder || !state.active?.hasMore || !state.workspaceFeatures) return;
     state.loadingOlder = true;
     renderTaskStatus();
-    bridge()?.requestConversationPage?.(state.activeId, String(state.active.messageOffset), 40);
-  });
+    bridge()?.requestConversationPage?.(state.activeId, state.active.messageOffset, 40);
+  }
+  $("#loadOlderMessages").addEventListener("click", loadOlderDay);
+  // Only an explicit gesture at the top loads history; layout/scroll/SSE never trigger it.
+  const historyStage = $("#chatStage");
+  let pullStart = null, pullDistance = 0, wheelDistance = 0, wheelUsed = false, wheelTimer;
+  const resetPull = () => {
+    pullStart = null; pullDistance = 0;
+    $("#loadOlderMessages").classList.remove("pull-ready");
+    renderTaskStatus();
+  };
+  historyStage.addEventListener("touchstart", (event) => {
+    if (event.touches.length !== 1 || historyStage.scrollTop > 2 || state.loadingOlder || !state.active?.hasMore) return;
+    pullStart = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  }, { passive: true });
+  historyStage.addEventListener("touchmove", (event) => {
+    if (!pullStart || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    pullDistance = touch.clientY - pullStart.y;
+    if (Math.abs(touch.clientX - pullStart.x) > Math.abs(pullDistance) || pullDistance < 0) { resetPull(); return; }
+    if (pullDistance > 8 && event.cancelable) event.preventDefault();
+    $("#loadOlderMessages").classList.toggle("pull-ready", pullDistance >= 64);
+    $("#loadOlderMessages").textContent = pullDistance >= 64 ? "松开，加载更早记录" : "继续下拉，查看更早记录";
+  }, { passive: false });
+  historyStage.addEventListener("touchend", () => {
+    const ready = pullStart && pullDistance >= 64;
+    resetPull();
+    if (ready) loadOlderDay();
+  }, { passive: true });
+  historyStage.addEventListener("touchcancel", resetPull, { passive: true });
+  historyStage.addEventListener("wheel", (event) => {
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => { wheelUsed = false; wheelDistance = 0; }, 350);
+    if (historyStage.scrollTop > 2 || event.deltaY >= 0 || wheelUsed || state.loadingOlder) return;
+    wheelDistance += -event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? historyStage.clientHeight : 1);
+    if (wheelDistance >= 64) { wheelUsed = true; loadOlderDay(); }
+  }, { passive: true });
   $("#workspaceOverviewButton").addEventListener("click", openWorkspaceOverview);
   $("#runtimeSettingsButton").addEventListener("click", () => {
     closeDrawer();
@@ -4743,6 +4954,17 @@
   $("#closeCodexAccounts").addEventListener("click", closeCodexAccounts);
   $("#codexAccountBackdrop").addEventListener("click", closeCodexAccounts);
   $("#codexAccountList").addEventListener("click", (event) => {
+    const category=event.target.closest("[data-account-category]")?.dataset.accountCategory;
+    if(category){state.accountCategory=category;localStorage.setItem("witt_account_category",category);renderCodexAccounts(state.codexAccounts);return;}
+    const provider=event.target.closest("[data-login-provider]")?.dataset.loginProvider;
+    if(provider){
+      const account=state.codexAccounts.find(a=>a.provider===provider);
+      const pattern=provider==="claude" ? /^\/vault-api\/claude\/login#[A-Za-z0-9_-]{43}$/ : /^\/vault-api\/antigravity\/login#[A-Za-z0-9_-]{43}$/;
+      if(typeof account?.loginUrl==="string"&&pattern.test(account.loginUrl))window.location.href=account.loginUrl;
+      else toast("登录入口已失效，请重新打开账号列表");
+      return;
+    }
+
     if (event.target.closest("[data-login-claude]")) {
       const url = state.codexAccounts.find((account) => account.provider === "claude")?.loginUrl;
       if (typeof url === "string" && /^\/vault-api\/claude\/login#[A-Za-z0-9_-]{43}$/.test(url)) {
@@ -4813,10 +5035,7 @@
     if (!day) return;
     toast(`${day.dataset.usageDate} · ${Number(day.dataset.usageTokens || 0).toLocaleString("zh-CN")} tokens`);
   });
-  $("#deliveryButton").addEventListener("click", () => {
-    setChatMoreMenu(false);
-    openDelivery();
-  });
+  $("#deliveryButton").addEventListener("click", () => { setChatMoreMenu(false); openDelivery(); });
   $("#quotaButton").addEventListener("click", () => {
     setChatMoreMenu(false);
     openProfile();
@@ -5050,6 +5269,16 @@
     toast("正在下载交付文件");
   });
   $("#messageList").addEventListener("click", (event) => {
+    const download = event.target.closest("[data-download-artifact]");
+    if (download) {
+      const messageId = download.dataset.message;
+      const message = (state.active?.messages || []).find((item) => item.id === messageId);
+      const artifact = [...(message?.artifacts || []), ...(message?.previewVersions || [])]
+        .find((item) => item.id === download.dataset.downloadArtifact);
+      if (!artifact) return;
+      downloadMessageArtifact(messageId, artifact).catch((error) => toast(error.message || "下载失败"));
+      return;
+    }
     const handoff = event.target.closest("[data-open-artifact]");
     if (handoff) openArtifact(handoff.dataset.openArtifact);
   });
@@ -5097,21 +5326,11 @@
       toast("Artifact 源码已复制");
     } catch (error) { toast(error.message || "复制失败"); }
   });
-  $("#artifactDownload").addEventListener("click", async () => {
+  $("#artifactDownload").addEventListener("click", () => {
     const group = selectedArtifactGroup();
     const version = group?.versions[state.artifactVersionIndex];
-    if (!version) return;
-    try {
-      const source = await loadArtifactSource(version);
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([source], { type: "text/html;charset=utf-8" }));
-      link.download = group.name || "artifact.html";
-      document.body.append(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(link.href), 0);
-      toast("正在下载 Artifact");
-    } catch (error) { toast(error.message || "下载失败"); }
+    if (version) downloadMessageArtifact(version.messageId, version)
+      .catch((error) => toast(error.message || "下载失败"));
   });
   $("#artifactFixError").addEventListener("click", () => {
     const group = selectedArtifactGroup();
@@ -5559,7 +5778,7 @@
     settings: () => ({model:state.model,codexProfile:state.codexProfile,reasoning:state.reasoning,accessMode:state.accessMode}),
     workspaceOperations: () => Boolean(state.workspaceOperations),
     draft: text => { $("#messageInput").value=text; $("#messageInput").dispatchEvent(new Event("input")); $("#messageInput").focus(); },
-    download: (id,a) => { if(typeof bridge()?.downloadArtifact==='function')bridge().downloadArtifact(id,a.messageId,a.id,a.name,a.mimeType||'');else downloadArtifactUrl(artifactUrl(a.messageId,a),a.name);toast('正在下载文件'); },
+    download: (id,a) => downloadMessageArtifact(a.messageId,a,id).catch(error=>toast(error.message||'下载失败')),
     conversations: () => state.conversations,
     task: conversationTask,
     select: selectConversation,
@@ -5580,7 +5799,6 @@
     refreshMath: () => { document.querySelectorAll(".message").forEach((node) => delete node.dataset.fingerprint); renderMessages(true); },
   };
   updateModelControls();
-  renderDeliveries();
   document.addEventListener("visibilitychange", () => setAppVisible(!document.hidden));
   // Native calls nativeReady with version and cache scope after the main frame is loaded.
 })();

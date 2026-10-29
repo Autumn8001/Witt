@@ -1,7 +1,7 @@
 {
   "upstream": "https://github.com/LeoWilson-Ben/witt",
-  "commit": "74a48ca9ec068e3687a85df6538f56bb9d356b12",
-  "chloeBase": "4f7b580e4d69fe103ba7bf4aa3d444176931ca55",
+  "commit": "ce690a331238da83c9fa06a4071e9fad7b329e52",
+  "chloeBase": "71d16ae",
   "backendChanged": false,
   "adapters": [
     "Harness selection",
@@ -17,6 +17,9 @@
     "System font stack: referenced OpenAI Sans font files absent from upstream Git tree",
     "Startup minimum hold reduced from 2800ms to 250ms",
     "Optional math and terminal modules load on demand",
-    "Chloe settings sheet remains available for Harness selection"
+    "Chloe settings sheet remains available for Harness selection",
+    "Count-based history compatibility retained for Chloe backend",
+    "Provider tabs only for accounts actually exposed by Chloe",
+    "New upstream opening adapted to Chloe C mark and title"
   ]
 }

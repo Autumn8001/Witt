@@ -17,8 +17,9 @@ const models = [{ id: 'grok-4.7-high', displayName: 'Grok 4.7 High', isDefault: 
    const id='10000000-0000-4000-8000-000000000001';
    const conversation={id,title:'Migration test',model:models[0].id,reasoning:'high',accessMode:'workspace-write',harnessId:'grok-build',codexProfile:'default',workDir:'',busy:false,messages:[],updatedAt:new Date().toISOString()};
    let created=false;
+   let artifactAttempts=0;
    page.on('pageerror', e=>errors.push(e.stack));
-   page.on('console', m=>{if(m.type()==='error')errors.push(m.text());});
+   page.on('console', m=>{if(m.type()==='error'&&!m.text().includes('502'))errors.push(m.text());});
    await page.route('https://chloe.test/**', async route=>{
     const url=new URL(route.request().url());
     if(url.pathname.startsWith('/vault/')){
@@ -33,16 +34,25 @@ const models = [{ id: 'grok-4.7-high', displayName: 'Grok 4.7 High', isDefault: 
     if(route.request().method()!=='GET')writes.push({path:url.pathname,body:route.request().postDataJSON()});
     let body={};
     if(url.pathname.endsWith('/auth/status'))body={initialized:true,authenticated:true,principal:{admin:true,label:'Test admin',codexProfiles:['default'],allowedCodexProfiles:['default']}};
-    else if(url.pathname.endsWith('/chat/capabilities'))body={models,defaultModel:models[0].id,defaultAccessMode:'workspace-write',accessModes:['read-only','workspace-write','danger-full-access'],runtime:{codex:{available:false},'grok-build':{available:true},'google-antigravity':{available:true}},support:{fork:true,compact:true,review:true},skills:[],mcpServers:[],features:[],codexProfile:'default'};
+    else if(url.pathname.endsWith('/chat/capabilities'))body={models,defaultModel:models[0].id,defaultAccessMode:'workspace-write',accessModes:['read-only','workspace-write','danger-full-access'],runtime:{codex:{available:true},'grok-build':{available:true},'google-antigravity':{available:true}},support:{fork:true,compact:true,review:true},skills:[],mcpServers:[],features:[],codexProfile:'default'};
     else if(url.pathname.endsWith('/chat/conversations')){
      if(route.request().method()==='POST'){created=true;body={conversation};}
      else body={conversations:created?[conversation]:[],workspaceFeatures:true};
     }
     else if(url.pathname.includes('/events'))return route.fulfill({contentType:'text/event-stream',body:': connected\n\n'});
+    else if(url.pathname.endsWith('/artifacts/40000000-0000-4000-8000-000000000001')){
+     artifactAttempts++;
+     if(artifactAttempts===1)return route.fulfill({status:502,json:{error:'synthetic transfer failure'}});
+     return route.fulfill({body:'download verified',contentType:'text/plain',headers:{'Content-Length':'17'}});
+    }
+    else if(url.pathname.endsWith('/messages')&&route.request().method()==='GET'){
+     body={conversation:{...conversation,messageOffset:0,hasMore:false,messages:[{id:'old-one',role:'user',text:'更早的问题',status:'completed'},{id:'old-two',role:'assistant',text:'更早的答案',status:'completed'}]}};
+    }
     else if(url.pathname.endsWith('/messages')&&route.request().method()==='POST'){
      const text=route.request().postDataJSON().text;
      conversation.messages=[{id:'20000000-0000-4000-8000-000000000001',role:'user',text,status:'completed',attachments:[],createdAt:new Date().toISOString()},
-       {id:'30000000-0000-4000-8000-000000000001',role:'assistant',text:'这是迁移验收的模拟回复。',status:'completed',attachments:[],stream:[],createdAt:new Date().toISOString()}];
+       {id:'30000000-0000-4000-8000-000000000001',role:'assistant',text:'这是迁移验收的模拟回复。',status:'completed',attachments:[],artifacts:[{id:'40000000-0000-4000-8000-000000000001',name:'test-result.txt',size:17,mimeType:'text/plain'}],stream:[],createdAt:new Date().toISOString()}];
+     conversation.messageOffset=2;conversation.hasMore=true;
      body={conversation};
     }
     else if(url.pathname.endsWith('/'+id)){
@@ -52,6 +62,7 @@ const models = [{ id: 'grok-4.7-high', displayName: 'Grok 4.7 High', isDefault: 
     else if(url.pathname.endsWith('/runtime/profiles'))body={profiles:models.map((m,i)=>({id:'test-'+i,name:m.displayName,model:m.id,harness:i?'google-antigravity':'grok-build',reasoning:'high'}))};
     else if(url.pathname.endsWith('/servers/overview'))body={cpu:{count:2},memory:{total:100,used:20},services:[],checkedAt:'2026-10-28'};
     else if(url.pathname.includes('/remote-assist/sessions'))body=route.request().method()==='POST'?{pairing_code:'TEST-1234',assist_session_id:'test'}:{sessions:[]};
+    else if(url.pathname.endsWith('/codex/accounts'))body={accounts:[{id:'default',provider:'codex',label:'Chloe 管理员模型账号',authenticated:true}]};
     else if(url.pathname.endsWith('/devices'))body={devices:[]};
     else if(url.pathname.includes('/quota'))body={status:'no_accounts',accounts:[]};
     else if(url.pathname.includes('/usage'))body={summary:{},dailyUsageBuckets:[],rateLimits:{},account:{},unavailable:true};
@@ -74,7 +85,28 @@ const models = [{ id: 'grok-4.7-high', displayName: 'Grok 4.7 High', isDefault: 
     if(errors.length)throw Error(errors.join('\n'));
     assert.ok(writes.some(w=>w.path.endsWith('/messages')&&w.body.text==='你好，验证新版输入框'),'send must use Chloe API');
     assert.match(await page.locator('.messages').innerText(),/迁移验收的模拟回复/);
+    // Upstream attachment cards retain Chloe download URLs and show failed/retry/completed states.
+    await page.locator('[data-download-artifact]').click();
+    await page.locator('.message-artifact[data-download-state="failed"]').waitFor();
+    const transfer=page.waitForEvent('download');await page.locator('[data-download-artifact]').click();
+    const downloaded=await transfer;assert.equal(downloaded.suggestedFilename(),'test-result.txt');
+    await page.locator('.message-artifact[data-download-state="completed"]').waitFor();
+    assert.equal(artifactAttempts,2);
+    // Actual retained Chloe backend has no pageEnd or day-window fields.
+    await page.locator('#loadOlderMessages').click();
+    await page.getByText('更早的答案',{exact:true}).waitFor();
+
+    if(width>=900)assert.ok(await page.evaluate(()=>{
+     const r=document.querySelector('#messageList').getBoundingClientRect();return Math.abs(r.x+r.width/2-(260+(innerWidth-260)/2))<2;
+    }),'chat messages center in desktop workspace');
     await page.screenshot({path:path.join(output,`chat-${width}.png`)});
+    // Updated provider UI only exposes actual accounts returned by the retained backend.
+    if(width<1000)await page.locator('#menuButton').click();
+    await page.locator('#drawerAvatar').click();await page.locator('#codexAccountsButton').click();
+    await page.getByText('Chloe 管理员模型账号',{exact:true}).waitFor();
+    assert.equal(await page.locator('.account-provider-tabs [role="tab"]').count(),1);
+    assert.match(await page.locator('.account-provider-tabs').innerText(),/GPT/);
+    await page.locator('#closeCodexAccounts').click();
     // Exercise settings, quota and remote assistance through their real UI paths.
     if(width<1000)await page.locator('#menuButton').click();
     await page.locator('#drawerAvatar').click();

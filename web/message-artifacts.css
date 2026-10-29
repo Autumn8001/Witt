@@ -1,0 +1,31 @@
+/* Files belong to the reply that produced them. */
+.message-artifacts{display:grid;gap:10px;width:min(100%,500px);margin:18px 0 8px;min-width:0}
+.message-artifact{display:flex;align-items:center;min-width:0;overflow:hidden;border:1px solid #dedbd4;border-radius:12px;background:#f6f5f0;color:#302e2a;transition:border-color .18s ease}
+.message-artifact-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:84px;padding:15px 16px;border:0;color:inherit;background:transparent;text-align:left;font:inherit}
+button.message-artifact-main{cursor:pointer}button.message-artifact-main:hover{background:color-mix(in srgb,var(--ink,#302e2a) 4%,transparent)}
+.message-artifact-icon{display:grid;place-items:center;flex:none;width:42px;height:48px;border:1px solid #e2ded5;border-radius:7px;background:#fffefa;color:#a56e50}
+.message-artifact svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.message-artifact-copy{display:grid;gap:6px;min-width:0;flex:1}.message-artifact-copy strong{font-size:14px;font-weight:550;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.message-artifact-copy small{color:#7c776e;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.message-artifact .message-artifact-chevron{width:17px;height:17px;color:var(--muted,#77736c)}
+.message-artifact-download{display:flex;align-items:center;justify-content:center;gap:5px;flex:none;min-width:64px;min-height:44px;margin-right:12px;padding:8px;border:1px solid transparent;border-radius:8px;color:inherit;background:transparent;font:inherit;font-size:12px;cursor:pointer}.message-artifact-download svg{width:17px;height:17px}.message-artifact-download:hover{background:color-mix(in srgb,var(--ink,#302e2a) 8%,var(--surface,#faf9f6))}
+.message-artifact button:focus-visible{outline:2px solid #ac7759;outline-offset:-3px}
+@media(max-width:480px){.message-artifact-main{gap:10px;padding:12px;min-height:80px}.message-artifact-copy strong{font-size:13px}.message-artifact-copy small{font-size:10px}.message-artifact-icon{width:34px;height:42px}.message-artifact-download{min-width:44px;margin-right:10px}.message-artifact-download span{display:none}}
+@media(prefers-reduced-motion:reduce){.message-artifact{transition:none}}
+
+:root[data-theme="dark"] .message-artifact{background:#2b2a27;border-color:#46433e;color:#eeeae2}:root[data-theme="dark"] .message-artifact-icon{background:#34322d;border-color:#4b473f;color:#d3a283}:root[data-theme="dark"] .message-artifact-copy small{color:#aaa49a}:root[data-theme="dark"] .message-artifact-download:hover{background:#3d3933}
+
+/* The card itself fills, with all content above the transfer tint. */
+.message-artifact{position:relative;isolation:isolate}
+.message-artifact::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--download-progress,0%);background:rgba(171,125,91,.15);pointer-events:none;z-index:0;transition:width .25s ease,background .2s ease}
+.message-artifact>*{position:relative;z-index:1}
+.message-artifact[data-download-state="completed"]::before{background:rgba(88,133,101,.13)}
+.message-artifact[data-download-state="failed"]{border-color:#b88474}
+.message-artifact[data-download-state="failed"]::before{background:rgba(174,95,75,.12)}
+.message-artifact[data-download-state="downloading"] .message-artifact-copy small,.message-artifact[data-download-state="starting"] .message-artifact-copy small,.message-artifact[data-download-state="saving"] .message-artifact-copy small{color:#815e44}
+.message-artifact-download:disabled{opacity:.55;cursor:default}
+.message-artifact.download-indeterminate::before{width:100%;animation:artifact-download-pulse 1.4s ease-in-out infinite}
+@keyframes artifact-download-pulse{0%,100%{opacity:.25}50%{opacity:.8}}
+:root[data-theme="dark"] .message-artifact::before{background:rgba(211,162,131,.18)}
+:root[data-theme="dark"] .message-artifact[data-download-state="completed"]::before{background:rgba(126,176,141,.17)}
+:root[data-theme="dark"] .message-artifact[aria-busy="true"] .message-artifact-copy small{color:#d3ae90}
+@media(prefers-reduced-motion:reduce){.message-artifact::before{transition:none}.message-artifact.download-indeterminate::before{animation:none;opacity:.45}}
