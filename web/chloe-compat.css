@@ -171,3 +171,24 @@ body[data-product="chloe"] { --surface-solid: var(--surface, #fff); }
 #quickReasoningOptions button > span { font: inherit; }
 #quickReasoningOptions button i { display: none; }
 @media(max-width:600px) { #quickModelOptions button { min-height: 44px; } #quickReasoningOptions button { min-height: 44px; } }
+/* The old light-theme 768px app width must not constrain the desktop workspace. */
+@media (min-width: 900px) {
+  :root body.web-browser:not(.artifact-open) .app-shell {
+    width: calc(100% - 260px) !important; max-width: none !important;
+    margin: 0 0 0 260px !important; min-width: 0;
+  }
+  :root body.web-browser:not(.artifact-open) .chat-stage { width: 100%; min-width: 0; }
+  :root body.web-browser:not(.artifact-open) :is(.messages,.task-status-strip,.history-load,.welcome) {
+    width: min(100%, 960px) !important; max-width: 960px !important; margin-inline: auto !important;
+  }
+  :root body.web-browser:not(.artifact-open) #composerWrap {
+    width: min(calc(100% - 48px), 960px) !important; max-width: 960px !important;
+    left: 50% !important; right: auto !important; transform: translateX(-50%) !important; margin: 0 !important;
+  }
+}
+@media (min-width: 900px) {
+  :root body.web-browser:not(.artifact-open) .welcome { align-items: center !important; text-align: center; }
+  :root body.web-browser:not(.artifact-open) .welcome > p { max-width: 640px; }
+  :root body.web-browser:not(.artifact-open) .welcome .suggestions { width: min(100%, 680px); margin-inline: auto; }
+  :root body.web-browser:not(.artifact-open) .welcome .suggestions button { text-align: left; }
+}
