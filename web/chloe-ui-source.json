@@ -11,7 +11,8 @@
   ],
   "styles": "Witt upstream base and interface; Chloe feature compatibility only",
   "disabledUpstreamFeatures": [
-    "Project CRUD and schedules: unsupported by retained Chloe backend"
+    "Project CRUD and schedules: unsupported by retained Chloe backend",
+    "Task overview cancel and retry: hidden for Chloe clients without the Witt task action API"
   ],
   "adaptations": [
     "System font stack: referenced OpenAI Sans font files absent from upstream Git tree",

@@ -69,7 +69,7 @@ from pathlib import Path
 p = Path(sys.argv[1])
 release = sys.argv[2]
 s = p.read_text()
-pattern = r'alias /opt/witt/\.git/witt-releases/[0-9a-f]{40}/web/;'
+pattern = r'alias /opt/witt/\.git/witt-releases/(?:[0-9a-f]{40}|ui-[0-9a-f]{7,40})/web/;'
 updated, count = re.subn(pattern, 'alias ' + release + '/web/;', s)
 if count != 1:
     raise SystemExit('unexpected Witt static alias')
