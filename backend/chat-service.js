@@ -1427,7 +1427,8 @@ class ChatService {
       return true;
     }
 
-    if (req.method === "GET" && url.pathname === "/chat/workspace-overview") {
+    if (req.method === "GET" && (url.pathname === "/chat/workspace-overview" ||
+        (url.pathname === "/chat/projects" && url.searchParams.get("view") === "service-status"))) {
       Promise.resolve().then(() => workspaceOverview({ workDir: this.codexWorkDir, admin: Boolean(principal.admin), projects: [{ id: "current", name: "当前 Chloe 工作区", workDir: this.codexWorkDir, description: "当前对话绑定的工作目录。" }] }))
         .then((payload) => this.sendJson(res, 200, payload))
         .catch(() => this.sendJson(res, 503, { error: "暂时无法读取项目与服务状态" }));

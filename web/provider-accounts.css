@@ -27,3 +27,5 @@
 
 #codexAccountList[hidden]{display:none!important}
 .account-provider-tabs{grid-template-columns:repeat(auto-fit,minmax(80px,1fr))}
+/* One GPT sign-in entry; account slots remain private backend state. */
+.account-provider-heading>.login{min-height:38px;padding:8px 18px;border:0;border-radius:12px;background:var(--accent,#6c5ce7);color:#fff;font:inherit;font-size:13px;cursor:pointer}.account-provider-heading>span{margin-left:auto}

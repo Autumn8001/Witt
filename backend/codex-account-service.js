@@ -60,7 +60,15 @@ class CodexAccountService {
       const allowed = Array.isArray(allowedProfileIds) ? new Set(allowedProfileIds) : null;
       for (const profile of Object.values(this.profiles)
         .filter((item) => !allowed || allowed.has(item.id))) {
-        accounts.push(await this.readProfile(profile));
+        try {
+          accounts.push(await this.readProfile(profile));
+        } catch (error) {
+          const authRequired = /unauthori[sz]ed|\b401\b|token.*expired|invalid.*refresh/i.test(String(error.message || ""));
+          accounts.push({ ...this.publicAccount(profile, null),
+            authenticationRequired: authRequired,
+            readError: authRequired ? "该账号授权已失效，请重新登录" : "该账号暂时无法读取，请稍后重试",
+          });
+        }
       }
       this.sendJson(res, 200, { accounts });
     } catch (error) {

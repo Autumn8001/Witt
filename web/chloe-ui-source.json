@@ -1,8 +1,8 @@
 {
   "upstream": "https://github.com/LeoWilson-Ben/witt",
-  "commit": "ce690a331238da83c9fa06a4071e9fad7b329e52",
-  "chloeBase": "71d16ae",
-  "backendChanged": false,
+  "commit": "25dff7f0c89c15bc24ef9f3092182546a4daac2d",
+  "chloeBase": "13bf61d",
+  "backendChanged": true,
   "adapters": [
     "Harness selection",
     "CPA quota",

@@ -182,7 +182,7 @@
       $("#historySearchHint").textContent = "正在搜索完整历史…";
       bridge()?.searchConversations?.(q, project, attachments, String(state.historyRequest));
     } else {
-      $("#historySearchHint").textContent = state.workspaceFeatures ? "按项目整理，置顶跨设备同步" : "搜索标题与摘要 · 置顶仅保存在此设备";
+      $("#historySearchHint").textContent = state.workspaceFeatures ? "按分组筛选聊天记录" : "搜索标题与摘要";
     }
     renderConversations();
   }
@@ -205,17 +205,35 @@
     older.textContent = state.loadingOlder ? "正在加载…" : "下拉或点击加载更早消息";
   }
 
+  let workspaceOverviewTimer = null;
+  let workspaceOverviewLoading = false;
+  let workspaceServices = [];
+  let workspaceServiceFilter = "all";
   function requestWorkspaceOverview() {
-    $("#workspaceOverviewContent").textContent = state.workspaceFeatures ? "正在检查连接…" : "此功能需要支持工作区的新客户端，当前安装版本暂不支持。";
-    if (!state.workspaceFeatures) return;
-    // Current Osaka APKs use workspaceRequest rather than a dedicated native method.
-    if (state.workspaceOperations && typeof window.WittFeatures?.request === "function") {
-      window.WittFeatures.request("chat/workspace-overview")
-        .then((payload) => window.DropVault.onWorkspaceOverview(JSON.stringify(payload)))
-        .catch((error) => window.DropVault.onWorkspaceOverviewError(error.message || "检查失败，请重试"));
+    if (!state.workspaceFeatures) {
+      $("#workspaceOverviewContent").textContent = "请更新客户端后查看服务状态";
       return;
     }
-    bridge()?.requestWorkspaceOverview?.();
+    if (workspaceOverviewLoading) return;
+    workspaceOverviewLoading = true;
+    $("#refreshWorkspace").disabled = true;
+    if (!$("#workspaceServiceList")) $("#workspaceOverviewContent").textContent = "正在发现服务…";
+    const currentBridge = bridge();
+    if (typeof currentBridge?.requestWorkspaceOverview === "function") currentBridge.requestWorkspaceOverview();
+    else window.DropVault.onWorkspaceOverviewError("当前客户端不支持状态检查，请更新客户端");
+  }
+
+  function renderWorkspaceServices() {
+    const list = $("#workspaceServiceList");
+    if (!list) return;
+    const query = ($("#workspaceServiceSearch")?.value || "").trim().toLocaleLowerCase();
+    const labels = {active:"运行中",inactive:"未运行",failed:"失败",activating:"启动中",deactivating:"停止中",reloading:"重载中",maintenance:"维护中",unknown:"未知"};
+    const enabled = {enabled:"开机启动",disabled:"未设自启",static:"按需启动",indirect:"间接启动",masked:"已屏蔽",generated:"自动生成",transient:"临时服务",alias:"别名"};
+    const matches = workspaceServices.filter(row => (workspaceServiceFilter === "all" || row.status === workspaceServiceFilter) &&
+      (!query || [row.name,row.unit,row.description,row.detail].join(" ").toLocaleLowerCase().includes(query)));
+    list.innerHTML = matches.length ? matches.map(row => `<article class="service-status-card" data-state="${escapeHtml(row.status || "unknown")}"><div class="service-status-identity"><strong>${escapeHtml(row.name || row.id)}</strong><span class="service-status-badge">${escapeHtml(row.status === "active" && row.subState === "exited" ? "已就绪" : labels[row.status] || row.status || "未知")}</span></div><code>${escapeHtml(row.unit || row.id || "")}</code><p>${escapeHtml(row.description || row.detail || "")}</p><small>${escapeHtml(row.template ? "服务模板" : enabled[row.enabled] || "")}${row.subState ? ` · ${escapeHtml(row.subState)}` : ""}</small></article>`).join("") : '<p class="services-empty">没有符合条件的服务，试试其他关键词或筛选条件。</p>';
+    $("#workspaceServiceResult").textContent = `显示 ${matches.length} / ${workspaceServices.length} 项`;
+    document.querySelectorAll('[data-service-filter]').forEach(button => button.setAttribute("aria-pressed", String(button.dataset.serviceFilter === workspaceServiceFilter)));
   }
 
   function openWorkspaceOverview() {
@@ -225,9 +243,15 @@
     $("#workspaceOverview").setAttribute("aria-hidden", "false");
     $("#closeWorkspace").focus();
     requestWorkspaceOverview();
+    clearInterval(workspaceOverviewTimer);
+    workspaceOverviewTimer = setInterval(() => {
+      if (state.appVisible && !document.hidden && $("#workspaceOverview").classList.contains("open")) requestWorkspaceOverview();
+    }, 15000);
   }
 
   function closeWorkspaceOverview() {
+    clearInterval(workspaceOverviewTimer);
+    workspaceOverviewTimer = null;
     $("#workspaceOverview").classList.remove("open");
     $("#workspaceOverview").setAttribute("aria-hidden", "true");
   }
@@ -571,6 +595,33 @@
       .replace(/\n/g, "<br>");
     for (const fragment of fragments) html = html.split(fragment.token).join(fragment.html);
     return html;
+  }
+
+  async function copyCodeBlock(button) {
+    const node = button.closest(".chat-code-block")?.querySelector("code");
+    const code = node?.textContent || "";
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      button.textContent = "已复制";
+      button.classList.add("copied");
+      setTimeout(() => {
+        button.textContent = "复制";
+        button.classList.remove("copied");
+      }, 1500);
+    } catch {
+      // Keep code accessible when clipboard permission or the API is unavailable.
+      const selection = window.getSelection();
+      if (selection && node.isConnected) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        toast("无法访问剪贴板，已选中代码，请手动复制");
+      } else {
+        toast("暂时无法复制代码，请长按代码手动复制");
+      }
+    }
   }
 
   function codeBlockHtml(source, language = "") {
@@ -1174,7 +1225,78 @@
     }) : "暂未提供";
   }
 
+  function validCapacityPercent(value) {
+    if (value === null || value === undefined || value === "" || typeof value === "boolean") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : null;
+  }
+
+  function headerContextUsage() {
+    const context = state.active?.contextUsage;
+    const used = context?.usedTokens, windowSize = Number(context?.contextWindow);
+    if (used === null || used === undefined || used === "" || !Number.isFinite(Number(used)) ||
+        Number(used) < 0 || !Number.isFinite(windowSize) || windowSize <= 0) return null;
+    return { used: Number(used), windowSize, percent: validCapacityPercent(Number(used) / windowSize * 100), updatedAt: context.updatedAt };
+  }
+
+  function updateHeaderCapsule() {
+    const quota = $("#headerQuotaButton"), context = $("#headerContextButton");
+    if (!quota || !context) return;
+    const windows = [];
+    if (state.codexProfile === "antigravity") {
+      const groups = state.usage?.quota?.groups || [], thirdParty = /^gemini:(claude|gpt)-/.test(state.model || "");
+      const group = (state.model || "").includes("argon")
+        ? groups.find(g => /argon/i.test(g.name) || g.buckets?.some(b => /argon/i.test(b.id)))
+        : groups.find(g => g.family === (thirdParty ? "third-party" : "gemini"));
+      for (const bucket of group?.buckets || []) {
+        const remaining = validCapacityPercent(bucket.remainingPercent);
+        if (remaining !== null) windows.push({ remaining, label: bucket.window === "5h" ? "5小时" : bucket.window === "weekly" ? "本周" : String(group.name || "当前模型") });
+      }
+    } else if (state.codexProfile !== "claude" && state.usage?.provider !== "claude") {
+      const { fiveHour, weekly } = rateLimitWindows(state.usage?.rateLimits || {});
+      for (const [label, item] of [["5小时", fiveHour], ["本周", weekly]]) {
+        const used = validCapacityPercent(item?.usedPercent);
+        if (used !== null) windows.push({ remaining: 100 - used, label });
+      }
+    }
+    const limiting = windows.reduce((a, b) => !a || b.remaining < a.remaining ? b : a, null);
+    function paint(button, valueNode, percent, tone, description) {
+      button.dataset.known = String(percent !== null);
+      button.dataset.tone = percent === null ? "unknown" : tone;
+      button.style.setProperty("--capacity-fill", `${percent ?? 0}%`);
+      valueNode.textContent = percent === null ? "—" : `${percent}%`;
+      button.setAttribute("aria-label", description); button.title = description;
+    }
+    const remaining = limiting?.remaining ?? null;
+    paint(quota, $("#headerQuotaValue"), remaining, remaining <= 5 ? "danger" : remaining <= 20 ? "warning" : "normal",
+      remaining === null ? "额度尚未读取或此账号暂不提供额度，点击查看用量" :
+        `额度剩余 ${remaining}%，取当前限制窗口中较低的剩余额度。${windows.map(w => `${w.label}剩余 ${w.remaining}%`).join("，")}。点击查看详情`);
+    const usage = headerContextUsage();
+    paint(context, $("#headerContextValue"), usage?.percent ?? null, usage?.percent >= 95 ? "danger" : usage?.percent >= 80 ? "warning" : "normal",
+      usage ? `上下文已用 ${usage.percent}%，${formatTokens(usage.used)} / ${formatTokens(usage.windowSize)} tokens，点击查看详情` : "尚未收到当前对话的上下文统计，点击查看详情");
+    if (!$("#contextUsageSheet")?.hidden) renderContextDetails();
+  }
+
+  let contextUsageReturnFocus = null;
+  function renderContextDetails() {
+    const usage = headerContextUsage();
+    $("#contextDetailPercent").textContent = usage ? `${usage.percent}%` : "—";
+    $("#contextDetailTokens").textContent = usage ? `${formatTokens(usage.used)} / ${formatTokens(usage.windowSize)} tokens` : "尚未收到当前对话的上下文统计";
+    $("#contextDetailNote").textContent = usage
+      ? "按最近一轮输入量估算。压缩上下文或继续对话后，比例会更新；它不是整段对话的累计用量。"
+      : state.activeId ? "等待模型返回上下文数据。读取不到时保留空值，不会显示成 0%。" : "开始对话并收到模型返回的统计后，这里会显示上下文占用。";
+  }
+  function openContextDetails() {
+    setChatMoreMenu(false); contextUsageReturnFocus = document.activeElement;
+    renderContextDetails(); $("#contextUsageSheet").hidden = false; $("#closeContextUsage").focus({ preventScroll: true });
+  }
+  function closeContextDetails() {
+    $("#contextUsageSheet").hidden = true;
+    if (contextUsageReturnFocus?.isConnected) contextUsageReturnFocus.focus({ preventScroll: true });
+  }
+
   function updateQuotaStatus() {
+    updateHeaderCapsule();
     const button = $("#quotaButton");
     const { fiveHour, weekly, pro } = rateLimitWindows(state.usage?.rateLimits || {});
     const fiveHourUsed = rateLimitUsed(fiveHour);
@@ -1373,6 +1495,7 @@
     document.querySelectorAll("[data-access]").forEach((button) =>
       button.classList.toggle("selected", button.dataset.access === state.draftAccessMode));
     renderCapabilities();
+    updateHeaderCapsule();
   }
 
   function accountPreference(id = state.codexProfile) {
@@ -2014,11 +2137,19 @@
     if(!groups.includes(state.accountCategory)) state.accountCategory="gpt";
     const names={gpt:"GPT",claude:"Claude",gemini:"Gemini"};
     const icon = name => providerIcons[name === "gpt" ? "openai" : name];
-    const cards = accounts.filter(account => category(account) === state.accountCategory).map(account => {
+    const gptAccounts = accounts.filter(account => category(account) === "gpt");
+    const loginProfile = gptAccounts.find(account => account.id !== "default" && account.authenticationRequired)
+      || gptAccounts.find(account => account.id !== "default" && !account.authenticated)
+      || gptAccounts.find(account => account.id !== "default");
+    const gptLogin = state.admin && loginProfile ? `<button type="button" class="login" data-login-codex="${escapeHtml(loginProfile.id)}">登录</button>` : "";
+    const gptWarning = state.accountCategory === "gpt" && gptAccounts.some(account => account.readError)
+      ? '<p class="account-provider-empty" role="status">部分账号授权已失效或暂时不可用，可通过“登录”重新连接；其他账号可正常使用。</p>' : "";
+    const cards = accounts.filter(account => category(account) === state.accountCategory &&
+      (state.accountCategory !== "gpt" || account.authenticated || account.id === "default")).map(account => {
       const kind=category(account),signedIn=Boolean(account.authenticated);
-      const detail=signedIn ? `${account.account?.email||"已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}`
-        : kind === "gemini" ? "通过官方 Antigravity CLI 登录" : kind === "claude" ? "通过官方 Claude Code 登录" : "尚未登录";
-      const canLogin=state.admin && account.id!=="default";
+      const detail=account.readError || (signedIn ? `${account.account?.email||"已登录"}${account.account?.planType ? ` · ${account.account.planType}` : ""}`
+        : kind === "gemini" ? "通过官方 Antigravity CLI 登录" : kind === "claude" ? "通过官方 Claude Code 登录" : "尚未登录");
+      const canLogin=state.admin && account.id!=="default" && kind!=="gpt";
       const loginAttr=kind === "gpt" ? `data-login-codex="${escapeHtml(account.id)}"` : `data-login-provider="${escapeHtml(account.provider)}"`;
       const actions=`${canLogin ? `<button class="${signedIn ? "relogin":"login"}" ${loginAttr}>${signedIn ? (kind === "gpt" ? "重新登录":"管理登录") : "登录账号"}</button>` : ""}
         ${signedIn ? `<button class="new-chat" data-new-codex-chat="${escapeHtml(account.id)}">使用此账号</button>` : ""}`;
@@ -2027,8 +2158,8 @@
         <div class="codex-account-identity"><strong>${escapeHtml(account.label||account.id)}</strong><small>${escapeHtml(detail)}</small></div>
         <div class="codex-account-actions">${actions}</div></article>`;
     }).join("");
-    $("#codexAccountList").innerHTML=`<div class="account-provider-tabs" role="tablist" aria-label="账号类型">${groups.map(kind=>`<button type="button" role="tab" aria-selected="${state.accountCategory===kind}" aria-controls="accountProviderPanel" data-account-category="${kind}" class="${state.accountCategory===kind ? "selected":""}"><span class="provider-icon ${kind}">${icon(kind)}</span><b>${names[kind]}</b><small>${accounts.filter(a=>category(a)===kind).length}</small></button>`).join("")}</div>
-      <section class="account-provider-panel" id="accountProviderPanel" role="tabpanel" aria-label="${names[state.accountCategory]} 账号"><div class="account-provider-heading"><strong>${names[state.accountCategory]} 账号</strong><span>${state.accountCategory === "gpt" ? "Codex CLI" : state.accountCategory === "claude" ? "Claude Code" : "Antigravity CLI"}</span></div>${cards||'<p class="account-provider-empty">暂时无法读取账号信息，请稍后重新打开。</p>'}</section>`;
+    $("#codexAccountList").innerHTML=`<div class="account-provider-tabs" role="tablist" aria-label="账号类型">${groups.map(kind=>`<button type="button" role="tab" aria-selected="${state.accountCategory===kind}" aria-controls="accountProviderPanel" data-account-category="${kind}" class="${state.accountCategory===kind ? "selected":""}"><span class="provider-icon ${kind}">${icon(kind)}</span><b>${names[kind]}</b><small>${accounts.filter(a=>category(a)===kind && (kind!=="gpt" || a.authenticated || a.id==="default")).length}</small></button>`).join("")}</div>
+      <section class="account-provider-panel" id="accountProviderPanel" role="tabpanel" aria-label="${names[state.accountCategory]} 账号"><div class="account-provider-heading"><strong>${names[state.accountCategory]} 账号</strong><span>${state.accountCategory === "gpt" ? "Codex CLI" : state.accountCategory === "claude" ? "Claude Code" : "Antigravity CLI"}</span>${state.accountCategory === "gpt" ? gptLogin : ""}</div>${gptWarning}${cards||'<p class="account-provider-empty">暂时无法读取账号信息，请稍后重新打开。</p>'}</section>`;
   }
 
   function setCodexLoginFlow(open) {
@@ -2184,8 +2315,6 @@
     const visible = Boolean(open);
     if (visible) {
       $("#chatMoreTitle").textContent = state.active?.title || "当前对话";
-      const pinned = pinnedIds();
-      $("#morePinLabel").textContent = pinned.has(state.activeId) ? "取消置顶" : "置顶";
     }
     menu.classList.toggle("open", visible);
     menu.setAttribute("aria-hidden", String(!visible));
@@ -2266,8 +2395,10 @@
     $("#actionDetailSheet").setAttribute("aria-hidden", "true");
   }
 
-  function openImageViewer(url, name, mimeType = "") {
+  let imageViewerReturnFocus = null;
+  function openImageViewer(url, name, mimeType = "", trigger = document.activeElement) {
     if (!url) return;
+    if (!$("#imageViewer").classList.contains("open")) imageViewerReturnFocus = trigger;
     $("#imageViewerImage").src = url;
     $("#imageViewerImage").alt = name || "Chloe 图片";
     $("#imageViewerName").textContent = name || "Chloe 图片";
@@ -2276,14 +2407,36 @@
     $("#downloadImageViewer").dataset.mimeType = mimeType;
     $("#imageViewer").classList.add("open");
     $("#imageViewer").setAttribute("aria-hidden", "false");
+    $("#closeImageViewer").focus({ preventScroll: true });
   }
 
   function closeImageViewer() {
+    if (!$("#imageViewer").classList.contains("open")) return;
     $("#imageViewer").classList.remove("open");
     $("#imageViewer").setAttribute("aria-hidden", "true");
     $("#imageViewerImage").removeAttribute("src");
     delete $("#downloadImageViewer").dataset.url;
+    const target = imageViewerReturnFocus;
+    imageViewerReturnFocus = null;
+    (target?.isConnected && target.getClientRects().length ? target : $("#messageInput"))?.focus({ preventScroll: true });
   }
+
+  // Capture preview keys before shortcuts belonging to the covered workspace.
+  document.addEventListener("keydown", event => {
+    if (!$("#imageViewer").classList.contains("open") || event.isComposing || event.keyCode === 229) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeImageViewer();
+    } else if (event.key === "Tab") {
+      const controls = [$("#downloadImageViewer"), $("#closeImageViewer")].filter(node => !node.disabled && node.getClientRects().length);
+      const index = controls.indexOf(document.activeElement);
+      const next = index < 0 ? (event.shiftKey ? controls.at(-1) : controls[0]) : controls[(index + (event.shiftKey ? -1 : 1) + controls.length) % controls.length];
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      next?.focus({ preventScroll: true });
+    }
+  }, true);
 
   function detailBlock(title, value, className = "") {
     if (value === null || value === undefined || value === "") return "";
@@ -2520,7 +2673,7 @@
 
   function renderConversations() {
     $("#conversationCount").textContent = String(state.conversations.length);
-    const pinned = pinnedIds();
+    const pinned = new Set();
     const selectedProject = $("#historyProject").value;
     const projects = [...new Set(state.conversations.map(historyProjectName))].sort();
     $("#historyProject").innerHTML = '<option value="">全部项目</option>' + projects.map((project) => `<option value="${escapeHtml(project)}">${escapeHtml(project)}</option>`).join("");
@@ -4004,7 +4157,7 @@
       $("#moreGroupButton").hidden = !state.workspaceFeatures;
       if (!state.workspaceFeatures) {
         $("#historySearch").placeholder = "搜索对话标题和摘要";
-        $("#historySearchHint").textContent = "搜索标题与摘要 · 置顶仅保存在此设备";
+        $("#historySearchHint").textContent = "搜索标题与摘要";
         $("#historyProject").parentElement.hidden = true;
       }
       const cacheScope = String(info.cacheScope || window.DropVaultAndroid?.getCacheScope?.() || "");
@@ -4254,6 +4407,7 @@
         state.active = mergeVisibleConversation(conversation);
         persistConversation(state.active);
       }
+      updateHeaderCapsule();
       closeSettings();
       toast("已开始压缩上下文");
     },
@@ -4339,13 +4493,25 @@
     },
     onConversationMetadataError(message) { toast(message || "同步失败，请重试"); },
     onWorkspaceOverview(json) {
+      workspaceOverviewLoading = false;
+      $("#refreshWorkspace").disabled = false;
       const payload = JSON.parse(json);
-      const labels = { active: "运行中", inactive: "未运行", available: "可用", configured: "已配置", missing: "未安装", unknown: "待检查", connected: "已连接", error: "检查失败", running: "运行中", healthy: "正常", degraded: "需关注", down: "已停止", failed: "失败" };
-      const section = (title, rows) => `<section class="workspace-section"><h3>${escapeHtml(title)}</h3>${(rows || []).map((row) => `<article><div><strong>${escapeHtml(row.name || row.id)}</strong><small>${escapeHtml(row.description || row.role || row.detail || "")}</small>${row.workDir ? `<code>${escapeHtml(row.workDir)}</code>` : ""}</div>${row.status ? `<span>${escapeHtml(labels[row.status] || row.status)}</span>` : ""}</article>`).join("") || '<p>暂无信息</p>'}</section>`;
+      workspaceServices = Array.isArray(payload.services) ? payload.services : [];
+      const query = $("#workspaceServiceSearch")?.value || "";
+      const focused = document.activeElement?.id === "workspaceServiceSearch";
+      const count = status => workspaceServices.filter(row=>row.status===status).length;
       const resources = payload.resources ? [{ name: "服务器资源", detail: `CPU ${payload.resources.cpuCount || "—"} 核 · 内存 ${payload.resources.memoryUsedPercent ?? "—"}% · 磁盘 ${payload.resources.diskUsedPercent ?? "—"}%` }] : [];
-      $("#workspaceOverviewContent").innerHTML = section("当前 Chloe 工作区", payload.projects) + section("服务器状态", resources.concat(payload.services || [])) + section("终端与外部服务", payload.connections) + `<p class="workspace-checked">核实时间：${escapeHtml(payload.checkedAt ? new Date(payload.checkedAt).toLocaleString() : "未知")}<br>${escapeHtml(payload.notice || "")}</p>`;
+      const warning = payload.serviceDiscovery?.available === false ? '<p class="services-warning" role="status">服务发现暂时不可用，请刷新重试。</p>' : payload.serviceDiscovery?.complete === false ? '<p class="services-warning" role="status">已读取部分服务，完整列表暂时不可用。</p>' : '';
+      const context = (title, rows) => rows?.length ? `<section class="workspace-section"><h3>${escapeHtml(title)}</h3>${rows.map(row=>`<article><div><strong>${escapeHtml(row.name||row.id)}</strong><small>${escapeHtml(row.description||row.role||row.detail||"")}</small>${row.workDir?`<code>${escapeHtml(row.workDir)}</code>`:""}</div></article>`).join("")}</section>` : "";
+      $("#workspaceOverviewContent").innerHTML = `${warning}<section class="services-summary"><div><small>${payload.serviceDiscovery?.scope === "all" ? "本机全部服务" : "当前可见服务"}</small><strong>${workspaceServices.length}<span>项</span></strong></div><p>运行 ${count("active")} · 失败 ${count("failed")} · 未运行 ${count("inactive")}</p></section><label class="service-search-label" for="workspaceServiceSearch">查找服务</label><input type="search" id="workspaceServiceSearch" placeholder="搜索名称、用途或服务名" value="${escapeHtml(query)}" autocomplete="off"><div class="service-status-filters" role="group" aria-label="筛选服务状态">${[["all","全部"],["active","运行"],["failed","失败"],["inactive","未运行"]].map(([id,label])=>`<button type="button" data-service-filter="${id}" aria-pressed="${workspaceServiceFilter===id}">${label}</button>`).join("")}</div><small id="workspaceServiceResult" role="status"></small><div id="workspaceServiceList" class="service-status-list"></div><details class="service-workspace-context"><summary>工作区与其他连接</summary>${context("项目",payload.projects)}${context("服务器", resources)}${context("其他连接",payload.connections)}</details><p class="workspace-checked">最近检查：${escapeHtml(payload.checkedAt?new Date(payload.checkedAt).toLocaleTimeString():"未知")}<br>面板打开时每 15 秒刷新。未运行不一定异常，定时和按需服务执行后会停止。</p>`;
+      renderWorkspaceServices();
+      if (focused) $("#workspaceServiceSearch").focus({ preventScroll: true });
     },
-    onWorkspaceOverviewError(message) { $("#workspaceOverviewContent").textContent = message || "检查失败，请重试"; },
+    onWorkspaceOverviewError(message) {
+      workspaceOverviewLoading = false;
+      $("#refreshWorkspace").disabled = false;
+      $("#workspaceOverviewContent").innerHTML = `<p class="services-warning" role="status">${escapeHtml(message || "检查失败，请重试")}</p>`;
+    },
     onAppVisibility(visible) {
       setAppVisible(visible);
     },
@@ -4693,6 +4859,7 @@
     persistModelPreference();
     state.activeId = null;
     state.active = null;
+    updateHeaderCapsule();
     state.loadingOlder = false;
     state.olderRequest = null;
     state.workDir = state.codexProfile === "xuanyu" ? "/data/xuanyu-build-console" : "";
@@ -4720,45 +4887,26 @@
   }
 
   $("#menuButton").addEventListener("click", openDrawer);
-  $("#newChatButton").addEventListener("click", () => {
-    setChatMoreMenu(false);
-    beginNewConversation();
+  $("#headerQuotaButton").addEventListener("click", () => { setChatMoreMenu(false); openProfile(); });
+  $("#headerContextButton").addEventListener("click", openContextDetails);
+  for (const id of ["#contextUsageBackdrop", "#closeContextUsage", "#contextUsageDone"]) $(id).addEventListener("click", closeContextDetails);
+  $("#contextUsageSheet").addEventListener("keydown", event => {
+    if (event.isComposing || event.keyCode === 229) return;
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeContextDetails(); }
+    if (event.key === "Tab") {
+      const first = $("#closeContextUsage"), last = $("#contextUsageDone");
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
   });
   $("#chatMoreButton").addEventListener("click", () =>
     setChatMoreMenu(!$("#chatMoreMenu").classList.contains("open")));
-  $("#moreShareButton").addEventListener("click", async () => {
-    setChatMoreMenu(false);
-    const payload = { title: state.active?.title || "Chloe 对话", text: "来自 Chloe 的对话" };
-    try {
-      if (navigator.share) await navigator.share(payload);
-      else { await navigator.clipboard.writeText(payload.text); toast("分享说明已复制"); }
-    } catch (error) { if (error?.name !== "AbortError") toast("暂时无法打开分享面板"); }
-  });
-  $("#morePinButton").addEventListener("click", () => {
-    if (!state.activeId) { toast("当前没有可置顶的对话"); return; }
-    const pinned = pinnedIds();
-    const added = !pinned.has(state.activeId);
-    if (state.workspaceFeatures) {
-      bridge()?.updateConversationMetadata?.(state.activeId, JSON.stringify({ pinned: added }));
-      setChatMoreMenu(false);
-      return;
-    }
-    if (added) pinned.add(state.activeId); else pinned.delete(state.activeId);
-    try {
-      localStorage.setItem(`wit_pinned_conversations:${state.cacheScope}`, JSON.stringify([...pinned]));
-    } catch { toast("设备存储不可用，未能保存置顶"); return; }
-    renderConversations();
-    setChatMoreMenu(false);
-    toast(added ? "已置顶这条对话" : "已取消置顶");
-  });
   $("#moreGroupButton").addEventListener("click", () => {
     setChatMoreMenu(false);
     if (!state.activeId) return;
-    if (!state.workspaceFeatures) { toast("当前客户端暂不支持项目分组"); return; }
-    const project = window.prompt("项目分组名称（留空取消分组，不更改工作目录）", state.active?.project || "");
-    if (project === null) return;
-    if (project.trim().length > 80) { toast("分组名称请保持在 80 字以内"); return; }
-    bridge()?.updateConversationMetadata?.(state.activeId, JSON.stringify({ project: project.trim() }));
+    if (!state.workspaceFeatures) { toast("当前客户端暂不支持分组"); return; }
+    if (!window.WittUpgrades?.openGroupDialog) { toast("分组设置尚未就绪，请刷新后重试"); return; }
+    window.WittUpgrades.openGroupDialog(state.activeId, state.active?.project || "");
   });
   $("#moreNotifyButton").setAttribute("aria-pressed", String(completionReminder));
   $("#completionNotifyLabel").textContent = completionReminder ? "已开启" : "已关闭";
@@ -4821,6 +4969,23 @@
   $("#closeWorkspace").addEventListener("click", closeWorkspaceOverview);
   $("#workspaceBackdrop").addEventListener("click", closeWorkspaceOverview);
   $("#refreshWorkspace").addEventListener("click", requestWorkspaceOverview);
+  document.addEventListener("keydown", event => {
+    if (!$("#workspaceOverview").classList.contains("open") || event.isComposing || event.keyCode === 229) return;
+    if (event.key === "Escape") { event.preventDefault(); closeWorkspaceOverview(); $("#menuButton").focus({preventScroll:true}); }
+    if (event.key === "Tab") {
+      const nodes = [...$("#workspaceOverview .workspace-panel").querySelectorAll('button:not(:disabled),input,select,summary')].filter(node=>node.getClientRects().length);
+      const first = nodes[0], last = nodes.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+  });
+  $("#workspaceOverviewContent").addEventListener("input", event => {
+    if (event.target.id === "workspaceServiceSearch") renderWorkspaceServices();
+  });
+  $("#workspaceOverviewContent").addEventListener("click", event => {
+    const button = event.target.closest('[data-service-filter]');
+    if (button) { workspaceServiceFilter = button.dataset.serviceFilter; renderWorkspaceServices(); }
+  });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeWorkspaceOverview(); });
   $("#closeDrawer").addEventListener("click", () => {
     if (document.body.classList.contains("web-browser") && window.matchMedia("(min-width: 1000px)").matches) {
@@ -5050,23 +5215,6 @@
   $("#moreProjectButton").addEventListener("click", () => {
     setChatMoreMenu(false);
     openProject();
-  });
-  $("#moreUploadsButton").addEventListener("click", () => {
-    setChatMoreMenu(false);
-    const count = (state.active?.messages || []).reduce((total, message) =>
-      total + (Array.isArray(message.attachments) ? message.attachments.length : 0), 0);
-    toast(count ? `本对话已有 ${count} 个上传文件` : "本对话还没有上传文件");
-  });
-  $("#moreFindButton").addEventListener("click", () => {
-    setChatMoreMenu(false);
-    const term = window.prompt("查找聊天内容");
-    if (!term) return;
-    const found = window.find?.(term, false, false, true, false, true, false);
-    if (!found) toast("没有找到相关内容");
-  });
-  $("#moreHomeButton").addEventListener("click", () => {
-    setChatMoreMenu(false);
-    toast("请使用浏览器菜单中的“添加到主屏幕”");
   });
   $("#moreArchiveButton").addEventListener("click", () => {
     setChatMoreMenu(false);
@@ -5467,7 +5615,9 @@
     draftSaveTimer = setTimeout(saveDraft, 250);
   });
   $("#messageInput").addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    // Candidate confirmation belongs to the IME, including legacy WebViews.
+    if (event.isComposing || event.keyCode === 229) return;
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       sendMessage();
     }
@@ -5512,16 +5662,7 @@
   $("#messageList").addEventListener("click", (event) => {
     const codeCopy = event.target.closest("[data-copy-code]");
     if (codeCopy) {
-      const code = codeCopy.closest(".chat-code-block")?.querySelector("code")?.textContent || "";
-      if (!code) return;
-      navigator.clipboard.writeText(code).then(() => {
-        codeCopy.textContent = "已复制";
-        codeCopy.classList.add("copied");
-        setTimeout(() => {
-          codeCopy.textContent = "复制";
-          codeCopy.classList.remove("copied");
-        }, 1500);
-      }).catch(() => toast("暂时无法复制代码"));
+      copyCodeBlock(codeCopy);
       return;
     }
     const messageToggle = event.target.closest(".user-message-toggle");
@@ -5556,7 +5697,7 @@
     }
     const image = event.target.closest("[data-inline-image]");
     if (image) {
-      openImageViewer(image.dataset.inlineImage, image.dataset.imageName, image.dataset.imageMime);
+      openImageViewer(image.dataset.inlineImage, image.dataset.imageName, image.dataset.imageMime, image);
       return;
     }
     const retry = event.target.closest("[data-process-retry]");

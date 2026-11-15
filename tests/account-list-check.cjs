@@ -1,0 +1,22 @@
+const assert=require('node:assert/strict');
+const {CodexAccountService}=require('../backend/codex-account-service');
+(async()=>{
+ const replies=[];
+ const service=new CodexAccountService({profiles:{},sendJson:(_res,status,body)=>replies.push({status,body})});
+ service.profiles=Object.fromEntries(['default','xuanyu','account4'].map(id=>[id,{id,label:id}]));
+ const read=[];
+ service.readProfile=async profile=>{read.push(profile.id);if(profile.id==='xuanyu')throw Error('workspace routing discovery unauthorized (401)');return service.publicAccount(profile,profile.id==='default'?{account:{type:'chatgpt',email:'test@example.invalid'}}:null)};
+ await service.list({});
+ assert.equal(replies[0].status,200);assert.deepEqual(read,['default','xuanyu','account4']);
+ const accounts=replies[0].body.accounts;
+ assert.equal(accounts.length,3);assert.equal(accounts[0].authenticated,true);assert.equal(accounts[1].authenticationRequired,true);
+ assert.equal(accounts[1].readError,'该账号授权已失效，请重新登录');assert.equal(accounts[2].authenticated,false);
+ assert(!JSON.stringify(replies).includes('workspace routing'));
+ replies.length=0;read.length=0;await service.list({},['default']);
+ assert.deepEqual(read,['default']);assert.equal(replies[0].body.accounts.length,1);
+ service.readProfile=async()=>{throw Error('private diagnostic that must not be returned')};
+ replies.length=0;await service.list({},['account4']);
+ assert.equal(replies[0].status,200);assert.equal(replies[0].body.accounts[0].authenticationRequired,false);
+ assert(!JSON.stringify(replies).includes('private diagnostic'));
+ console.log('PASS account failure isolation, allowed profiles, safe errors');
+})().catch(e=>{console.error(e);process.exitCode=1});

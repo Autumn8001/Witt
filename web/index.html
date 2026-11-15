@@ -80,7 +80,11 @@
 @media (prefers-reduced-motion: reduce) { .task-status-strip, .workspace-overview, .history-load { animation: none; transition: none; } }
   </style>
 <link href="/vault/witt-interface-20261008.css?v=ce690a3" rel="stylesheet"/>
-<link href="/vault/customer-devices.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/account-devices.css?v=20261028-account1" rel="stylesheet"/><link rel="stylesheet" href="/vault/conversation-entry.css?v=ce690a3"><link rel="stylesheet" href="/vault/provider-accounts.css?v=ce690a3"></head>
+<link href="/vault/customer-devices.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/remote-assist.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/profile-overview.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/chloe-compat.css?v=20261029-ce690a3" rel="stylesheet"/><link href="/vault/account-devices.css?v=20261028-account1" rel="stylesheet"/><link rel="stylesheet" href="/vault/conversation-entry.css?v=ce690a3"><link rel="stylesheet" href="/vault/provider-accounts.css?v=25dff7f">
+<link rel="stylesheet" href="/vault/simplified-settings.css?v=25dff7f">
+<link rel="stylesheet" href="/vault/settings-glass.css?v=25dff7f">
+<link rel="stylesheet" href="/vault/header-capsule.css?v=25dff7f">
+</head>
 <body data-product="chloe">
 <div aria-hidden="true" class="app-atmosphere"><i></i><i></i><i></i></div>
 <div aria-label="Chloe 正在启动" class="boot-screen" id="bootScreen"><strong class="chloe-boot-word">Chloe</strong></div>
@@ -140,23 +144,21 @@
 <svg class="night-icon-moon" viewbox="0 0 24 24"><path d="M20 15.2A8.2 8.2 0 0 1 8.8 4a8.3 8.3 0 1 0 11.2 11.2Z"></path></svg>
 <svg class="night-icon-sun" viewbox="0 0 24 24"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2.5v2M12 19.5v2M4.3 4.3l1.4 1.4m12.6 12.6 1.4 1.4M2.5 12h2m15 0h2M4.3 19.7l1.4-1.4M18.3 5.7l1.4-1.4"></path></svg>
 </button>
-<button aria-label="新建对话" class="compact-nav-button compact-new-chat" id="newChatButton">
-<svg viewbox="0 0 24 24"><path d="M5 19h4l10-10a2.8 2.8 0 0 0-4-4L5 15v4Z"></path><path d="m13.5 6.5 4 4"></path></svg>
-</button>
+<div class="capacity-capsule" id="capacityCapsule" role="group" aria-label="额度与上下文">
+          <button type="button" class="capacity-metric capacity-quota" id="headerQuotaButton" aria-label="额度尚未读取，查看用量" data-known="false">
+            <i class="capacity-fill" aria-hidden="true"></i><span class="capacity-label">额度余</span><strong id="headerQuotaValue">—</strong>
+          </button>
+          <button type="button" class="capacity-metric capacity-context" id="headerContextButton" aria-label="上下文尚未读取，查看详情" data-known="false">
+            <i class="capacity-fill" aria-hidden="true"></i><span class="capacity-label">上下文已用</span><strong id="headerContextValue">—</strong>
+          </button>
+        </div>
 <button aria-expanded="false" aria-label="更多操作" class="compact-nav-button compact-more-button" id="chatMoreButton">
 <svg viewbox="0 0 24 24"><path d="M12 5.5v.1M12 11.95v.1M12 18.4v.1"></path></svg>
 </button>
 </div>
 <section aria-hidden="true" class="chat-more-menu" id="chatMoreMenu">
 <p id="chatMoreTitle">当前对话</p>
-<button class="chat-more-item" id="moreShareButton">
-<svg viewbox="0 0 24 24"><circle cx="18" cy="5" r="2.4"></circle><circle cx="6" cy="12" r="2.4"></circle><circle cx="18" cy="19" r="2.4"></circle><path d="m8.2 10.9 7.6-4.7M8.2 13.1l7.6 4.7"></path></svg><span>分享</span>
-</button>
-<button class="chat-more-item" id="morePinButton">
-<svg viewbox="0 0 24 24"><path d="m8 4 8 8m-7.5-7.5 7 7M9 13l-4 6 6-4 4-4-6-6-4 4Z"></path></svg><span id="morePinLabel">置顶</span>
-</button>
-<button class="chat-more-item" id="moreGroupButton"><span>项目分组</span><small>整理历史，不更改工作目录</small></button>
-<button aria-pressed="false" class="chat-more-item" id="moreNotifyButton"><span>完成提醒（仅前台）</span><small id="completionNotifyLabel">已关闭</small></button>
+<button id="moreGroupButton" class="chat-more-item"><span>分组</span><small>整理聊天记录</small></button>
 <button aria-label="查看交付文件" class="chat-more-item delivery-button" id="deliveryButton">
 <svg viewbox="0 0 24 24"><path d="M4 8.5h6l2-2h8v11H4v-9Z"></path><path d="M12 10v5m0 0-2-2m2 2 2-2"></path></svg><span>交付文件</span><b id="deliveryBadge">0</b>
 </button>
@@ -166,15 +168,6 @@
 </button>
 <button class="chat-more-item" id="moreProjectButton">
 <svg viewbox="0 0 24 24"><path d="M3.5 7.5h6l2-2h9v13h-17v-11Z"></path></svg><span>当前项目</span><small id="moreProjectLabel">空白</small>
-</button>
-<button class="chat-more-item" id="moreUploadsButton">
-<svg viewbox="0 0 24 24"><path d="M8 12.5 13.7 6a3.1 3.1 0 1 1 4.6 4.2l-7.4 8.2A4.5 4.5 0 0 1 4.2 12l7.1-7.8"></path></svg><span>已上传文件</span>
-</button>
-<button class="chat-more-item" id="moreFindButton">
-<svg viewbox="0 0 24 24"><circle cx="10.8" cy="10.8" r="5.6"></circle><path d="m15 15 4.2 4.2"></path></svg><span>在聊天中查找</span>
-</button>
-<button class="chat-more-item" id="moreHomeButton">
-<svg viewbox="0 0 24 24"><path d="m4 10 8-6 8 6v9h-5v-6H9v6H4v-9Z"></path></svg><span>添加到首页</span>
 </button>
 <button class="chat-more-item" id="moreArchiveButton">
 <svg viewbox="0 0 24 24"><path d="M5 5h14v14H5z"></path><path d="M8 9h8"></path></svg><span>归档对话</span>
@@ -310,8 +303,8 @@
 </div>
 <div class="history-controls" hidden="" id="drawerSearchControls">
 <input aria-label="搜索历史对话" autocomplete="off" id="historySearch" placeholder="搜索对话和消息" type="search"/>
-<div><select aria-label="按项目筛选" id="historyProject"><option value="">全部项目</option></select><label><input id="historyAttachments" type="checkbox"/> 含附件</label></div>
-<small id="historySearchHint">按项目整理，置顶优先显示</small>
+<div><select aria-label="按分组筛选" id="historyProject"><option value="">全部分组</option></select><label><input id="historyAttachments" type="checkbox"/> 含附件</label></div>
+<small id="historySearchHint">按分组筛选，最近更新优先</small>
 </div>
 <div class="conversation-list" id="conversationList"></div>
 </section>
@@ -329,11 +322,12 @@
 <div aria-labelledby="userSettingsTitle" aria-modal="true" class="drawer-tools user-settings-panel" role="dialog">
 <div class="drawer-account-head"><strong id="userSettingsTitle">设置</strong><button aria-label="关闭头像菜单" id="closeDrawerAccount" type="button">×</button></div>
 <div class="settings-user-identity"><span>C</span><div><strong>Chloe</strong><small>你的私人助手</small></div></div>
-<section class="settings-block"><div class="settings-section-label">工作区</div> <button class="workspace-entry" id="workspaceOverviewButton" type="button">项目与服务连接 <span>›</span></button>
+<section class="settings-block"><div class="settings-section-label">工作区</div>
 <button aria-controls="customerDevicesSheet" class="workspace-entry drawer-admin-entry" id="customerDevicesButton" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><rect height="13" rx="2" width="18" x="3" y="4"></rect><path d="M8 21h8m-4-4v4"></path></svg><span><strong>远程协助</strong><small>连接客户授权的 Windows 工作区</small></span></button><button class="workspace-entry" id="runtimeSettingsButton" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"></path><circle cx="9" cy="7" r="3"></circle><circle cx="15" cy="17" r="3"></circle></svg><span><strong>模型与 Harness 设置</strong><small>模型、额度与运行方式</small></span></button>
 </section>
 <section class="settings-block">
 <div class="settings-section-label">账号与连接</div>
+<button class="workspace-entry" id="workspaceOverviewButton" type="button">连接状态 <span>›</span></button>
 <div class="drawer-utilities">
 <button class="drawer-profile" id="switchAccountButton" type="button"><span class="profile-monogram">C</span><span><strong>切换账号</strong><small id="currentAccountLabel">输入邀请码或管理员配对码</small></span></button>
 <button class="drawer-profile" id="profileButton">
@@ -357,6 +351,9 @@
 <svg viewbox="0 0 24 24"><path d="m9 6 6 6-6 6"></path></svg>
 </button>
 </div>
+</section>
+<section class="settings-block"><div class="settings-section-label">任务提醒</div>
+<button id="moreNotifyButton" class="feature-entry" aria-pressed="false"><span>前台完成提醒</span><small id="completionNotifyLabel">已关闭</small></button>
 </section>
 <section class="settings-block"><div class="settings-section-label">偏好设置</div>
 <section aria-labelledby="themeTitle" class="drawer-theme">
@@ -525,6 +522,15 @@
 <div><button id="cancelArchive">取消</button><button class="danger" id="confirmArchive">移除</button></div>
 </div>
 </div>
+<div class="upgrade-sheet capacity-detail-sheet" id="contextUsageSheet" hidden>
+    <button class="upgrade-backdrop" id="contextUsageBackdrop" aria-label="关闭上下文详情"></button>
+    <section class="upgrade-panel capacity-detail-panel" role="dialog" aria-modal="true" aria-labelledby="contextUsageTitle">
+      <header><h2 id="contextUsageTitle">上下文</h2><button type="button" id="closeContextUsage" aria-label="关闭上下文详情">×</button></header>
+      <div class="capacity-detail-reading"><strong id="contextDetailPercent">—</strong><span>已用比例</span></div>
+      <p id="contextDetailTokens"></p><p id="contextDetailNote"></p>
+      <button type="button" class="capacity-detail-done" id="contextUsageDone">完成</button>
+    </section>
+  </div>
 <div aria-hidden="true" class="quota-confirm" id="quotaConfirm">
 <button aria-label="取消重置" class="quota-confirm-backdrop" id="quotaConfirmBackdrop"></button>
 <section aria-labelledby="quotaConfirmTitle" aria-modal="true" class="quota-confirm-card" role="dialog">
@@ -617,7 +623,7 @@
 </aside>
 <aside aria-hidden="true" class="image-viewer" id="imageViewer">
 <button aria-label="关闭图片" class="image-viewer-backdrop" id="imageViewerBackdrop"></button>
-<div class="image-viewer-panel">
+<div class="image-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="imageViewerName">
 <img alt="" id="imageViewerImage"/>
 <footer>
 <strong id="imageViewerName">Chloe 图片</strong>
@@ -635,19 +641,28 @@
 <section aria-labelledby="conversationActionsTitle" aria-modal="true" class="upgrade-panel conversation-actions-panel" role="dialog">
 <header><h2 id="conversationActionsTitle">对话操作</h2><button aria-label="关闭" data-close-upgrade="" type="button">×</button></header>
 <button id="conversationRenameButton" type="button">重命名 <span>↗</span></button>
-<button id="conversationPinButton" type="button">置顶 <span>⌖</span></button>
 <button id="conversationArchiveButton" type="button">归档 <span>↓</span></button>
 <small>归档只移出列表，历史记录仍会保留。</small>
 </section>
 </aside>
-<aside class="upgrade-sheet" hidden="" id="conversationRenameSheet">
-<button aria-label="取消重命名" class="upgrade-backdrop" data-close-upgrade="" type="button"></button>
-<form aria-labelledby="conversationRenameTitle" aria-modal="true" class="upgrade-panel rename-panel" id="conversationRenameForm" role="dialog">
-<header><h2 id="conversationRenameTitle">重命名对话</h2><button aria-label="关闭" data-close-upgrade="" type="button">×</button></header>
-<label for="conversationRenameInput">对话名称</label><input autocomplete="off" id="conversationRenameInput" maxlength="100" required=""/>
-<div class="rename-actions"><button data-close-upgrade="" type="button">取消</button><button type="submit">保存</button></div>
-</form>
-</aside>
+<aside class="upgrade-sheet" id="conversationRenameSheet" hidden>
+    <button class="upgrade-backdrop" type="button" data-close-upgrade aria-label="取消重命名"></button>
+    <form class="upgrade-panel rename-panel" id="conversationRenameForm" novalidate role="dialog" aria-modal="true" aria-labelledby="conversationRenameTitle">
+      <header><h2 id="conversationRenameTitle">重命名对话</h2><button type="button" data-close-upgrade aria-label="关闭">×</button></header>
+      <label for="conversationRenameInput">对话名称 <span id="conversationRenameError" role="status" aria-live="polite"></span></label><input id="conversationRenameInput" maxlength="100" required autocomplete="off" aria-describedby="conversationRenameError">
+      <div class="rename-actions"><button type="button" data-close-upgrade>取消</button><button type="submit">保存</button></div>
+    </form>
+  </aside>
+<aside class="upgrade-sheet" id="conversationGroupSheet" hidden>
+    <button class="upgrade-backdrop" type="button" data-close-upgrade aria-label="取消分组"></button>
+    <form class="upgrade-panel rename-panel" id="conversationGroupForm" role="dialog" aria-modal="true" aria-labelledby="conversationGroupTitle" aria-describedby="conversationGroupHint">
+      <header><h2 id="conversationGroupTitle">分组</h2><button type="button" data-close-upgrade aria-label="关闭">×</button></header>
+      <label for="conversationGroupInput">分组名称</label>
+      <input id="conversationGroupInput" maxlength="80" autocomplete="off" placeholder="例如：工作、学习">
+      <p id="conversationGroupHint" class="feature-note">留空保存，可将这条对话移出分组。</p>
+      <div class="rename-actions"><button type="button" data-close-upgrade>取消</button><button type="submit">保存</button></div>
+    </form>
+  </aside>
 <aside class="upgrade-sheet" hidden="" id="taskOverviewSheet">
 <button aria-label="关闭任务列表" class="upgrade-backdrop" data-close-upgrade="" type="button"></button>
 <section aria-labelledby="taskOverviewTitle" aria-modal="true" class="upgrade-panel tasks-panel" role="dialog">
@@ -659,17 +674,17 @@
 <div class="toast" id="toast"></div>
 <script src="/vault/optional-modules.js?v=20261008-1"></script>
 <aside aria-hidden="true" class="workspace-overview" id="workspaceOverview">
-<button aria-label="关闭项目与服务连接" class="workspace-backdrop" id="workspaceBackdrop"></button>
+<button aria-label="关闭连接状态" class="workspace-backdrop" id="workspaceBackdrop"></button>
 <section aria-labelledby="workspaceTitle" aria-modal="true" class="workspace-panel" role="dialog">
-<header><div><small>WORKSPACE</small><h2 id="workspaceTitle">项目与服务连接</h2></div><button aria-label="关闭" id="closeWorkspace">×</button></header>
+<header><div><small>WORKSPACE</small><h2 id="workspaceTitle">连接状态</h2></div><button aria-label="关闭" id="closeWorkspace">×</button></header>
 <p>仅展示连接状态与用途，不显示凭据。打开时检查，不在后台持续监视。</p>
 <div id="workspaceOverviewContent"></div>
 <button class="workspace-refresh" id="refreshWorkspace">刷新状态</button>
 </section>
 </aside>
 <script src="/vault/browser-bridge.js?v=20261029-ce690a3"></script>
-<script src="/vault/profile-overview.js?v=20261029-ce690a3"></script><script src="/vault/customer-devices.js?v=20261029-ce690a3"></script><script src="/vault/remote-assist.js?v=20261029-ce690a3"></script><script src="/vault/app-workspace-20260916-r3.js?v=20261029-ce690a3"></script>
+<script src="/vault/profile-overview.js?v=20261029-ce690a3"></script><script src="/vault/customer-devices.js?v=20261029-ce690a3"></script><script src="/vault/remote-assist.js?v=20261029-ce690a3"></script><script src="/vault/app-workspace-20260916-r3.js?v=25dff7f"></script>
 <script src="/vault/sidebar-layout.js?v=20261008-2"></script>
-<script src="/vault/ui-upgrades.js?v=20261008-2"></script>
+<script src="/vault/ui-upgrades.js?v=25dff7f"></script>
 </body>
 </html>
